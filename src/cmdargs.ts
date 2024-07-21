@@ -1,10 +1,20 @@
 
 export interface Arguments {
-	configPath?: string
+	configPath?: string,
+	logUserRequests?: boolean,
+	logProxyRequests?: boolean,
+	logProxyResponses?: boolean,
+	logUserResponses?: boolean,
+	verbose?: boolean
 }
 
 enum CmdFlag {
-	configPath = '--config-path'
+	configPath = '--config-path',
+	logUserRequests = '--log-user-requests',
+	logUserResponses = '--log-user-responses',
+	logProxyRequests = '--log-proxy-requests',
+	logProxyResponses = '--log-proxy-responses',
+	verbose = '--verbose'
 }
 
 const ArgsWithValues: Set<CmdFlag> = new Set([
@@ -44,6 +54,30 @@ export const parseCmdArgs = (args: string[]): Arguments => {
 						throw new Error(`Missing value for flag ${arg}`);
 					}
 					parsedArgs.configPath = flagVal;
+					break;
+
+				case CmdFlag.logProxyRequests:
+					parsedArgs.logProxyRequests = true;
+					break;
+
+				case CmdFlag.logProxyResponses:
+					parsedArgs.logProxyResponses = true;
+					break;
+
+				case CmdFlag.logUserRequests:
+					parsedArgs.logUserRequests = true;
+					break;
+
+				case CmdFlag.logUserResponses:
+					parsedArgs.logUserResponses = true;
+					break;
+
+				case CmdFlag.verbose:
+					parsedArgs.verbose = true;
+					parsedArgs.logProxyRequests = true;
+					parsedArgs.logProxyResponses = true;
+					parsedArgs.logUserRequests = true;
+					parsedArgs.logUserResponses = true;
 					break;
 
 				default:
