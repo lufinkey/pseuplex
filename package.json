@@ -1,0 +1,20 @@
+{
+	"name": "pseuplex",
+	"version": "0.0.1",
+	"description": "A middleware for the plex server API",
+	"main": "/dist/main.js",
+	"scripts": {
+		"test": "echo \"Error: no test specified\" && exit 1",
+		"build": "tsc",
+		"start": "tsc && node dist/app.js",
+		"lint": "eslint . --ext .ts"
+	},
+	"author": "",
+	"license": "Zlib",
+	"dependencies": {
+		"express": "^4.19.2"
+	},
+	"devDependencies": {
+		"typescript": "^5.5.3"
+	}
+}
