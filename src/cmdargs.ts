@@ -1,19 +1,25 @@
 
 export interface Arguments {
 	configPath?: string,
+	logRequestPathMappings?: boolean,
+	logFullURLs?: boolean,
 	logUserRequests?: boolean,
 	logProxyRequests?: boolean,
 	logProxyResponses?: boolean,
+	logProxyResponseBody?: boolean,
 	logUserResponses?: boolean,
-	verbose?: boolean
+	logUserResponseBody?: boolean,
+	verbose?: boolean,
 }
 
 enum CmdFlag {
 	configPath = '--config-path',
 	logUserRequests = '--log-user-requests',
 	logUserResponses = '--log-user-responses',
+	logUserResponseBody = '--log-user-response-body',
 	logProxyRequests = '--log-proxy-requests',
 	logProxyResponses = '--log-proxy-responses',
+	logProxyResponseBody = '--log-proxy-response-body',
 	verbose = '--verbose'
 }
 
@@ -55,31 +61,43 @@ export const parseCmdArgs = (args: string[]): Arguments => {
 					}
 					parsedArgs.configPath = flagVal;
 					break;
-
+				
 				case CmdFlag.logProxyRequests:
 					parsedArgs.logProxyRequests = true;
 					break;
-
+				
 				case CmdFlag.logProxyResponses:
 					parsedArgs.logProxyResponses = true;
 					break;
-
+				
+				case CmdFlag.logProxyResponseBody:
+					parsedArgs.logProxyResponseBody = true;
+					break;
+				
 				case CmdFlag.logUserRequests:
 					parsedArgs.logUserRequests = true;
 					break;
-
+				
 				case CmdFlag.logUserResponses:
 					parsedArgs.logUserResponses = true;
 					break;
-
+				
+				case CmdFlag.logUserResponseBody:
+					parsedArgs.logUserResponseBody = true;
+					break;
+				
 				case CmdFlag.verbose:
 					parsedArgs.verbose = true;
+					parsedArgs.logFullURLs = true;
+					//parsedArgs.logRequestPathMappings = true;
 					parsedArgs.logProxyRequests = true;
 					parsedArgs.logProxyResponses = true;
+					parsedArgs.logProxyResponseBody = true;
 					parsedArgs.logUserRequests = true;
 					parsedArgs.logUserResponses = true;
+					parsedArgs.logUserResponseBody = true;
 					break;
-
+				
 				default:
 					throw new Error(`Unrecognized argument ${arg}`);
 			}

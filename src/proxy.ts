@@ -11,9 +11,15 @@ import {
 	serializeResponseContent
 } from './serialization';
 
-const plexProxy = (cfg: Config, opts: expressHttpProxy.ProxyOptions = {}) => {
+const plexProxy = (cfg: Config, args: Arguments, opts: expressHttpProxy.ProxyOptions = {}) => {
 	return expressHttpProxy(`${cfg.plex_host}:${cfg.plex_port}`, {
-		proxyReqPathResolver: (req) => url.parse(req.originalUrl).path,
+		proxyReqPathResolver: (req) => {
+			const path = url.parse(req.originalUrl).path;
+			if(args.logRequestPathMappings) {
+				console.log(`Mapped user URL ${req.originalUrl} to proxy path ${path}\n`);
+			}
+			return path;
+		},
 		...opts
 	});
 };
@@ -22,7 +28,7 @@ export const plexApiProxy = (cfg: Config, args: Arguments, opts: {
 	requestModifier?: (proxyReqOpts: http.RequestOptions, userReq: express.Request) => http.RequestOptions,
 	responseModifier: (proxyRes: http.IncomingMessage, proxyResData: any, userReq: express.Request, userRes: express.Response) => any
 })=> {
-	return plexProxy(cfg, {
+	return plexProxy(cfg, args, {
 			proxyReqOptDecorator: async (proxyReqOpts, userReq) => {
 				// transform json request to xml
 				const acceptType = parseHttpContentType(userReq.headers['accept']).contentType;
@@ -33,7 +39,7 @@ export const plexApiProxy = (cfg: Config, args: Arguments, opts: {
 				}
 				// log user request
 				if(args.logUserRequests) {
-					console.log(`User ${userReq.method} ${userReq.originalUrl}\n`);
+					console.log(`User ${userReq.method} ${args.logFullURLs ? userReq.originalUrl : userReq.path}\n`);
 				}
 				// modify request if needed
 				if(!proxyReqOpts.protocol) {
@@ -47,7 +53,9 @@ export const plexApiProxy = (cfg: Config, args: Arguments, opts: {
 				}
 				// log proxy request
 				if(args.logProxyRequests) {
-					console.log(`Proxy ${proxyReqOpts.method} ${proxyReqOpts.protocol}://${proxyReqOpts.host}${proxyReqOpts.port ? ':'+proxyReqOpts.port : ''}${proxyReqOpts.path}\n`);
+					if(args.logFullURLs) {
+						console.log(`Proxy ${proxyReqOpts.method} ${proxyReqOpts.protocol}//${proxyReqOpts.host}${proxyReqOpts.port ? ':'+proxyReqOpts.port : ''}${args.logFullURLs ? url.parse(userReq.originalUrl).path : proxyReqOpts.path}\n`);
+					}
 				}
 				return proxyReqOpts;
 			},
@@ -55,6 +63,12 @@ export const plexApiProxy = (cfg: Config, args: Arguments, opts: {
 				const acceptType = parseHttpContentType(userReq.headers['accept']).contentType;
 				if(acceptType == 'application/json') {
 					headers['content-type'] = acceptType;
+				}
+				if(!proxyRes.method) {
+					proxyRes.method = proxyReq.method;
+				}
+				if(!proxyRes.url) {
+					proxyRes.url = `${proxyReq.protocol}//${proxyReq.host}${proxyReq.path}`;
 				}
 				return headers;
 			},
@@ -67,8 +81,10 @@ export const plexApiProxy = (cfg: Config, args: Arguments, opts: {
 				const proxyResString = proxyResData?.toString('utf8');
 				// log proxy response
 				if(args.logProxyResponses) {
-					console.log(`Proxy response ${proxyRes.statusCode} for ${proxyRes.method} ${proxyRes.url}`);
-					console.log(proxyResString);
+					console.log(`Proxy response ${proxyRes.statusCode} for ${proxyRes.method} ${args.logFullURLs ? proxyRes.url : userReq.path}`);
+					if(args.logProxyResponseBody) {
+						console.log(proxyResString);
+					}
 					console.log();
 				}
 				// parse response
@@ -78,8 +94,10 @@ export const plexApiProxy = (cfg: Config, args: Arguments, opts: {
 					resData = await serializeResponseContent(userReq, userRes, resData);
 					// log user response
 					if(args.logUserResponses) {
-						console.log(`User response ${userRes.statusCode} for ${userReq.method} ${userReq.originalUrl}`);
-						console.log(resData);
+						console.log(`User response ${userRes.statusCode} for ${userReq.method} ${args.logFullURLs ? userReq.originalUrl : userReq.path}`);
+						if(args.logUserResponseBody) {
+							console.log(resData);
+						}
 						console.log();
 					}
 					return resData;
@@ -90,8 +108,10 @@ export const plexApiProxy = (cfg: Config, args: Arguments, opts: {
 				resData = await serializeResponseContent(userReq, userRes, resData);
 				// log user response
 				if(args.logUserResponses) {
-					console.log(`User response ${userRes.statusCode} for ${userReq.method} ${userReq.originalUrl}`);
-					console.log(resData);
+					console.log(`User response ${userRes.statusCode} for ${userReq.method} ${args.logFullURLs ? userReq.originalUrl : userReq.path}`);
+					if(args.logUserResponseBody) {
+						console.log(resData);
+					}
 					console.log();
 				}
 				return resData;
