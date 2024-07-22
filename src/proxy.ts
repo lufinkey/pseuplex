@@ -30,16 +30,16 @@ export const plexApiProxy = (cfg: Config, args: Arguments, opts: {
 })=> {
 	return plexProxy(cfg, args, {
 			proxyReqOptDecorator: async (proxyReqOpts, userReq) => {
+				// log request if needed
+				if(args.logUserRequests) {
+					console.log(`User ${userReq.method} ${args.logFullURLs ? userReq.originalUrl : userReq.path}\n`);
+				}
 				// transform json request to xml
 				const acceptType = parseHttpContentType(userReq.headers['accept']).contentType;
 				if (acceptType == 'application/json') {
 					proxyReqOpts.headers['accept'] = 'text/xml';
 				} else if(acceptType != 'text/xml') {
 					return proxyReqOpts;
-				}
-				// log user request
-				if(args.logUserRequests) {
-					console.log(`User ${userReq.method} ${args.logFullURLs ? userReq.originalUrl : userReq.path}\n`);
 				}
 				// modify request if needed
 				if(!proxyReqOpts.protocol) {
@@ -76,6 +76,9 @@ export const plexApiProxy = (cfg: Config, args: Arguments, opts: {
 				// handle request
 				const contentType = parseHttpContentType(proxyRes.headers['content-type']).contentType;
 				if(contentType != 'text/xml') {
+					if(args.logProxyResponses || args.logUserResponses) {
+						console.log(`Response ${proxyRes.statusCode} for ${proxyRes.method} ${args.logFullURLs ? proxyRes.url : userReq.path}\n`);
+					}
 					return proxyResData;
 				}
 				const proxyResString = proxyResData?.toString('utf8');
