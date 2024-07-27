@@ -1,0 +1,5 @@
+country="US"
+state="NY"
+city="New York City"
+orgname="Your Company"
+commonname="example.com"
