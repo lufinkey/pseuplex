@@ -6,7 +6,7 @@ if [ -z "$plex_cfg_path" ]; then
 	exit 1;
 fi
 # get machine ID from preferences
-pmi=$(cat "$plex_cfg_path/Library/Application Support/Plex Media Server/Preferences.xml" | xq -x "//Preferences/@CertificateUUID")
+pmi=$(cat "$plex_cfg_path/Library/Application Support/Plex Media Server/Preferences.xml" | xq -x "//Preferences/@ProcessedMachineIdentifier")
 # hash machine ID
 shapmi=$(echo "plex$pmi" | sha512sum | grep -o '^\S\+' )
 echo -n "$shapmi"
