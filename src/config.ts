@@ -6,6 +6,12 @@ export interface Config {
 	plex: {
 		host: string;
 		port: number;
+	},
+	ssl: {
+		keyPath: string,
+		certPath: string,
+		generatedP12Path: string,
+		p12Password: string
 	}
 }
 

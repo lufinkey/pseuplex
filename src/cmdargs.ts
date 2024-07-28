@@ -13,7 +13,7 @@ export interface Arguments {
 }
 
 enum CmdFlag {
-	configPath = '--config-path',
+	configPath = '--config',
 	logUserRequests = '--log-user-requests',
 	logUserResponses = '--log-user-responses',
 	logUserResponseBody = '--log-user-response-body',

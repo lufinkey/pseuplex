@@ -1,7 +1,7 @@
 import url from 'url';
 import fs from 'fs';
+import httpolyglot from 'httpolyglot';
 import express from 'express';
-import xml2js from 'xml2js';
 import { readConfigFile } from './config';
 import * as constants from './constants';
 import { parseCmdArgs } from './cmdargs';
@@ -20,8 +20,16 @@ if(args.verbose) {
 
 // load config
 const cfg = readConfigFile(args.configPath);
-if(args.verbose) {
+if (args.verbose) {
 	console.log(`parsed config:\n${JSON.stringify(cfg, null, '\t')}\n`);
+}
+if (!cfg.ssl?.keyPath) {
+	console.error("No ssl key path specified in config");
+	process.exit(1);
+}
+if (!cfg.ssl?.certPath) {
+	console.error("No ssl cert path specified in config");
+	process.exit(1);
 }
 
 // prepare server
@@ -37,7 +45,12 @@ app.use(plexApiProxy(cfg, args, {
 	}
 }));
 
+const server = httpolyglot.createServer({
+	key: fs.readFileSync(cfg.ssl.keyPath),
+	cert: fs.readFileSync(cfg.ssl.certPath)
+}, app);
+
 // start server
-app.listen(cfg.port, () => {
+server.listen(cfg.port, () => {
 	console.log(`${constants.APP_NAME} is listening at http://localhost:${cfg.port}\n`);
 });
