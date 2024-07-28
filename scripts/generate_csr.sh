@@ -1,5 +1,5 @@
 #!/bin/sh
-if [[ $# -lt 3 ]]; then
+if [ $# -lt 3 ]; then
     >&2 echo "Usage:"
     >&2 echo "  Arg 1: the path to the CSR config"
     >&2 echo "  Arg 2: the file to output the CSR"

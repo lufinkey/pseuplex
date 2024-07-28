@@ -1,10 +1,12 @@
 #!/bin/sh
 # read args
-plex_cfg_path="$1"
-if [ -z "$plex_cfg_path" ]; then
-	>&2 echo "no plex config path provided"
-	exit 1;
+if [ $# -lt 1 ]; then
+	>&2 echo "Usage:"
+    >&2 echo "  Arg 1: the path to the plex config directory. Ex: /var/lib/plexmediaserver"
+    >&2 echo "  ./plex_ssl_p12_pass_v1.sh /var/lib/plexmediaserver"
+    exit 1
 fi
+plex_cfg_path="$1"
 # get machine ID from preferences
 pmi=$(cat "$plex_cfg_path/Library/Application Support/Plex Media Server/Preferences.xml" | xq -x "//Preferences/@ProcessedMachineIdentifier")
 # hash machine ID

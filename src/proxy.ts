@@ -12,7 +12,7 @@ import {
 } from './serialization';
 
 const plexProxy = (cfg: Config, args: Arguments, opts: expressHttpProxy.ProxyOptions = {}) => {
-	return expressHttpProxy(`${cfg.plex_host}:${cfg.plex_port}`, {
+	return expressHttpProxy(`${cfg.plex.host}:${cfg.plex.port}`, {
 		proxyReqPathResolver: (req) => {
 			const path = url.parse(req.originalUrl).path;
 			if(args.logRequestPathMappings) {

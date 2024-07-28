@@ -128,3 +128,8 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+
+# private data
+/keys
+/config/config.json
+/config/csr.conf
