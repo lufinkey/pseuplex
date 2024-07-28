@@ -3,8 +3,10 @@ import fs from 'fs';
 
 export interface Config {
 	port: number;
-	plex_host: string;
-	plex_port: number;
+	plex: {
+		host: string;
+		port: number;
+	}
 }
 
 export const readConfigFile = (path: string): Config => {
