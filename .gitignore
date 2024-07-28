@@ -130,6 +130,7 @@ dist
 .pnp.*
 
 # private data
+/plex_docker/docker-compose.yml
 /keys
 /config/config.json
 /config/csr.conf

@@ -1,0 +1,16 @@
+version: '2'
+services:
+  plex:
+    container_name: plex
+    image: plexinc/pms-docker
+    restart: unless-stopped
+    ports:
+      - 32401:32400
+    environment:
+      - TZ=America/New_York
+      - ADVERTISE_IP=http://192.168.1.148:32400/
+    hostname: 192-168-1-148.somebigalphanumericstring.plex.direct
+    volumes:
+      - /var/lib/plexmediaserver:/config
+      - /var/lib/plexmediaserver/Library/Application Support/Plex Media Server/Cache/Transcode:/transcode
+      - /srv/media:/data:ro
