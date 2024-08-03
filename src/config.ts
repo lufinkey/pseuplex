@@ -9,9 +9,7 @@ export interface Config {
 	},
 	ssl: {
 		keyPath: string,
-		certPath: string,
-		generatedP12Path: string,
-		p12Password: string
+		certPath: string
 	}
 }
 

@@ -52,5 +52,5 @@ const server = httpolyglot.createServer({
 
 // start server
 server.listen(cfg.port, () => {
-	console.log(`${constants.APP_NAME} is listening at http://localhost:${cfg.port}\n`);
+	console.log(`${constants.APP_NAME} is listening at localhost:${cfg.port}\n`);
 });

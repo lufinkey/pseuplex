@@ -1,14 +1,11 @@
 {
 	"port": 32400,
 	"plex": {
-		"host": "127.0.0.1",
-		"port": "32401",
-		"configPath": "/var/lib/plexmediaserver"
+		"host": "http://127.0.0.1",
+		"port": "32401"
 	},
 	"ssl": {
 		"keyPath": "keys/ssl_cert.key",
-		"certPath": "keys/ssl_cert.crt",
-		"generatedP12Path": "keys/ssl_cert.p12",
-		"p12Password": "pass123"
+		"certPath": "keys/ssl_cert.crt"
 	}
 }

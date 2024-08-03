@@ -9,8 +9,8 @@ services:
     environment:
       - TZ=America/New_York
       - ADVERTISE_IP=http://192.168.1.148:32400/
-    hostname: 192-168-1-148.somebigalphanumericstring.plex.direct
+    hostname: mydomain.com
     volumes:
       - /var/lib/plexmediaserver:/config
-      - /var/lib/plexmediaserver/Library/Application Support/Plex Media Server/Cache/Transcode:/transcode
+      - /var/lib/plexmediaserver/Library/Application Support/Plex Media Server/Cache:/transcode
       - /srv/media:/data:ro

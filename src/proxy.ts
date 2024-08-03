@@ -16,7 +16,7 @@ const plexProxy = (cfg: Config, args: Arguments, opts: expressHttpProxy.ProxyOpt
 		proxyReqPathResolver: (req) => {
 			const path = url.parse(req.originalUrl).path;
 			if(args.logRequestPathMappings) {
-				console.log(`Mapped user URL ${req.originalUrl} to proxy path ${path}\n`);
+				console.log(`\nMapped user URL ${req.originalUrl} to proxy path ${path}`);
 			}
 			return path;
 		},
@@ -32,38 +32,48 @@ export const plexApiProxy = (cfg: Config, args: Arguments, opts: {
 			proxyReqOptDecorator: async (proxyReqOpts, userReq) => {
 				// log request if needed
 				if(args.logUserRequests) {
-					console.log(`User ${userReq.method} ${args.logFullURLs ? userReq.originalUrl : userReq.path}\n`);
+					console.log(`\nUser ${userReq.method} ${args.logFullURLs ? userReq.originalUrl : userReq.path}`);
 				}
 				// transform json request to xml
 				const acceptType = parseHttpContentType(userReq.headers['accept']).contentType;
+				let isApiRequest = false;
 				if (acceptType == 'application/json') {
 					proxyReqOpts.headers['accept'] = 'text/xml';
-				} else if(acceptType != 'text/xml') {
-					return proxyReqOpts;
+					isApiRequest = true;
+				} else if(acceptType == 'text/xml') {
+					isApiRequest = true;
 				}
-				// modify request if needed
-				if(!proxyReqOpts.protocol) {
+				// modify request destination
+				/*if(userReq.protocol) {
 					proxyReqOpts.protocol = userReq.protocol;
 					if(proxyReqOpts.protocol && !proxyReqOpts.protocol.endsWith(':')) {
 						proxyReqOpts.protocol += ':';
 					}
 				}
-				if(opts.requestModifier) {
-					proxyReqOpts = await opts.requestModifier(proxyReqOpts, userReq);
+				proxyReqOpts.servername = userReq.hostname;*/
+				// modify if this is an API request
+				if (isApiRequest) {
+					if(opts.requestModifier) {
+						proxyReqOpts = await opts.requestModifier(proxyReqOpts, userReq);
+					}
 				}
 				// log proxy request
 				if(args.logProxyRequests) {
 					if(args.logFullURLs) {
-						console.log(`Proxy ${proxyReqOpts.method} ${proxyReqOpts.protocol}//${proxyReqOpts.host}${proxyReqOpts.port ? ':'+proxyReqOpts.port : ''}${args.logFullURLs ? url.parse(userReq.originalUrl).path : proxyReqOpts.path}\n`);
+						console.log(`\nProxy ${proxyReqOpts.method} ${cfg.plex.host}:${cfg.plex.port}${args.logFullURLs ? url.parse(userReq.originalUrl).path : proxyReqOpts.path}`);
 					}
 				}
 				return proxyReqOpts;
 			},
 			userResHeaderDecorator: (headers, userReq, userRes, proxyReq, proxyRes) => {
+				// add a custom header to the response to check if we went through pseuplex
+				headers['x-pseuplex'] = 'yes';
+				// set the accepted content type if we're changing from json to xml
 				const acceptType = parseHttpContentType(userReq.headers['accept']).contentType;
 				if(acceptType == 'application/json') {
 					headers['content-type'] = acceptType;
 				}
+				// add method and URL for logging purposes
 				if(!proxyRes.method) {
 					proxyRes.method = proxyReq.method;
 				}
@@ -73,22 +83,21 @@ export const plexApiProxy = (cfg: Config, args: Arguments, opts: {
 				return headers;
 			},
 			userResDecorator: async (proxyRes, proxyResData, userReq, userRes) => {
-				// handle request
+				// get response content type
 				const contentType = parseHttpContentType(proxyRes.headers['content-type']).contentType;
 				if(contentType != 'text/xml') {
 					if(args.logProxyResponses || args.logUserResponses) {
-						console.log(`Response ${proxyRes.statusCode} for ${proxyRes.method} ${args.logFullURLs ? proxyRes.url : userReq.path}\n`);
+						console.log(`\nResponse ${proxyRes.statusCode} for ${proxyRes.method} ${args.logFullURLs ? proxyRes.url : userReq.path}`);
 					}
 					return proxyResData;
 				}
 				const proxyResString = proxyResData?.toString('utf8');
 				// log proxy response
 				if(args.logProxyResponses) {
-					console.log(`Proxy response ${proxyRes.statusCode} for ${proxyRes.method} ${args.logFullURLs ? proxyRes.url : userReq.path}`);
+					console.log(`\nProxy response ${proxyRes.statusCode} for ${proxyRes.method} ${args.logFullURLs ? proxyRes.url : userReq.path}`);
 					if(args.logProxyResponseBody) {
 						console.log(proxyResString);
 					}
-					console.log();
 				}
 				// parse response
 				let resData = await parseXMLStringToJson(proxyResString);
@@ -97,11 +106,10 @@ export const plexApiProxy = (cfg: Config, args: Arguments, opts: {
 					resData = await serializeResponseContent(userReq, userRes, resData);
 					// log user response
 					if(args.logUserResponses) {
-						console.log(`User response ${userRes.statusCode} for ${userReq.method} ${args.logFullURLs ? userReq.originalUrl : userReq.path}`);
+						console.log(`\nUser response ${userRes.statusCode} for ${userReq.method} ${args.logFullURLs ? userReq.originalUrl : userReq.path}`);
 						if(args.logUserResponseBody) {
 							console.log(resData);
 						}
-						console.log();
 					}
 					return resData;
 				}
@@ -111,7 +119,7 @@ export const plexApiProxy = (cfg: Config, args: Arguments, opts: {
 				resData = await serializeResponseContent(userReq, userRes, resData);
 				// log user response
 				if(args.logUserResponses) {
-					console.log(`User response ${userRes.statusCode} for ${userReq.method} ${args.logFullURLs ? userReq.originalUrl : userReq.path}`);
+					console.log(`\nUser response ${userRes.statusCode} for ${userReq.method} ${args.logFullURLs ? userReq.originalUrl : userReq.path}`);
 					if(args.logUserResponseBody) {
 						console.log(resData);
 					}
