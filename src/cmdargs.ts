@@ -1,5 +1,5 @@
 
-export interface Arguments {
+export interface CommandArguments {
 	configPath?: string,
 	logRequestPathMappings?: boolean,
 	logFullURLs?: boolean,
@@ -27,8 +27,8 @@ const ArgsWithValues: Set<CmdFlag> = new Set([
 	CmdFlag.configPath
 ]);
 
-export const parseCmdArgs = (args: string[]): Arguments => {
-	var parsedArgs: Arguments = {};
+export const parseCmdArgs = (args: string[]): CommandArguments => {
+	var parsedArgs: CommandArguments = {};
 	for(let i=0; i<args.length; i++) {
 		const arg = args[i];
 		// check if argument is a flag

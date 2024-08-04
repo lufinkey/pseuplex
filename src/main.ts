@@ -6,6 +6,8 @@ import { readConfigFile } from './config';
 import * as constants from './constants';
 import { parseCmdArgs } from './cmdargs';
 import {
+	plexProxy,
+	plexThinProxy,
 	plexApiProxy } from './proxy';
 
 // parse command line arguments
@@ -36,7 +38,7 @@ if (!cfg.ssl?.certPath) {
 const app = express();
 
 // proxy requests to plex
-app.use(plexApiProxy(cfg, args, {
+app.use('/media/providers', plexApiProxy(cfg, args, {
 	requestModifier: (proxyReqOpts, userReq) => {
 		return proxyReqOpts;
 	},
@@ -44,6 +46,10 @@ app.use(plexApiProxy(cfg, args, {
 		return proxyResData;
 	}
 }));
+
+// proxy requests to plex
+app.use('/:/*', plexThinProxy(cfg, args));
+app.use(plexProxy(cfg, args));
 
 const server = httpolyglot.createServer({
 	key: fs.readFileSync(cfg.ssl.keyPath),
