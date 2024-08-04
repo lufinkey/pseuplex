@@ -3,6 +3,7 @@ import url from 'url';
 import http from 'http';
 import express from 'express';
 import expressHttpProxy from 'express-http-proxy';
+import * as constants from './constants';
 import { Config } from './config';
 import { CommandArguments } from './cmdargs';
 import {
@@ -36,7 +37,7 @@ export const plexProxy = (cfg: Config, args: CommandArguments, opts: expressHttp
 		...opts,
 		userResHeaderDecorator: (headers, userReq, userRes, proxyReq, proxyRes) => {
 			// add a custom header to the response to check if we went through pseuplex
-			headers['x-pseuplex'] = 'yes';
+			headers[constants.APP_CUSTOM_HEADER] = 'yes';
 			// call other modifier if needed
 			if(opts.userResHeaderDecorator) {
 				return opts.userResHeaderDecorator(headers, userReq, userRes, proxyReq, proxyRes);
