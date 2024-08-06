@@ -4,7 +4,7 @@
 	"description": "A middleware for the plex server API",
 	"main": "/dist/main.js",
 	"scripts": {
-		"test": "echo \"Error: no test specified\" && exit 1",
+		"test": "tsc && node dist/letterboxd/test.js",
 		"build": "tsc",
 		"start": "tsc && node dist/main.js --config=config/config.json --verbose",
 		"lint": "eslint . --ext .ts"
@@ -12,6 +12,7 @@
 	"author": "",
 	"license": "Zlib",
 	"dependencies": {
+		"cheerio": "^1.0.0-rc.12",
 		"express": "^4.19.2",
 		"express-http-proxy": "^2.0.0",
 		"httpolyglot": "^0.1.2",
