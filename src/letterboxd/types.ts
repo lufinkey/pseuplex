@@ -37,5 +37,6 @@ export interface ActivityFeedEntry {
 
 export interface ActivityFeedPage {
 	items: ActivityFeedEntry[];
+	csrf: string;
 	end: boolean;
 }

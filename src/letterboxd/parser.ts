@@ -82,7 +82,7 @@ const parseRatingString = (ratingStr: string): number => {
 		+ countStringOccurences(ratingStr, '½');
 };
 
-export const parseAjaxActivityFeed = (pageData: string): ActivityFeedPage => {
+export const parseAjaxActivityFeed = (pageData: string): { items: ActivityFeedEntry[], end: boolean } => {
 	const $ = cheerio.load(`<body id="root">${pageData}</body>`);
 	const feedItems: ActivityFeedEntry[] = [];
 	let end = false;

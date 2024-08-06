@@ -34,5 +34,9 @@ export const fetchUserFollowingFeed = async (username: string, options: {after?:
 	}
 	const resData = await res.text();
 	//console.log(resData);
-	return lbparse.parseAjaxActivityFeed(resData);
+	const result = lbparse.parseAjaxActivityFeed(resData);
+	return {
+		...result,
+		csrf: csrf
+	};
 };
