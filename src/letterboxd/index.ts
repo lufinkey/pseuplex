@@ -16,7 +16,6 @@ export const fetchUserFollowingFeed = async (username: string, options: {after?:
 		}
 		const resData = await res.text();
 		csrf = lbparse.parseCSRF(resData);
-		console.log(`got csrf ${csrf}`);
 	}
 	// fetch activity feed
 	const feedAjaxURL = lburls.followingActivityFeedAjaxURL({

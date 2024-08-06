@@ -117,9 +117,9 @@ export const parseAjaxActivityFeed = (pageData: string): ActivityFeedPage => {
 					console.warn(`Missing user link on entry index ${entryIndex}`);
 				}
 				const objectLink = activityDescr.find('.activity-summary > a:nth-of-type(2)');
-				const linkText = userLink.text().trim();
-				if(linkText) {
-					userDisplayName = linkText;
+				const userLinkText = userLink.text().trim();
+				if(userLinkText) {
+					userDisplayName = userLinkText;
 				}
 				const actionText = $(userLink[0].nextSibling).text().trim().toLowerCase();
 				switch(actionText) {
@@ -149,26 +149,31 @@ export const parseAjaxActivityFeed = (pageData: string): ActivityFeedPage => {
 					break;
 
 					case 'liked': {
-						const ratingStr = objectLink.find('.rating').text().trim();
-						if(ratingStr) {
+						if(objectLink.index() === -1) {
+							console.warn(`Missing object link on entry index ${entryIndex}`);
+						}
+						const objectLinkContext = objectLink.find('.context')[0].childNodes
+							.map((n) => (n.type == 'text' ? $(n).text().trim() : undefined))
+							.find((t) => t != null && t.length > 0)?.toLowerCase();
+						if(objectLinkContext == 'review of') {
 							// liked review
 							let reviewerName = activityDescr.find('.activity-summary > strong.name').text();
 							if(reviewerName.endsWith(POSESSIVE_TEXT_SUFFIX1)) {
 								reviewerName = reviewerName.substring(0, reviewerName.length - POSESSIVE_TEXT_SUFFIX1.length);
 							}
-							const rating = parseRatingString(ratingStr);
+							const ratingTag = objectLink.find('.rating');
+							let rating: number | undefined = undefined;
+							if(ratingTag.index() !== -1) {
+								const ratingStr = ratingTag.text().trim();
+								rating = parseRatingString(ratingStr);
+							}
 							const reviewHref = objectLink.attr('href');
-							const trimmedReviewHref = trimString(reviewHref, '/');
-							let filmSlug = trimmedReviewHref;
-							let slashIndex = filmSlug.lastIndexOf('/');
-							if(slashIndex != -1) {
-								filmSlug = filmSlug.substring(slashIndex+1);
+							const reviewHrefParts = trimString(reviewHref, '/').split('/');
+							const filmSlug = reviewHrefParts[2];
+							if(reviewHrefParts[1] !== 'film') {
+								console.warn(`Review href ${reviewHref} didn't have expected structure`);
 							}
-							let userSlug = trimmedReviewHref;
-							slashIndex = userSlug.indexOf('/');
-							if(slashIndex != -1) {
-								userSlug = userSlug.substring(0, slashIndex);
-							}
+							const userSlug = reviewHrefParts[0];
 							const filmName = $(lastFromArray(objectLink[0].childNodes)).text();
 							actionType = ActivityActionType.LikedReview;
 							viewing = {
@@ -185,6 +190,9 @@ export const parseAjaxActivityFeed = (pageData: string): ActivityFeedPage => {
 						}
 					}
 					break;
+
+					default:
+						console.warn(`Unknown action ${actionText}`);
 				}
 			}
 			else if(activityViewing.index() !== -1) {
@@ -192,10 +200,10 @@ export const parseAjaxActivityFeed = (pageData: string): ActivityFeedPage => {
 				const filmImgSrc = activityViewing.find('.film-poster img').attr('src');
 				const filmReviewLink = activityViewing.find('.film-detail-content > h2 > a');
 				const filmReviewHref = filmReviewLink.attr('href');
-				let filmSlug = trimString(filmReviewHref, '/');
-				let slashIndex = filmSlug.lastIndexOf('/');
-				if(slashIndex != -1) {
-					filmSlug = filmSlug.substring(slashIndex+1);
+				const filmReviewHrefParts = trimString(filmReviewHref, '/').split('/');
+				const filmSlug = filmReviewHrefParts[2];
+				if(filmReviewHrefParts[1] !== 'film') {
+					console.warn(`Review href ${filmReviewHref} didn't have expected structure`);
 				}
 				const filmName = filmReviewLink.text();
 				const filmYearLink = activityViewing.find('.film-detail-content > h2 > small.metadata > a');
@@ -212,14 +220,14 @@ export const parseAjaxActivityFeed = (pageData: string): ActivityFeedPage => {
 				if(viewerSlug.indexOf('/') != -1) {
 					console.warn(`Parsed user slug ${viewerSlug} from href ${viewerHref} contains a slash on entry ${entryIndex}`);
 				}
-				actionType = $(lastFromArray(contextTag[0].childNodes)).text().toLowerCase() as ActivityActionType;
+				actionType = $(lastFromArray(contextTag[0].childNodes)).text().trim().toLowerCase() as ActivityActionType;
 				viewing = {
 					userDisplayName: viewerLink.text(),
 					username: viewerSlug,
 					href: filmReviewHref,
 					rating: rating,
 					liked: activityViewing.find('.icon-liked').index() !== -1,
-					text: activityViewing.find('.film-fetail-content .body-text').text()
+					text: activityViewing.find('.film-detail-content .body-text > p').toArray().map((p) => $(p).text()).join("\n")
 				};
 				film = {
 					imageURL: filmImgSrc,
