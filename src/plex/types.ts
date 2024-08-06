@@ -73,7 +73,7 @@ export interface PlexPivot {
 	symbol: PlexSymbol;
 }
 
-// context types for plex movies
+// context types for plex movie hubs
 export enum PlexMovieHubContextType {
 	InProgress = 'hub.movie.inprogress',
 	RecentlyAdded = 'hub.movie.recentlyadded',
@@ -85,6 +85,12 @@ export enum PlexMovieHubContextType {
 	RecentPlaylists = 'hub.movie.recentplaylists'
 }
 export type PlexMovieHubContext = PlexMovieHubContextType;
+
+// context types for plex tv hubs
+export enum PlexTVHubContextType {
+	TopRated = 'hub.tv.toprated'
+}
+export type PlexTVHubContext = PlexTVHubContextType;
 
 // context types for "Movies and Shows on Plex" hub
 export enum PlexMoviesAndShowsContextType {
@@ -102,15 +108,20 @@ export enum PlexMoviesAndShowsContextType {
 export type PlexMoviesAndShowsContextBecauseYouWatched = `hub.movies.byw.${string}`;
 export type PlexMoviesAndShowsContext = PlexMoviesAndShowsContextType | PlexMoviesAndShowsContextBecauseYouWatched;
 
-export type PlexHubContext = PlexMovieHubContext | PlexMoviesAndShowsContext;
+export type PlexHubContext = PlexMovieHubContext | PlexTVHubContext | PlexMoviesAndShowsContext;
 
 export enum PlexHubStyle {
-	Shelf = 'shelf'
+	Shelf = 'shelf',
+	Hero = 'hero'
 }
 
 export enum PlexHubType {
 	Movie = 'movie',
 	TVShow = 'show',
+	Episode = 'episode',
+	Album = 'album',
+	Clip = 'clip',
+	Photos = 'photos',
 	Mixed = 'mixed'
 }
 
@@ -124,6 +135,8 @@ export interface PlexHub {
 	size: number;
 	more: boolean;
 	style: PlexHubStyle;
+	random?: boolean;
+	promoted?: boolean;
 }
 
 export enum PlexMediaItemType {
