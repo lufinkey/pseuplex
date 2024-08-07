@@ -2,8 +2,9 @@
 import http from 'http';
 import xml2js from 'xml2js';
 import express from 'express';
-
-const attrChar = '$';
+import {
+	XML_ATTRIBUTES_CHAR
+} from './constants';
 
 const xmlToPlexJsonParser = new xml2js.Parser({
 	mergeAttrs: true,
@@ -11,7 +12,7 @@ const xmlToPlexJsonParser = new xml2js.Parser({
 	explicitArray: true
 });
 const xmlToJsonParser = new xml2js.Parser({
-	attrkey: attrChar,
+	attrkey: XML_ATTRIBUTES_CHAR,
 	explicitRoot: true,
 	explicitArray: true
 });
@@ -51,16 +52,16 @@ export const modifyXmlJsonToPlexJson = async (json: any): Promise<any> => {
 	} else {
 		// map object and children
 		for(const key in json) {
-			if(key == attrChar) {
+			if(key == XML_ATTRIBUTES_CHAR) {
 				continue;
 			}
 			const val = json[key];
 			modifyXmlJsonToPlexJson(val);
 		}
 		// merge attributes into object
-		const attrs = json[attrChar];
+		const attrs = json[XML_ATTRIBUTES_CHAR];
 		if(attrs) {
-			delete json[attrChar];
+			delete json[XML_ATTRIBUTES_CHAR];
 			Object.assign(json, attrs);
 		}
 	}
@@ -81,7 +82,7 @@ export const serializeResponseContent = (userReq: express.Request, userRes: expr
 		const rootKey = rootKeys[0];
 		const xmlBuilder = new xml2js.Builder({
 			rootName: rootKey,
-			attrkey: attrChar
+			attrkey: XML_ATTRIBUTES_CHAR
 		});
 		if(rootKey) {
 			data = data[rootKey];

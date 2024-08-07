@@ -48,8 +48,7 @@ app.use('/media/providers', plexApiProxy(cfg, args, {
 }));
 
 // proxy requests to plex
-app.use('/:/*', plexThinProxy(cfg, args));
-app.use(plexProxy(cfg, args));
+app.use(plexThinProxy(cfg, args));
 
 const server = httpolyglot.createServer({
 	key: fs.readFileSync(cfg.ssl.keyPath),

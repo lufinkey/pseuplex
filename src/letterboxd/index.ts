@@ -1,7 +1,11 @@
 
-import { ActivityFeedPage } from './types';
+import {
+	ActivityFeedPage,
+	ActivityFeedEntry } from './types';
 import * as lburls from './urls';
 import * as lbparse from './parser';
+
+export * from './types';
 
 export const fetchUserFollowingFeed = async (username: string, options: {after?: number, csrf?: string} = {}): Promise<ActivityFeedPage> => {
 	const feedPageURL = lburls.followingActivityFeedPageURL({

@@ -1,4 +1,8 @@
 
+import {
+	XML_ATTRIBUTES_CHAR
+} from '../constants';
+
 export enum PlexLibraryAgent {
 	Movie = 'tv.plex.agents.movie',
 	TVSeries = 'tv.plex.agents.series'
@@ -73,6 +77,11 @@ export interface PlexPivot {
 	symbol: PlexSymbol;
 }
 
+export enum PlexGeneralHubContextType {
+	HomeContinue = 'hub.home.continue',
+	CustomCollection = 'hub.custom.collection'
+}
+
 // context types for plex movie hubs
 export enum PlexMovieHubContextType {
 	InProgress = 'hub.movie.inprogress',
@@ -92,9 +101,10 @@ export enum PlexTVHubContextType {
 }
 export type PlexTVHubContext = PlexTVHubContextType;
 
-// context types for "Movies and Shows on Plex" hub
-export enum PlexMoviesAndShowsContextType {
+// context types for "Movies" hub (not sure what makes these different from the "movie" contexts)
+export enum PlexMoviesHubContextType {
 	Recommended = 'hub.movies.recommended',
+	Recent = 'hub.movies.recent',
 	WatchList = 'hub.movies.watchlist',
 	BingeWorthyShows = 'hub.movies.binge-worthy-shows',
 	LightheartedAndFunny = 'hub.movies.lighthearted-and-funny',
@@ -105,10 +115,10 @@ export enum PlexMoviesAndShowsContextType {
 	QuestsSagasAndDragons = 'hub.movies.quests-sagas-and-dragons',
 	CrimeTime = 'hub.movies.crimetime'
 }
-export type PlexMoviesAndShowsContextBecauseYouWatched = `hub.movies.byw.${string}`;
-export type PlexMoviesAndShowsContext = PlexMoviesAndShowsContextType | PlexMoviesAndShowsContextBecauseYouWatched;
+export type PlexMoviesHubContextBecauseYouWatched = `hub.movies.byw.${string}`;
+export type PlexMoviesHubContext = PlexMoviesHubContextType | PlexMoviesHubContextBecauseYouWatched;
 
-export type PlexHubContext = PlexMovieHubContext | PlexTVHubContext | PlexMoviesAndShowsContext;
+export type PlexHubContext = PlexGeneralHubContextType | PlexMovieHubContext | PlexTVHubContext | PlexMoviesHubContext;
 
 export enum PlexHubStyle {
 	Shelf = 'shelf',
@@ -125,46 +135,76 @@ export enum PlexHubType {
 	Mixed = 'mixed'
 }
 
+export enum PlexHubNumericType {
+	Movie = 1
+}
+
 export interface PlexHub {
 	hubKey: string; // "/library/metadata/21406,1859,18071"
 	key: string; // "/hubs/sections/1/continueWatching/items"
 	title: string; // "Continue Watching"
 	type: PlexHubType;
 	hubIdentifier: string; // "movie.inprogress.1", "hub.movie.recentlyadded.1"
-	context: PlexHubContext;
-	size: number;
+	context: PlexHubContext | string;
+	size?: number;
 	more: boolean;
 	style: PlexHubStyle;
 	random?: boolean;
 	promoted?: boolean;
 }
 
-export enum PlexMediaItemType {
+export type PlexHubPageParams = {
+	count?: number;
+	contentDirectoryID?: number;
+	pinnedContentDirectoryID?: number;
+	includeMeta?: number | boolean;
+	excludeFields?: string[]; // "summary"
+	includeStations?: number | boolean;
+	includeLibraryPlaylists?: number | boolean;
+	includeRecentChannels?: number | boolean;
+	excludeContinueWatching?: number | boolean;
+};
+
+export type PlexHubPage = {
+	[XML_ATTRIBUTES_CHAR]: PlexHub;
+	Metadata: {
+		[XML_ATTRIBUTES_CHAR]: PlexMetadataItem;
+		// TODO include properties
+	}[]
+};
+
+export enum PlexMetadataItemType {
 	Movie = 'movie',
-	Episode = 'episode'
+	Episode = 'episode',
+	Show = 'show'
 }
 
-export type PlexMediaItem = {
+export type PlexMetadataItem = {
 
 	guid: string; // "plex://episode/6rv4x76r8x9bqb98xqt9qbt29r"
 	key: string; // "/library/metadata/20205"
-	ratingKey: string; // "20205"
-	type: PlexMediaItemType; // 'episode'
+	slug?: string; // "spartacus"
+	type: PlexMetadataItemType; // 'episode'
 	title: string; // "Some Episode Name"
-	thumb: string; // "/library/metadata/20205/thumb/98535429"
-	art: string; // "/library/metadata/20198/art/179430404"
-	contentRating: PlexContentRating; // "TV-MA"
-	index: number; // 4
+	originalTitle?: string;
+	tagline?: string;
+	thumb?: string; // "/library/metadata/20205/thumb/98535429"
+	art?: string; // "/library/metadata/20198/art/179430404"
+	contentRating?: PlexContentRating; // "TV-MA"
+	index?: number; // 4
 	lastViewedAt?: number; // timestamp since 1970
 	includedAt?: number; // timestamp since 1970
-	year: number; // 2012
-	duration: number;
+	year?: number; // 2012
+	duration?: number;
+	ratingKey?: string; // "20205"
 	rating?: number; // [0.0, 10.0f]
+	ratingImage?: string; // "rottontomatoes://image.rating.ripe"
 	audienceRating?: number; // [0.0, 10.0f]
 	audienceRatingImage?: string; // "imdb://image.rating", "rottontomatoes://image.rating.upright"
-	originallyAvailableAt: string; // "2012-03-19"
-	addedAt: number; // 17003248740
-	updatedAt: number; // 23476345400
+	imdbRatingCount?: number;
+	originallyAvailableAt?: string; // "2012-03-19"
+	addedAt?: number; // 17003248740
+	updatedAt?: number; // 23476345400
 
 	studio?: string; // "United Artists"
 	viewOffset?: number;
@@ -174,7 +214,7 @@ export type PlexMediaItem = {
 	publicPagesURL?: string; // "https://watch.plex.tv/show/<TVSHOW-SLUG>/season/1/episode/4"
 	availabilityId?: string;
 	streamingMediaId?: string;
-} & ({} | 
+} & ({} |
 	{
 		librarySectionTitle: string; // "My TV Shows"
 		librarySectionID: number; // 2
