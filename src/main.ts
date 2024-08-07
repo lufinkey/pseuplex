@@ -8,7 +8,7 @@ import { parseCmdArgs } from './cmdargs';
 import {
 	plexProxy,
 	plexThinProxy,
-	plexApiProxy } from './proxy';
+	plexApiProxy } from './plexproxy';
 
 // parse command line arguments
 const args = parseCmdArgs(process.argv.slice(2));

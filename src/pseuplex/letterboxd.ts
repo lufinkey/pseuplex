@@ -3,7 +3,7 @@ import aguid from 'aguid';
 import {
 	XML_ATTRIBUTES_CHAR
 } from '../constants';
-import * as letterboxd from '../letterboxd';
+import * as letterboxd from 'letterboxd-retriever';
 import {
 	PlexHubContext,
 	PlexMovieHubContextType,
@@ -15,8 +15,7 @@ import {
 	PlexHubType,
 	PlexMetadataItemType } from '../plex/types';
 import {
-	PseuplexHub
- } from './hub';
+	PseuplexHub } from './hub';
 
 type ActivityFeedProvider = (params: PlexHubPageParams) => Promise<letterboxd.ActivityFeedPage>;
 
