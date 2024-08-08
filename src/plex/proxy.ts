@@ -3,9 +3,9 @@ import url from 'url';
 import http from 'http';
 import express from 'express';
 import expressHttpProxy from 'express-http-proxy';
-import * as constants from './constants';
-import { Config } from './config';
-import { CommandArguments } from './cmdargs';
+import * as constants from '../constants';
+import { Config } from '../config';
+import { CommandArguments } from '../cmdargs';
 import {
 	parseHttpContentType,
 	parseXMLStringToJson,
@@ -115,7 +115,7 @@ export const plexApiProxy = (cfg: Config, args: CommandArguments, opts: {
 				let resData = await parseXMLStringToJson(proxyResString);
 				if(proxyRes.statusCode < 200 || proxyRes.statusCode >= 300) {
 					// don't modify errors
-					resData = await serializeResponseContent(userReq, userRes, resData);
+					resData = (await serializeResponseContent(userReq, userRes, resData)).data;
 					// log user response
 					if(args.logUserResponses) {
 						console.log(`\nUser response ${userRes.statusCode} for ${userReq.method} ${urlLogString(args, userReq.originalUrl)}`);
@@ -128,7 +128,7 @@ export const plexApiProxy = (cfg: Config, args: CommandArguments, opts: {
 				// modify response
 				resData = await opts.responseModifier(proxyRes, resData, userReq, userRes);
 				// serialize response
-				resData = await serializeResponseContent(userReq, userRes, resData);
+				resData = (await serializeResponseContent(userReq, userRes, resData)).data;
 				// log user response
 				if(args.logUserResponses) {
 					console.log(`\nUser response ${userRes.statusCode} for ${userReq.method} ${urlLogString(args, userReq.originalUrl)}`);

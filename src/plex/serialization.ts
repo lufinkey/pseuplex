@@ -1,10 +1,9 @@
 
-import http from 'http';
 import xml2js from 'xml2js';
 import express from 'express';
 import {
 	XML_ATTRIBUTES_CHAR
-} from './constants';
+} from '../constants';
 
 const xmlToPlexJsonParser = new xml2js.Parser({
 	mergeAttrs: true,
@@ -22,10 +21,13 @@ export const parseHttpContentType = (contentType: string): {contentType: string,
 		return { contentType, contentTypeSuffix: '' };
 	}
 	let contentTypeSuffix = '';
-	const semiColonIndex = contentType.indexOf(';');
-	if(semiColonIndex != -1) {
-		contentTypeSuffix = contentType.substring(semiColonIndex);
-		contentType = contentType.substring(0, semiColonIndex);
+	let delimeterIndex = contentType.indexOf(',');
+	if(delimeterIndex == -1) {
+		delimeterIndex = contentType.indexOf(';');
+	}
+	if(delimeterIndex != -1) {
+		contentTypeSuffix = contentType.substring(delimeterIndex);
+		contentType = contentType.substring(0, delimeterIndex);
 	}
 	return {contentType,contentTypeSuffix};
 };
@@ -67,12 +69,18 @@ export const modifyXmlJsonToPlexJson = async (json: any): Promise<any> => {
 	}
 };
 
-export const serializeResponseContent = (userReq: express.Request, userRes: express.Response, data: any): string => {
+export const serializeResponseContent = (userReq: express.Request, userRes: express.Response, data: any): {
+	contentType: string;
+	data: string;
+ } => {
 	const acceptType = parseHttpContentType(userReq.headers['accept']).contentType;
 	if(acceptType == 'application/json') {
 		// convert structure to plex style json
 		modifyXmlJsonToPlexJson(data);
-		return JSON.stringify(data);
+		return {
+			contentType: 'application/json',
+			data: JSON.stringify(data)
+		}
 	} else {
 		// convert back to xml
 		const rootKeys = Object.keys(data);
@@ -87,6 +95,9 @@ export const serializeResponseContent = (userReq: express.Request, userRes: expr
 		if(rootKey) {
 			data = data[rootKey];
 		}
-		return xmlBuilder.buildObject(data);
+		return {
+			contentType: 'text/xml',
+			data: xmlBuilder.buildObject(data)
+		};
 	}
 };

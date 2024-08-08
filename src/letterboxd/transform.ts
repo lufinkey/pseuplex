@@ -21,7 +21,7 @@ export const filmInfoToPlexMetadata = (filmInfo: letterboxd.FilmInfo, options: L
 			title: filmInfo.ldJson.name,
 			tagline: filmInfo.pageData.tagline,
 			summary: filmInfo.pageData.description,
-			year: (!Number.isNaN(filmYear) ? Number.parseFloat(filmYear) : undefined)
+			year: (!Number.isNaN(filmYear) ? Number.parseInt(filmYear) : undefined)
 		}
 	};
 };
@@ -33,7 +33,7 @@ export const activityFeedFilmToPlexMetadata = (film: letterboxd.ActivityFeedFilm
 			key: `${options.letterboxdMetadataBasePath}/${film.slug}`,
 			type: PlexMetadataItemType.Movie,
 			title: film.name,
-			year: (!Number.isNaN(film.year) ? Number.parseFloat(film.year) : undefined)
+			year: (!Number.isNaN(film.year) ? Number.parseInt(film.year) : undefined)
 		}
 	};
 };
