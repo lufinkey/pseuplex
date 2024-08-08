@@ -73,6 +73,25 @@ const letterboxdActivityFeedHub = (hubOptions: ActivityFeedHubOptions, provider:
 
 export const letterboxdUserFollowingActivityFeedHub = (username: string, hubOptions: ActivityFeedHubOptions): PseuplexHub => {
 	return letterboxdActivityFeedHub(hubOptions, async (params) => {
-		return letterboxd.fetchUserFollowingFeed(username);
+		let page: letterboxd.ActivityFeedPage;
+		let after: string | undefined = undefined;
+		do {
+			const newPage = await letterboxd.getUserFollowingFeed(username, {
+				after: after,
+				csrf: page?.csrf
+			});
+			if(!page) {
+				page = newPage;
+				if(page.items.length == 0) {
+					break;
+				}
+			} else {
+				page.items = page.items.concat(newPage.items);
+				page.csrf = newPage.csrf;
+				page.end = newPage.end;
+			}
+			after = page.items[page.items.length - 1].id;
+		} while(params.count && page.items.length < params.count && !page.end);
+		return page;
 	});
 };
