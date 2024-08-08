@@ -167,10 +167,7 @@ export type PlexHubPageParams = {
 
 export type PlexHubPage = {
 	[XML_ATTRIBUTES_CHAR]: PlexHub;
-	Metadata: {
-		[XML_ATTRIBUTES_CHAR]: PlexMetadataItem;
-		// TODO include properties
-	}[]
+	Metadata: PlexMetadataPage[]
 };
 
 export enum PlexMetadataItemType {
@@ -188,6 +185,7 @@ export type PlexMetadataItem = {
 	title: string; // "Some Episode Name"
 	originalTitle?: string;
 	tagline?: string;
+	summary?: string;
 	thumb?: string; // "/library/metadata/20205/thumb/98535429"
 	art?: string; // "/library/metadata/20198/art/179430404"
 	contentRating?: PlexContentRating; // "TV-MA"
@@ -239,3 +237,8 @@ export type PlexMetadataItem = {
 			grandparentTheme?: string; // "/library/metadata/20198/theme/45343402402354"
 		}))
 );
+
+export interface PlexMetadataPage {
+	[XML_ATTRIBUTES_CHAR]: PlexMetadataItem;
+	// TODO add other properties
+};
