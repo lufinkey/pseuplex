@@ -48,6 +48,7 @@ const app = express();
 // handle letterboxd requests
 app.get(`${pseuplex.letterboxd.metadata.basePath}/:filmSlugs`, async (req, res) => {
 	await handlePlexAPIRequest(req, res, async (): Promise<plexTypes.MediaContainerResponse> => {
+		console.log(`got request for letterboxd movie ${req.params.filmSlugs}`);
 		const filmSlugsStr = req.params.filmSlugs?.trim();
 		if(!filmSlugsStr) {
 			throw httpError(400, "No slug was provided");
