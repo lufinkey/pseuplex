@@ -19,6 +19,7 @@ export const filmInfoToPlexMetadata = (filmInfo: letterboxd.FilmInfo, options: L
 			key: `${options.letterboxdMetadataBasePath}/${filmInfo.pageData.slug}`,
 			type: PlexMetadataItemType.Movie,
 			title: filmInfo.ldJson.name,
+			thumb: filmInfo.ldJson.image,
 			tagline: filmInfo.pageData.tagline,
 			summary: filmInfo.pageData.description,
 			year: (!Number.isNaN(filmYear) ? Number.parseInt(filmYear) : undefined)
@@ -33,6 +34,7 @@ export const activityFeedFilmToPlexMetadata = (film: letterboxd.ActivityFeedFilm
 			key: `${options.letterboxdMetadataBasePath}/${film.slug}`,
 			type: PlexMetadataItemType.Movie,
 			title: film.name,
+			thumb: film.imageURL,
 			year: (!Number.isNaN(film.year) ? Number.parseInt(film.year) : undefined)
 		}
 	};

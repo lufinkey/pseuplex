@@ -99,7 +99,7 @@ export const plexApiProxy = (cfg: Config, args: CommandArguments, opts: {
 				const contentType = parseHttpContentType(proxyRes.headers['content-type']).contentType;
 				if(contentType != 'text/xml') {
 					if(args.logProxyResponses || args.logUserResponses) {
-						console.log(`\nResponse ${proxyRes.statusCode} for ${proxyRes.method} ${urlLogString(args, userReq.originalUrl)}`);
+						console.log(`\nResponse ${proxyRes.statusCode} for ${userReq.method} ${urlLogString(args, userReq.originalUrl)}`);
 					}
 					return proxyResData;
 				}

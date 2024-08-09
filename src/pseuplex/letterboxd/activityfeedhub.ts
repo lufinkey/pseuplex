@@ -20,13 +20,17 @@ type ActivityFeedHubOptions = {
 
 const letterboxdActivityFeedHub = async (params: PlexHubPageParams, hubOptions: ActivityFeedHubOptions, feedPage: letterboxd.ActivityFeedPage): Promise<PlexHubPage> => {
 	const uniqueMovies: letterboxd.ActivityFeedFilm[] = [];
-	const uniqueMovieSlugsSet = new Set<string>();
+	const uniqueMovieSlugsMap: {[key: string]: letterboxd.ActivityFeedFilm} = {};
 	for(const item of feedPage.items) {
 		if(item.film) {
-			if(uniqueMovieSlugsSet.has(item.film.slug)) {
+			const existingFilm = uniqueMovieSlugsMap[item.film.slug];
+			if(existingFilm) {
+				if(!existingFilm.imageURL && item.film.imageURL) {
+					existingFilm.imageURL = item.film.imageURL;
+				}
 				// TODO attach some kind of context info to the item
 			} else {
-				uniqueMovieSlugsSet.add(item.film.slug);
+				uniqueMovieSlugsMap[item.film.slug] = item.film;
 				uniqueMovies.push(item.film);
 				// TODO attach some kind of context info to the item
 			}
