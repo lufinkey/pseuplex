@@ -62,6 +62,7 @@ app.get(pseuplex.letterboxd.hubs.userFollowingActivity.path, async (req, res) =>
 	await handlePlexAPIRequest(req, res, async (): Promise<plexTypes.MediaContainerResponse> => {
 		const username = stringParam(req.query['username']);
 		const count = intParam(req.query['count']);
+		console.log(`got request for letterboxd following feed for user ${username} (count=${count})`);
 		if(!username) {
 			throw httpError(400, "No user provided");
 		}
@@ -73,12 +74,17 @@ app.get(pseuplex.letterboxd.hubs.userFollowingActivity.path, async (req, res) =>
 });
 
 // proxy requests to plex
-app.use('/media/providers', plexApiProxy(cfg, args, {
+app.get('/hubs', plexApiProxy(cfg, args, {
 	requestModifier: (proxyReqOpts, userReq) => {
 		return proxyReqOpts;
 	},
-	responseModifier: (proxyRes, proxyResData, userReq, userRes) => {
-		return proxyResData;
+	responseModifier: async (proxyRes, resData: plexTypes.MediaContainerResponse, userReq, userRes) => {
+		const letterboxdHub = await pseuplex.letterboxd.hubs.userFollowingActivity.get({
+			username: 'luisfinke'
+		});
+		resData.MediaContainer.$.size += 1;
+		resData.MediaContainer.Hub.splice(0, 0, letterboxdHub.MediaContainer.Hub[0]);
+		return resData;
 	}
 }));
 

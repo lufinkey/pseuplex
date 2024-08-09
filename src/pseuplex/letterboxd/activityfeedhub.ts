@@ -44,6 +44,7 @@ const letterboxdActivityFeedHub = async (params: PlexHubPageParams, hubOptions: 
 			type: PlexHubType.Movie,
 			hubIdentifier: hubOptions.context + (params.contentDirectoryID != null ? `.${params.contentDirectoryID}` : ''),
 			context: hubOptions.context,
+			size: uniqueMovies.length,
 			more: !feedPage.end,
 			style: hubOptions.style,
 			promoted: hubOptions.promoted

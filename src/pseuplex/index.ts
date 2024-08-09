@@ -9,6 +9,7 @@ const pseuplex = {
 		sectionID: -1,
 		sectionGuid: "910db620-6c87-475c-9c33-0308d50f01b0",
 		sectionTitle: "Letterboxd Films",
+
 		metadata: {
 			basePath: '/pseuplex/letterboxd/metadata',
 			get: async (slugs: string[]) => {
@@ -20,7 +21,7 @@ const pseuplex = {
 						[XML_ATTRIBUTES_CHAR]: {
 							size: metadatas.length,
 							allowSync: false,
-							augmentationKey: '/library/metadata/augmentations/1',
+							//augmentationKey: '/library/metadata/augmentations/1',
 							librarySectionID: pseuplex.letterboxd.sectionID,
 							librarySectionTitle: pseuplex.letterboxd.sectionTitle,
 							librarySectionUUID: pseuplex.letterboxd.sectionGuid
@@ -48,9 +49,9 @@ const pseuplex = {
 								await pseuLetterboxd.letterboxdUserFollowingActivityFeedHub(params, {
 									title: `${params.username}'s Letterboxd Following Feed`,
 									context: 'hub.letterboxd.following',
-									hubPath: pseuplex.letterboxd.hubs.userFollowingActivity.path,
+									hubPath: `${pseuplex.letterboxd.hubs.userFollowingActivity.path}?username=${params.username}`,
 									style: plexTypes.PlexHubStyle.Hero,
-									letterboxdMetadataBasePath: pseuplex.letterboxd.hubs.userFollowingActivity.path
+									letterboxdMetadataBasePath: pseuplex.letterboxd.metadata.basePath
 								})
 							]
 						}
