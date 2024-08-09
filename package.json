@@ -16,8 +16,8 @@
 		"express": "^4.19.2",
 		"express-http-proxy": "^2.0.0",
 		"httpolyglot": "^0.1.2",
-		"xml2js": "^0.6.2",
-		"letterboxd-retriever": "https://github.com/lufinkey/letterboxd-retriever.git"
+		"letterboxd-retriever": "https://github.com/lufinkey/letterboxd-retriever.git",
+		"xml2js": "^0.6.2"
 	},
 	"devDependencies": {
 		"@types/express": "^4.17.21",

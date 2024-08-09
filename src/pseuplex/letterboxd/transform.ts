@@ -3,8 +3,8 @@ import aguid from 'aguid';
 import * as letterboxd from "letterboxd-retriever";
 import {
 	PlexMetadataItemType,
-	PlexMetadataPage } from "../plex/types";
-import { XML_ATTRIBUTES_CHAR } from "../constants";
+	PlexMetadataPage } from "../../plex/types";
+import { XML_ATTRIBUTES_CHAR } from "../../constants";
 
 export interface LetterboxdToPlexOptions {
 	letterboxdMetadataBasePath: string
