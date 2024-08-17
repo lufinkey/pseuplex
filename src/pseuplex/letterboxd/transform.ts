@@ -24,7 +24,7 @@ export const filmInfoToPlexMetadata = (filmInfo: letterboxd.FilmInfo, options: L
 		tagline: filmInfo.pageData.tagline,
 		summary: filmInfo.pageData.description,
 		year: intParam(releasedEvent?.[0]?.startDate)
-	} as any;
+	};
 };
 
 export const activityFeedFilmToPlexMetadata = (film: letterboxd.ActivityFeedFilm, options: LetterboxdToPlexOptions): PlexMetadataPage => {
@@ -35,5 +35,5 @@ export const activityFeedFilmToPlexMetadata = (film: letterboxd.ActivityFeedFilm
 		title: film.name,
 		thumb: film.imageURL,
 		year: intParam(film.year)
-	} as any;
+	};
 };
