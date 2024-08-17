@@ -1,4 +1,6 @@
 
+import qs from 'querystring';
+
 export type HttpError = Error & { statusCode: number };
 
 export const httpError = (status: number, message: string): HttpError => {
@@ -16,6 +18,14 @@ export const stringParam = (value: any): string | undefined => {
 	return undefined;
 };
 
+export const stringArrayParam = (value: any): string[] | undefined => {
+	const str = stringParam(value);
+	if(str == undefined) {
+		return undefined;
+	}
+	return str.split(',');
+};
+
 export const intParam = (value: any): number | undefined => {
 	if(typeof value === 'number') {
 		return value;
@@ -31,4 +41,122 @@ export const intParam = (value: any): number | undefined => {
 		return intVal;
 	}
 	return undefined;
+};
+
+export const booleanParam = (value: any): boolean | undefined => {
+	if(typeof value === 'boolean') {
+		return value;
+	} else if(value == undefined) {
+		return value;
+	}
+	if(value == 1 || value == 'true') {
+		return true;
+	} else if(value == 0 || value == 'false') {
+		return false;
+	}
+	throw httpError(400, `${value} is not a boolean`);
 }
+
+export const mapObject = <TNewValue,TValue>(obj: object, mapper: (key: string, value: TValue) => TNewValue) => {
+	const mappedObject = {};
+	for(const key in obj) {
+		mappedObject[key] = mapper(key, obj[key]);
+	}
+	return mappedObject;
+};
+
+export const nameOf = (obj: {[key:string]: any}): string => {
+	for(const key in obj) {
+		return key;
+	}
+	return undefined;
+};
+
+export type URLPathParts = {
+	path: string;
+	query?: string;
+	hash?: string;
+};
+
+export type URLPath = {
+	path: string;
+	query?: qs.ParsedUrlQuery;
+	hash?: string;
+};
+
+export const parseURLPathParts = (urlPath: string): URLPathParts => {
+	const queryIndex = urlPath.indexOf('?');
+	const hashIndex = urlPath.indexOf('#');
+	if(queryIndex != -1) {
+		if(hashIndex != -1) {
+			if(hashIndex < queryIndex) {
+				return {
+					path: urlPath.substring(0, hashIndex),
+					hash: urlPath.substring(hashIndex+1)
+				};
+			} else {
+				return {
+					path: urlPath.substring(0, queryIndex),
+					query: urlPath.substring(queryIndex+1, hashIndex),
+					hash: urlPath.substring(hashIndex+1)
+				};
+			}
+		} else {
+			return {
+				path: urlPath.substring(0, queryIndex),
+				query: urlPath.substring(queryIndex+1)
+			};
+		}
+	}
+	else if(hashIndex != -1) {
+		return {
+			path: urlPath.substring(0, hashIndex),
+			hash: urlPath.substring(hashIndex+1)
+		};
+	} else {
+		return {
+			path: urlPath
+		};
+	}
+};
+
+export const stringifyURLPathParts = (urlPathObj: URLPathParts): string => {
+	let urlPath = urlPathObj.path;
+	if(urlPathObj.query != null) {
+		urlPath += `?${urlPathObj.query}`;
+	}
+	if(urlPathObj.hash != null) {
+		urlPath += `#${urlPathObj.hash}`;
+	}
+	return urlPath;
+};
+
+export const parseURLPath = (urlPath: string): URLPath => {
+	const parts = parseURLPathParts(urlPath);
+	const newParts: URLPath = (parts as any);
+	if(parts.query != null) {
+		newParts.query = qs.parse(parts.query);
+	}
+	return newParts;
+};
+
+export const stringifyURLPath = (urlPathObj: URLPath): string => {
+	let urlPath = urlPathObj.path;
+	if(urlPathObj.query != null) {
+		urlPath += `?${qs.stringify(urlPathObj.query)}`;
+	}
+	if(urlPathObj.hash != null) {
+		urlPath += `#${urlPathObj.hash}`;
+	}
+	return urlPath;
+};
+
+export const addQueryArgumentToURLPath = (urlPath: string, queryEntry: string) => {
+	const parts = parseURLPathParts(urlPath);
+	if(!parts.query) {
+		parts.query = queryEntry;
+	} else {
+		parts.query += `&${queryEntry}`;
+	}
+	return stringifyURLPathParts(parts);
+};

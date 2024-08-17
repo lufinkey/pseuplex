@@ -8,7 +8,6 @@ import { Config } from '../config';
 import { CommandArguments } from '../cmdargs';
 import {
 	parseHttpContentType,
-	parseXMLStringToJson,
 	serializeResponseContent
 } from './serialization';
 
@@ -24,12 +23,13 @@ const urlLogString = (args: CommandArguments, urlString: string) => {
 };
 
 export const plexThinProxy = (cfg: Config, args: CommandArguments, opts: expressHttpProxy.ProxyOptions = {}) => {
-	return expressHttpProxy(`${cfg.plex.host}:${cfg.plex.port}`, {
-		proxyReqPathResolver(req) {
+	const options = {...opts};
+	if(!options.proxyReqPathResolver) {
+		options.proxyReqPathResolver = (req) => {
 			return req.originalUrl;
-		},
-		...opts
-	});
+		};
+	}
+	return expressHttpProxy(`${cfg.plex.host}:${cfg.plex.port}`, options);
 };
 
 export const plexProxy = (cfg: Config, args: CommandArguments, opts: expressHttpProxy.ProxyOptions = {}) => {
@@ -48,86 +48,75 @@ export const plexProxy = (cfg: Config, args: CommandArguments, opts: expressHttp
 };
 
 export const plexApiProxy = (cfg: Config, args: CommandArguments, opts: {
+	proxyReqPathResolver?: (req: express.Request) => string,
 	requestModifier?: (proxyReqOpts: http.RequestOptions, userReq: express.Request) => http.RequestOptions,
 	responseModifier: (proxyRes: http.IncomingMessage, proxyResData: any, userReq: express.Request, userRes: express.Response) => any
 })=> {
 	return plexProxy(cfg, args, {
-			proxyReqOptDecorator: async (proxyReqOpts, userReq) => {
-				// log request if needed
-				if(args.logUserRequests) {
-					console.log(`\nUser ${userReq.method} ${urlLogString(args, userReq.originalUrl)}`);
+		proxyReqPathResolver: opts.proxyReqPathResolver,
+		proxyReqOptDecorator: async (proxyReqOpts, userReq) => {
+			// log request if needed
+			if(args.logUserRequests) {
+				console.log(`\nUser ${userReq.method} ${urlLogString(args, userReq.originalUrl)}`);
+			}
+			// transform xml request to json
+			const acceptType = parseHttpContentType(userReq.headers['accept']).contentType;
+			let isApiRequest = false;
+			if (acceptType == 'text/xml') {
+				proxyReqOpts.headers['accept'] = 'application/json';
+				isApiRequest = true;
+			} else if(acceptType == 'application/json') {
+				isApiRequest = true;
+			}
+			// modify request destination
+			/*if(userReq.protocol) {
+				proxyReqOpts.protocol = userReq.protocol;
+				if(proxyReqOpts.protocol && !proxyReqOpts.protocol.endsWith(':')) {
+					proxyReqOpts.protocol += ':';
 				}
-				// transform json request to xml
-				const acceptType = parseHttpContentType(userReq.headers['accept']).contentType;
-				let isApiRequest = false;
-				if (acceptType == 'application/json') {
-					proxyReqOpts.headers['accept'] = 'text/xml';
-					isApiRequest = true;
-				} else if(acceptType == 'text/xml') {
-					isApiRequest = true;
+			}
+			proxyReqOpts.servername = userReq.hostname;*/
+			// modify if this is an API request
+			if (isApiRequest) {
+				if(opts.requestModifier) {
+					proxyReqOpts = await opts.requestModifier(proxyReqOpts, userReq);
 				}
-				// modify request destination
-				/*if(userReq.protocol) {
-					proxyReqOpts.protocol = userReq.protocol;
-					if(proxyReqOpts.protocol && !proxyReqOpts.protocol.endsWith(':')) {
-						proxyReqOpts.protocol += ':';
-					}
+			}
+			// log proxy request
+			if(args.logProxyRequests) {
+				console.log(`\nProxy ${proxyReqOpts.method} ${urlLogString(args, userReq.originalUrl)}`);
+			}
+			return proxyReqOpts;
+		},
+		userResHeaderDecorator: (headers, userReq, userRes, proxyReq, proxyRes) => {
+			// set the accepted content type if we're going to change back from json to xml
+			const acceptType = parseHttpContentType(userReq.headers['accept']).contentType;
+			if(acceptType == 'text/xml') {
+				headers['content-type'] = acceptType;
+			}
+			return headers;
+		},
+		userResDecorator: async (proxyRes, proxyResData, userReq, userRes) => {
+			// get response content type
+			const contentType = parseHttpContentType(proxyRes.headers['content-type']).contentType;
+			if(contentType != 'application/json') {
+				if(args.logProxyResponses || args.logUserResponses) {
+					console.log(`\nResponse ${proxyRes.statusCode} for ${userReq.method} ${urlLogString(args, userReq.originalUrl)}`);
 				}
-				proxyReqOpts.servername = userReq.hostname;*/
-				// modify if this is an API request
-				if (isApiRequest) {
-					if(opts.requestModifier) {
-						proxyReqOpts = await opts.requestModifier(proxyReqOpts, userReq);
-					}
+				return proxyResData;
+			}
+			const proxyResString = proxyResData?.toString('utf8');
+			// log proxy response
+			if(args.logProxyResponses) {
+				console.log(`\nProxy response ${proxyRes.statusCode} for ${userReq.method} ${urlLogString(args, userReq.originalUrl)}`);
+				if(args.logProxyResponseBody) {
+					console.log(proxyResString);
 				}
-				// log proxy request
-				if(args.logProxyRequests) {
-					console.log(`\nProxy ${proxyReqOpts.method} ${urlLogString(args, userReq.originalUrl)}`);
-				}
-				return proxyReqOpts;
-			},
-			userResHeaderDecorator: (headers, userReq, userRes, proxyReq, proxyRes) => {
-				// set the accepted content type if we're changing from json to xml
-				const acceptType = parseHttpContentType(userReq.headers['accept']).contentType;
-				if(acceptType == 'application/json') {
-					headers['content-type'] = acceptType;
-				}
-				return headers;
-			},
-			userResDecorator: async (proxyRes, proxyResData, userReq, userRes) => {
-				// get response content type
-				const contentType = parseHttpContentType(proxyRes.headers['content-type']).contentType;
-				if(contentType != 'text/xml') {
-					if(args.logProxyResponses || args.logUserResponses) {
-						console.log(`\nResponse ${proxyRes.statusCode} for ${userReq.method} ${urlLogString(args, userReq.originalUrl)}`);
-					}
-					return proxyResData;
-				}
-				const proxyResString = proxyResData?.toString('utf8');
-				// log proxy response
-				if(args.logProxyResponses) {
-					console.log(`\nProxy response ${proxyRes.statusCode} for ${userReq.method} ${urlLogString(args, userReq.originalUrl)}`);
-					if(args.logProxyResponseBody) {
-						console.log(proxyResString);
-					}
-				}
-				// parse response
-				let resData = await parseXMLStringToJson(proxyResString);
-				if(proxyRes.statusCode < 200 || proxyRes.statusCode >= 300) {
-					// don't modify errors
-					resData = (await serializeResponseContent(userReq, userRes, resData)).data;
-					// log user response
-					if(args.logUserResponses) {
-						console.log(`\nUser response ${userRes.statusCode} for ${userReq.method} ${urlLogString(args, userReq.originalUrl)}`);
-						if(args.logUserResponseBody) {
-							console.log(resData);
-						}
-					}
-					return resData;
-				}
-				// modify response
-				resData = await opts.responseModifier(proxyRes, resData, userReq, userRes);
-				// serialize response
+			}
+			// parse response
+			let resData = await JSON.parse(proxyResString);
+			if(proxyRes.statusCode < 200 || proxyRes.statusCode >= 300) {
+				// don't modify errors
 				resData = (await serializeResponseContent(userReq, userRes, resData)).data;
 				// log user response
 				if(args.logUserResponses) {
@@ -135,9 +124,22 @@ export const plexApiProxy = (cfg: Config, args: CommandArguments, opts: {
 					if(args.logUserResponseBody) {
 						console.log(resData);
 					}
-					console.log();
 				}
 				return resData;
 			}
-		});
+			// modify response
+			resData = await opts.responseModifier(proxyRes, resData, userReq, userRes);
+			// serialize response
+			resData = (await serializeResponseContent(userReq, userRes, resData)).data;
+			// log user response
+			if(args.logUserResponses) {
+				console.log(`\nUser response ${userRes.statusCode} for ${userReq.method} ${urlLogString(args, userReq.originalUrl)}`);
+				if(args.logUserResponseBody) {
+					console.log(resData);
+				}
+				console.log();
+			}
+			return resData;
+		}
+	});
 };

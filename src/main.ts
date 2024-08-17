@@ -16,7 +16,10 @@ import pseuplex from './pseuplex';
 import {
 	httpError,
 	stringParam,
-	intParam } from './utils';
+	intParam,
+	stringArrayParam,
+	booleanParam
+} from './utils';
 
 // parse command line arguments
 const args = parseCmdArgs(process.argv.slice(2));
@@ -47,46 +50,66 @@ const app = express();
 
 // handle letterboxd requests
 app.get(`${pseuplex.letterboxd.metadata.basePath}/:filmSlugs`, async (req, res) => {
-	await handlePlexAPIRequest(req, res, async (): Promise<plexTypes.MediaContainerResponse> => {
+	await handlePlexAPIRequest(req, res, async (): Promise<plexTypes.PlexMediaContainerResponse> => {
 		console.log(`got request for letterboxd movie ${req.params.filmSlugs}`);
 		const filmSlugsStr = req.params.filmSlugs?.trim();
 		if(!filmSlugsStr) {
 			throw httpError(400, "No slug was provided");
 		}
 		const filmSlugs = filmSlugsStr.split(',');
-		return await pseuplex.letterboxd.metadata.get(filmSlugs);
+		const page = await pseuplex.letterboxd.metadata.get(filmSlugs);
+		return {MediaContainer:page};
 	});
 });
 
 app.get(pseuplex.letterboxd.hubs.userFollowingActivity.path, async (req, res) => {
-	await handlePlexAPIRequest(req, res, async (): Promise<plexTypes.MediaContainerResponse> => {
-		const username = stringParam(req.query['username']);
-		const count = intParam(req.query['count']);
-		console.log(`got request for letterboxd following feed for user ${username} (count=${count})`);
-		if(!username) {
+	await handlePlexAPIRequest(req, res, async (): Promise<plexTypes.PlexMediaContainerResponse> => {
+		const letterboxdUsername = stringParam(req.query['letterboxdUsername']);
+		if(!letterboxdUsername) {
 			throw httpError(400, "No user provided");
 		}
-		return await pseuplex.letterboxd.hubs.userFollowingActivity.get({
-			username: username,
-			count: count
+		const params = plexTypes.parsePlexHubQueryParams(req.query, {includePagination:true});
+		const hub = pseuplex.letterboxd.hubs.userFollowingActivity.get(letterboxdUsername);
+		const page = await hub.getHub({
+			...params,
+			listStartToken: stringParam(req.query['listStartToken'])
 		});
+		return {MediaContainer:page};
 	});
 });
 
-// proxy requests to plex
 app.get('/hubs', plexApiProxy(cfg, args, {
-	requestModifier: (proxyReqOpts, userReq) => {
-		return proxyReqOpts;
-	},
-	responseModifier: async (proxyRes, resData: plexTypes.MediaContainerResponse, userReq, userRes) => {
-		const letterboxdHub = await pseuplex.letterboxd.hubs.userFollowingActivity.get({
-			username: 'luisfinke'
+	responseModifier: async (proxyRes, resData: plexTypes.PlexMediaContainerResponse, userReq, userRes) => {
+		const params = plexTypes.parsePlexHubQueryParams(userReq.query, {includePagination:false});
+		const hub = pseuplex.letterboxd.hubs.userFollowingActivity.get('luisfinke');
+		const page = await hub.getHubListEntry({
+			...params,
+			listStartToken: stringParam(userReq.query['listStartToken'])
 		});
-		resData.MediaContainer.$.size += 1;
-		resData.MediaContainer.Hub.splice(0, 0, letterboxdHub.MediaContainer.Hub[0]);
+		if(!resData.MediaContainer.Hub) {
+			resData.MediaContainer.Hub = [];
+		} else if(!(resData.MediaContainer.Hub instanceof Array)) {
+			resData.MediaContainer.Hub = [resData.MediaContainer.Hub];
+		}
+		resData.MediaContainer.Hub.splice(0, 0, page);
+		resData.MediaContainer.size += 1;
 		return resData;
 	}
 }));
+
+// proxy requests to plex
+/*app.use('/library/metadata/:metadataId', plexApiProxy(cfg, args, {
+	requestModifier: (proxyReqOpts, userReq) => {
+		const urlPathObj = parseURLPath(userReq.originalUrl);
+		return proxyReqOpts;
+	},
+	proxyReqPathResolver: (req) => {
+		return req.originalUrl;
+	},
+	responseModifier: async (proxyRes, resData, userReq, userRes) => {
+		return resData;
+	}
+}));*/
 
 // proxy requests to plex
 app.use(plexThinProxy(cfg, args));

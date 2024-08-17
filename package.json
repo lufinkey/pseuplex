@@ -3,6 +3,10 @@
 	"version": "0.0.1",
 	"description": "A middleware for the plex server API",
 	"main": "/dist/main.js",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/lufinkey/bandcamp-retriever.git"
+	},
 	"scripts": {
 		"build": "tsc",
 		"start": "tsc && node dist/main.js --config=config/config.json --verbose",

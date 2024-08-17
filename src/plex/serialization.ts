@@ -1,30 +1,31 @@
 
 import xml2js from 'xml2js';
 import express from 'express';
-import {
-	XML_ATTRIBUTES_CHAR
-} from '../constants';
 
-const xmlToPlexJsonParser = new xml2js.Parser({
-	mergeAttrs: true,
-	explicitRoot: true,
-	explicitArray: true
-});
-const xmlToJsonParser = new xml2js.Parser({
-	attrkey: XML_ATTRIBUTES_CHAR,
-	explicitRoot: true,
-	explicitArray: true
-});
 
 export const parseHttpContentType = (contentType: string): {contentType: string, contentTypeSuffix: string} => {
 	if(!contentType) {
 		return { contentType, contentTypeSuffix: '' };
 	}
-	let contentTypeSuffix = '';
-	let delimeterIndex = contentType.indexOf(',');
-	if(delimeterIndex == -1) {
-		delimeterIndex = contentType.indexOf(';');
+	// find delimeter
+	let commaIndex = contentType.indexOf(',');
+	let semicolonIndex = contentType.indexOf(';');
+	let delimeterIndex;
+	if(commaIndex != -1) {
+		if(semicolonIndex != -1) {
+			if(commaIndex < semicolonIndex) {
+				delimeterIndex = commaIndex;
+			} else {
+				delimeterIndex = semicolonIndex;
+			}
+		} else {
+			delimeterIndex = commaIndex;
+		}
+	} else {
+		delimeterIndex = semicolonIndex;
 	}
+	// slice string
+	let contentTypeSuffix = '';
 	if(delimeterIndex != -1) {
 		contentTypeSuffix = contentType.substring(delimeterIndex);
 		contentType = contentType.substring(0, delimeterIndex);
@@ -32,42 +33,61 @@ export const parseHttpContentType = (contentType: string): {contentType: string,
 	return {contentType,contentTypeSuffix};
 };
 
-export const convertXMLStringToPlexJsonString = async (xmlString: string): Promise<string> => {
-	const json = await xmlToPlexJsonParser.parseStringPromise(xmlString);
-	return JSON.stringify(json);
-};
 
-export const parseXMLStringToJson = async (xmlString: string): Promise<any> => {
+const xmlToJsonParser = new xml2js.Parser({
+	mergeAttrs: true,
+	explicitRoot: true,
+	explicitArray: true
+});
+
+export const plexXMLToJS = async (xmlString: string): Promise<any> => {
 	return await xmlToJsonParser.parseStringPromise(xmlString);
 };
 
-export const modifyXmlJsonToPlexJson = async (json: any): Promise<any> => {
-	if(!json || typeof json !== 'object') {
-		return;
-	}
-	// enumerate children
-	if(json instanceof Array) {
-		// map elements
-		for(const element of json) {
-			modifyXmlJsonToPlexJson(element);
+const attrKey = Symbol("Attribute key");
+
+const convertPlexJSForXMLBuilder = (json: any, parentKey: string) => {
+	const xmlObj = {};
+	const xmlAttrs = {};
+	for(const key in json) {
+		const val = json[key];
+		if(val == null) {
+			// ignore
+			continue;
 		}
-	} else {
-		// map object and children
-		for(const key in json) {
-			if(key == XML_ATTRIBUTES_CHAR) {
-				continue;
-			}
-			const val = json[key];
-			modifyXmlJsonToPlexJson(val);
-		}
-		// merge attributes into object
-		const attrs = json[XML_ATTRIBUTES_CHAR];
-		if(attrs) {
-			delete json[XML_ATTRIBUTES_CHAR];
-			Object.assign(json, attrs);
+		const valType = typeof val;
+		if(valType === 'string' || valType === 'number' || valType === 'boolean') {
+			xmlAttrs[key] = val;
+		} else if(val instanceof Array) {
+			xmlObj[key] = val.map((element) => convertPlexJSForXMLBuilder(element, key));
+		} else {
+			xmlObj[key] = convertPlexJSForXMLBuilder(val, key);
 		}
 	}
+	xmlObj[attrKey] = xmlAttrs;
+	return xmlObj;
 };
+
+export const plexJSToXML = (json: any): string => {
+	// get the root key
+	const rootKeys = Object.keys(json);
+	if(rootKeys.length != 1) {
+		console.error(`1 key should exist in the root object, but found ${rootKeys.length} (${rootKeys.join(", ")})`);
+	}
+	const rootKey = rootKeys[0];
+	// reformat for xml builder
+	if(rootKey) {
+		json = json[rootKey];
+	}
+	json = convertPlexJSForXMLBuilder(json, rootKey);
+	// convert
+	const xmlBuilder = new xml2js.Builder({
+		rootName: rootKey,
+		attrkey: attrKey as any
+	});
+	return xmlBuilder.buildObject(json);
+};
+
 
 export const serializeResponseContent = (userReq: express.Request, userRes: express.Response, data: any): {
 	contentType: string;
@@ -75,29 +95,15 @@ export const serializeResponseContent = (userReq: express.Request, userRes: expr
  } => {
 	const acceptType = parseHttpContentType(userReq.headers['accept']).contentType;
 	if(acceptType == 'application/json') {
-		// convert structure to plex style json
-		modifyXmlJsonToPlexJson(data);
 		return {
 			contentType: 'application/json',
 			data: JSON.stringify(data)
 		}
 	} else {
-		// convert back to xml
-		const rootKeys = Object.keys(data);
-		if(rootKeys.length != 1) {
-			console.error("1 key should exist in the root object");
-		}
-		const rootKey = rootKeys[0];
-		const xmlBuilder = new xml2js.Builder({
-			rootName: rootKey,
-			attrkey: XML_ATTRIBUTES_CHAR
-		});
-		if(rootKey) {
-			data = data[rootKey];
-		}
+		// convert to xml
 		return {
 			contentType: 'text/xml',
-			data: xmlBuilder.buildObject(data)
+			data: plexJSToXML(data)
 		};
 	}
 };
