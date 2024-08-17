@@ -72,6 +72,19 @@ export const nameOf = (obj: {[key:string]: any}): string => {
 	return undefined;
 };
 
+export const combinePathSegments = (part1: string, part2: string) => {
+	if(!part2) {
+		return part1;
+	}
+	if(!part2) {
+		return part1;
+	}
+	if(part1.endsWith('/')) {
+		return part1 + part2;
+	}
+	return `${part1}/${part2}`;
+};
+
 export type URLPathParts = {
 	path: string;
 	query?: string;

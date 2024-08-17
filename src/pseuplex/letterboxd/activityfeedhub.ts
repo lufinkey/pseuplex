@@ -22,6 +22,7 @@ import {
 	LoadableListChunk
 } from '../../fetching/LoadableList';
 import * as lbtransform from './transform';
+import * as pseuLetterboxdCache from './cache';
 
 export type LetterboxdUserFeedHubOptions = {
 	letterboxdUsername: string;
@@ -102,9 +103,13 @@ export class LetterboxdUserFollowingActivityFeedHub extends PseuplexHub<Letterbo
 		const lbTransformFilmOpts: lbtransform.LetterboxdToPlexOptions = {
 			letterboxdMetadataBasePath: opts.letterboxdMetadataBasePath
 		};
+		let hubKey = opts.hubPath;
+		if(listStartToken) {
+			hubKey = addQueryArgumentToURLPath(opts.hubPath, `listStartToken=${listStartToken}`);
+		}
 		return {
 			hub: {
-				key: addQueryArgumentToURLPath(opts.hubPath, `listStartToken=${listStartToken}`),
+				key: hubKey,
 				title: `${opts.letterboxdUsername}'s Letterboxd Following Feed`,
 				type: PlexMediaItemType.Movie,
 				hubIdentifier: opts.context + ((params.contentDirectoryID != null && !(params.contentDirectoryID instanceof Array)) ? `.${params.contentDirectoryID}` : ''),
@@ -113,9 +118,15 @@ export class LetterboxdUserFollowingActivityFeedHub extends PseuplexHub<Letterbo
 				promoted: opts.promoted
 			},
 			itemsPage: {
-				items: chunk.items.map((itemNode) => {
+				items: await Promise.all(chunk.items.map(async (itemNode) => {
+					try {
+						const filmInfo = await pseuLetterboxdCache.metadataCache.fetch(itemNode.item.slug);
+						return lbtransform.filmInfoToPlexMetadata(filmInfo, lbTransformFilmOpts);
+					} catch(error) {
+						console.error(error);
+					}
 					return lbtransform.activityFeedFilmToPlexMetadata(itemNode.item, lbTransformFilmOpts);
-				}),
+				})),
 				offset: start,
 				more: chunk.hasMore,
 				totalCount: opts.uniqueItemsOnly ? this._itemList.totalUniqueItemCount : this._itemList.totalItemCount

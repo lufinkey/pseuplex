@@ -1,14 +1,8 @@
 
-import {
-	getLetterboxdMetadataItems,
-	LetterboxdFeedHubParams,
-	LetterboxdUserFollowingActivityFeedHub
-} from './letterboxd';
+import * as letterboxdRetriever from 'letterboxd-retriever';
+import * as pseuLetterboxd from './letterboxd';
 import * as plexTypes from '../plex/types';
-
-const letterboxdUserFollowingActivityLists: {
-	[key: string]: LetterboxdUserFollowingActivityFeedHub
-} = {};
+import { CachedFetcher } from '../fetching/CachedFetcher';
 
 const pseuplex = {
 	letterboxd: {
@@ -19,8 +13,14 @@ const pseuplex = {
 		metadata: {
 			basePath: '/pseuplex/letterboxd/metadata',
 			get: async (slugs: string[]): Promise<plexTypes.PlexMediaContainerPage> => {
-				const metadatas = await getLetterboxdMetadataItems(slugs, {
+				const metadataItems = await Promise.all(slugs.map((slug) => {
+					return pseuLetterboxd.metadataCache.fetch(slug);
+				}));
+				const transformOpts: pseuLetterboxd.LetterboxdToPlexOptions = {
 					letterboxdMetadataBasePath: pseuplex.letterboxd.metadata.basePath
+				};
+				const metadatas = metadataItems.map((item) => {
+					return pseuLetterboxd.filmInfoToPlexMetadata(item, transformOpts);
 				});
 				return {
 					size: metadatas.length,
@@ -37,11 +37,12 @@ const pseuplex = {
 		hubs: {
 			userFollowingActivity: {
 				path: '/pseuplex/letterboxd/hubs/following',
-				get: (letterboxdUsername: string): LetterboxdUserFollowingActivityFeedHub => {
+				lists: {} as {[key: string]: pseuLetterboxd.LetterboxdUserFollowingActivityFeedHub},
+				get: (letterboxdUsername: string): pseuLetterboxd.LetterboxdUserFollowingActivityFeedHub => {
 					// TODO fetch profile
-					let list = letterboxdUserFollowingActivityLists[letterboxdUsername];
+					let list = pseuplex.letterboxd.hubs.userFollowingActivity.lists[letterboxdUsername];
 					if(!list) {
-						list = new LetterboxdUserFollowingActivityFeedHub({
+						list = new pseuLetterboxd.LetterboxdUserFollowingActivityFeedHub({
 							hubPath: `${pseuplex.letterboxd.hubs.userFollowingActivity.path}?letterboxdUsername=${letterboxdUsername}`,
 							context: `hub.custom.letterboxdfollowing.${letterboxdUsername}`,
 							letterboxdMetadataBasePath: pseuplex.letterboxd.metadata.basePath,
@@ -52,7 +53,7 @@ const pseuplex = {
 							uniqueItemsOnly: true,
 							verbose: true
 						});
-						letterboxdUserFollowingActivityLists[letterboxdUsername] = list;
+						pseuplex.letterboxd.hubs.userFollowingActivity.lists[letterboxdUsername] = list;
 					}
 					return list;
 				}

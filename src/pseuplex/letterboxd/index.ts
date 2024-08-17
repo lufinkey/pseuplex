@@ -1,3 +1,4 @@
 
 export * from './activityfeedhub';
-export * from './metadata';
+export * from './transform';
+export * from './cache';

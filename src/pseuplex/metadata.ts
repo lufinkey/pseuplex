@@ -1,7 +1,4 @@
 
-import { mapObject } from '../utils';
-import { PlexMetadataPage } from "../plex/types";
-
 export enum PseuplexMetadataSource {
 	Plex = 'plex',
 	Letterboxd = 'letterboxd'
@@ -39,5 +36,8 @@ export const parseMetadataID = (idString: string) => {
 };
 
 export const stringifyMetadataID = (id: PseuplexMetadataID) => {
+	if(!id.basePath) {
+		return `${id.source}:${id.id}`;
+	}
 	return `${id.source}:${id.basePath}:${id.id}`;
 };
