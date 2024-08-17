@@ -5,7 +5,7 @@ export type LoadableListItemNode<ItemType,TokenType> = {
 	item: ItemType;
 };
 
-export type LoadableListLoaderChunk<ItemType,ItemTokenType,PageTokenType> = {
+export type LoadableListFetchedChunk<ItemType,ItemTokenType,PageTokenType> = {
 	items: LoadableListItemNode<ItemType,ItemTokenType>[];
 	nextPageToken: PageTokenType | null;
 };
@@ -15,11 +15,11 @@ export type LoadableListChunk<ItemType,ItemTokenType> = {
 	hasMore: boolean;
 };
 
-export type LoadableListChunkLoader<ItemType,ItemTokenType,PageTokenType> = (nextPageToken: PageTokenType | null) => Promise<LoadableListLoaderChunk<ItemType,ItemTokenType,PageTokenType>>;
+export type LoadableListChunkLoader<ItemType,ItemTokenType,PageTokenType> = (nextPageToken: PageTokenType | null) => Promise<LoadableListFetchedChunk<ItemType,ItemTokenType,PageTokenType>>;
 export type TokenComparer<TokenType> = (token1: TokenType, token2: TokenType) => number;
 
 
-const checkAndAdjustChunkForFragmentMerge = <ItemType,ItemTokenType,PageTokenType>(chunk: LoadableListLoaderChunk<ItemType,ItemTokenType,PageTokenType>, nextFragmentStartToken: ItemTokenType, tokenComparer: TokenComparer<ItemTokenType>) => {
+const checkAndAdjustChunkForFragmentMerge = <ItemType,ItemTokenType,PageTokenType>(chunk: LoadableListFetchedChunk<ItemType,ItemTokenType,PageTokenType>, nextFragmentStartToken: ItemTokenType, tokenComparer: TokenComparer<ItemTokenType>) => {
 	const mergeIndex = chunk.items.findIndex((itemNode) => (tokenComparer(itemNode.token, nextFragmentStartToken) >= 0));
 	if(mergeIndex != -1) {
 		chunk.items = chunk.items.slice(0, mergeIndex);
@@ -42,8 +42,8 @@ export type LoadableListFragmentOptions<ItemType,ItemTokenType,PageTokenType> = 
 class LoadableListFragment<ItemType,ItemTokenType,PageTokenType> {
 	_options: LoadableListFragmentOptions<ItemType,ItemTokenType,PageTokenType>;
 
-	_contents: LoadableListLoaderChunk<ItemType,ItemTokenType,PageTokenType>;
-	_nextChunkTask: Promise<LoadableListLoaderChunk<ItemType,ItemTokenType,PageTokenType>> | null = null;
+	_contents: LoadableListFetchedChunk<ItemType,ItemTokenType,PageTokenType>;
+	_nextChunkTask: Promise<LoadableListFetchedChunk<ItemType,ItemTokenType,PageTokenType>> | null = null;
 
 	_uniqueItemIds: string[];
 	_itemIdsMap: {[id: string]: number};
@@ -52,9 +52,14 @@ class LoadableListFragment<ItemType,ItemTokenType,PageTokenType> {
 	_nextFragment: LoadableListFragment<ItemType,ItemTokenType,PageTokenType> | null;
 	_nextFragmentMerged: boolean;
 
-	constructor(chunk: LoadableListLoaderChunk<ItemType,ItemTokenType,PageTokenType>, options: LoadableListFragmentOptions<ItemType,ItemTokenType,PageTokenType>, nextFragment: LoadableListFragment<ItemType,ItemTokenType,PageTokenType> | null) {
+	constructor(chunk: LoadableListFetchedChunk<ItemType,ItemTokenType,PageTokenType>, options: LoadableListFragmentOptions<ItemType,ItemTokenType,PageTokenType>, nextFragment: LoadableListFragment<ItemType,ItemTokenType,PageTokenType> | null) {
 		this._options = options;
-		if(nextFragment != null) {
+		// ignore empty fragments
+		while(nextFragment != null &&nextFragment._contents.items.length == 0 && !nextFragment.isLoading) {
+			nextFragment = nextFragment._nextFragment;
+		}
+		// merge next fragment if needed
+		if(nextFragment != null && (nextFragment._contents.items.length > 0 || nextFragment.isLoading || nextFragment.hasMoreItems)) {
 			const merged = checkAndAdjustChunkForFragmentMerge(chunk, nextFragment.startItemToken, options.tokenComparer);
 			this._nextFragmentMerged = merged;
 			this._nextFragment = nextFragment;
@@ -70,13 +75,22 @@ class LoadableListFragment<ItemType,ItemTokenType,PageTokenType> {
 
 	static async create<ItemType,ItemTokenType,PageTokenType>(options: LoadableListFragmentOptions<ItemType,ItemTokenType,PageTokenType>, nextFragment: LoadableListFragment<ItemType,ItemTokenType,PageTokenType> | null): Promise<LoadableListFragment<ItemType,ItemTokenType,PageTokenType>> {
 		const chunk = await options.loader(null);
-		if(chunk.items.length == 0 && nextFragment != null) {
-			return nextFragment;
+		if(nextFragment != null) {
+			if(chunk.items.length == 0) {
+				return nextFragment;
+			}
+			// if both fragments start at the same item, ignore the new chunk and just return the old fragment
+			const startToken = nextFragment.startItemToken;
+			if(startToken != null && startToken == chunk.items[0]?.token) {
+				if(chunk.items.length <= nextFragment.itemCount) {
+					return nextFragment;
+				}
+			}
 		}
 		return new LoadableListFragment<ItemType,ItemTokenType,PageTokenType>(chunk, options, nextFragment);
 	}
 
-	_appendUniqueItems(chunk: LoadableListLoaderChunk<ItemType,ItemTokenType,PageTokenType>, startIndex: number) {
+	_appendUniqueItems(chunk: LoadableListFetchedChunk<ItemType,ItemTokenType,PageTokenType>, startIndex: number) {
 		let index = startIndex;
 		for(const itemNode of chunk.items) {
 			if(!(itemNode.id in this._itemIdsMap)) {
@@ -126,6 +140,30 @@ class LoadableListFragment<ItemType,ItemTokenType,PageTokenType> {
 		return this;
 	}
 
+	combineFragmentsIfAble() {
+		// cannot combine fragments while loading
+		if(this.isLoading) {
+			return;
+		}
+		// merge fragments
+		while(this._nextFragment != null && this._nextFragmentMerged && !this._nextFragment.isLoading) {
+			const nextFragment = this._nextFragment;
+			const nextChunk = nextFragment._contents;
+			const prevCount = this._contents.items.length;
+			this._contents.items = this._contents.items.concat(nextChunk.items);
+			this._contents.nextPageToken = nextChunk.nextPageToken;
+			// add unique items
+			for(const itemId of nextFragment._uniqueItemIds) {
+				if(!(itemId in this._itemIdsMap)) {
+					this._uniqueItemIds.push(itemId);
+					this._itemIdsMap[itemId] = prevCount + nextFragment._itemIdsMap[itemId];
+				}
+			}
+			this._nextFragment = nextFragment._nextFragment;
+			this._nextFragmentMerged = nextFragment._nextFragmentMerged;
+		}
+	}
+	
 	findItemTokenPoint(token: ItemTokenType): {
 		fragment: LoadableListFragment<ItemType,ItemTokenType,PageTokenType>,
 		index: number,
@@ -244,23 +282,24 @@ class LoadableListFragment<ItemType,ItemTokenType,PageTokenType> {
 			if(this._nextChunkTask == null) {
 				// load the next chunk
 				this._nextChunkTask = this._options.loader(this._contents.nextPageToken);
-				let nextChunk: LoadableListLoaderChunk<ItemType,ItemTokenType,PageTokenType>;
+				let nextChunk: LoadableListFetchedChunk<ItemType,ItemTokenType,PageTokenType>;
 				try {
 					nextChunk = await this._nextChunkTask;
+					// check if chunk has merged with the next fragment
+					if(this._nextFragment != null) {
+						const merged = checkAndAdjustChunkForFragmentMerge(nextChunk, this._nextFragment.startItemToken, this._options.tokenComparer);
+						if(merged) {
+							this._nextFragmentMerged = true;
+						}
+					}
+					// append chunk
+					const prevEndIndex = contentsItems.length;
+					contentsItems.push(...nextChunk.items);
+					this._contents.nextPageToken = nextChunk.nextPageToken;
+					this._appendUniqueItems(nextChunk, prevEndIndex);
 				} finally {
 					this._nextChunkTask = null;
 				}
-				// check if chunk has merged with the next fragment
-				if(this._nextFragment != null) {
-					const merged = checkAndAdjustChunkForFragmentMerge(nextChunk, this._nextFragment.startItemToken, this._options.tokenComparer);
-					if(merged) {
-						this._nextFragmentMerged = true;
-					}
-				}
-				const prevEndIndex = contentsItems.length;
-				contentsItems.push(...nextChunk.items);
-				this._contents.nextPageToken = nextChunk.nextPageToken;
-				this._appendUniqueItems(nextChunk, prevEndIndex);
 			} else {
 				// wait for the next chunk to load
 				await this._nextChunkTask;
@@ -317,8 +356,9 @@ export class LoadableList<ItemType,ItemTokenType,PageTokenType> {
 	_newFragmentTask: Promise<LoadableListFragment<ItemType,ItemTokenType,PageTokenType>> | null = null;
 	_fragment: LoadableListFragment<ItemType,ItemTokenType,PageTokenType> | null = null;
 	_lastNewFragmentFetchTime: number;
+	_fragmentMergeTimeout: NodeJS.Timeout | null = null;
 
-	listStartFetchInterval: number | 'never' = 60 * 5;
+	listStartFetchInterval: number | 'never' = 60;
 	
 	constructor(options: LoadableListOptions<ItemType,ItemTokenType,PageTokenType>) {
 		this._options = {...options};
@@ -356,6 +396,22 @@ export class LoadableList<ItemType,ItemTokenType,PageTokenType> {
 		return count;
 	}
 
+	_queueFragmentMerge() {
+		if(this._fragmentMergeTimeout != null) {
+			// already queued
+			return;
+		}
+		const startFragment = this._fragment;
+		if(startFragment._nextFragment == null || startFragment.isLoading || startFragment._nextFragment.isLoading) {
+			// don't queue right now
+			return;
+		}
+		this._fragmentMergeTimeout = setTimeout(() => {
+			this._fragmentMergeTimeout = null;
+			startFragment.combineFragmentsIfAble();
+		}, 0);
+	}
+
 	async getOrFetchStartItems(maxCount: number, options: GetItemsOptions): Promise<LoadableListChunk<ItemType,ItemTokenType>> {
 		if(this._newFragmentTask == null) {
 			// determine if the start fragment needs to be fetched again
@@ -370,7 +426,7 @@ export class LoadableList<ItemType,ItemTokenType,PageTokenType> {
 				try {
 					const newFragment = await newFragmentTask;
 					this._fragment = newFragment;
-					// TODO combine the fragment with the next fragment
+					this._lastNewFragmentFetchTime = process.uptime();
 				} finally {
 					this._newFragmentTask = null;
 				}
@@ -380,8 +436,10 @@ export class LoadableList<ItemType,ItemTokenType,PageTokenType> {
 			await this._newFragmentTask;
 		}
 		const startFragment = this._fragment;
-		// load atleast 1 item into the list if possible
+		// attempt to load atleast 1 item into the list
 		await startFragment.getOrFetchItems(0, 1, options);
+		// merge fragments after a delay
+		this._queueFragmentMerge();
 		// return the items from the start of the list
 		return options.unique ?
 			startFragment.getUniqueItems(0, maxCount)
@@ -389,6 +447,7 @@ export class LoadableList<ItemType,ItemTokenType,PageTokenType> {
 	}
 	
 	async getOrFetchItems(startToken: ItemTokenType, offset: number, count: number, options: GetItemsOptions): Promise<LoadableListChunk<ItemType,ItemTokenType>> {
+		// find where the start token begins in the list
 		const tokenPoint = this._fragment.findItemTokenPoint(startToken);
 		if(tokenPoint == null) {
 			console.warn(`Failed to find token ${startToken}`);
@@ -397,7 +456,12 @@ export class LoadableList<ItemType,ItemTokenType,PageTokenType> {
 				hasMore: false
 			};
 		}
+		// fetch the items
 		const startIndex = options.unique ? (tokenPoint.uniqueIndex+offset) : (tokenPoint.index+offset);
-		return await tokenPoint.fragment.getOrFetchItems(startIndex, count, options);
+		const page = await tokenPoint.fragment.getOrFetchItems(startIndex, count, options);
+		// merge fragments after a delay
+		this._queueFragmentMerge();
+		// done
+		return page;
 	}
 }

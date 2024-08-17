@@ -49,7 +49,8 @@ const pseuplex = {
 							defaultItemCount: 16,
 							style: plexTypes.PlexHubStyle.Shelf,
 							promoted: true,
-							uniqueItemsOnly: true
+							uniqueItemsOnly: true,
+							verbose: true
 						});
 						letterboxdUserFollowingActivityLists[letterboxdUsername] = list;
 					}

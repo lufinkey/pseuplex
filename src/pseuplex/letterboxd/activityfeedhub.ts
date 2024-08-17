@@ -14,8 +14,13 @@ import {
 	PlexMediaItemType,
 	PlexMetadataItem
 } from '../../plex/types';
-import { addQueryArgumentToURLPath } from '../../utils';
-import { LoadableList, LoadableListChunk } from '../../fetching/LoadableList';
+import {
+	addQueryArgumentToURLPath
+} from '../../utils';
+import {
+	LoadableList,
+	LoadableListChunk
+} from '../../fetching/LoadableList';
 import * as lbtransform from './transform';
 
 export type LetterboxdUserFeedHubOptions = {
@@ -26,6 +31,7 @@ export type LetterboxdUserFeedHubOptions = {
 	promoted?: boolean;
 	defaultItemCount: number;
 	uniqueItemsOnly: boolean;
+	verbose: boolean;
 } & lbtransform.LetterboxdToPlexOptions;
 
 type PageToken = {
@@ -46,6 +52,9 @@ export class LetterboxdUserFollowingActivityFeedHub extends PseuplexHub<Letterbo
 		this._options = options;
 		this._itemList = new LoadableList<letterboxd.ActivityFeedFilm,number,PageToken>({
 			loader: async (pageToken: PageToken | null) => {
+				if(this._options.verbose) {
+					console.log(`Fetching letterboxd following feed for user ${this._options.letterboxdUsername} (pageToken=${JSON.stringify(pageToken)})`);
+				}
 				const page = await letterboxd.getUserFollowingFeed(this._options.letterboxdUsername, {
 					after: pageToken?.token ?? undefined,
 					csrf: pageToken?.csrf ?? undefined
