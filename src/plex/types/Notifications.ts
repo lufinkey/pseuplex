@@ -1,7 +1,12 @@
 
+export type PlexNotificationMessage = {
+	NotificationContainer: PlexNotification
+};
+
 export enum PlexNotificationType {
 	Activity = 'activity',
-	Playing = 'playing'
+	Playing = 'playing',
+	UpdateStateChange = 'update.statechange'
 };
 
 export type PlexNotification = {
@@ -12,6 +17,10 @@ export type PlexNotification = {
 	type: PlexNotificationType.Playing;
 	size: number;
 	PlaySessionStateNotification: PlexPlaySessionStateNotification[];
+} | {
+	type: PlexNotificationType.UpdateStateChange;
+	size: number;
+	AutoUpdateNotification: PlexAutoUpdateNotification[];
 };
 
 
@@ -68,3 +77,12 @@ export type PlexPlaySessionStateNotification = {
 	playQueueID: number;
 	state: PlexPlaySessionState;
 }
+
+
+// Update State Change
+
+export type PlexAutoUpdateNotification = {
+	key: string;
+	version: string;
+	state: 'done';
+};
