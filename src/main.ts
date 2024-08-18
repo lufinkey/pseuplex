@@ -116,6 +116,7 @@ app.get('/hubs', plexApiProxy(cfg, args, {
 	}
 }));*/
 
+// handle websocket notifications
 const plexWSProxy = plexHttpProxy(cfg, args);
 app.get('/:/websockets/notifications', (req, res) => {
 	plexWSProxy.web(req,res);
@@ -124,11 +125,13 @@ app.get('/:/websockets/notifications', (req, res) => {
 // proxy requests to plex
 app.use(plexThinProxy(cfg, args));
 
+// create http+https server
 const server: https.Server = httpolyglot.createServer({
 	key: fs.readFileSync(cfg.ssl.keyPath),
 	cert: fs.readFileSync(cfg.ssl.certPath)
 }, app);
 
+// handle upgrade to socket
 server.on('upgrade', (req, socket, head) => {
 	if(args.logUserRequests) {
 		console.log(`upgrade ws ${req.url}`);
@@ -136,6 +139,7 @@ server.on('upgrade', (req, socket, head) => {
 	const urlParts = parseURLPath(req.url);
 	const plexToken = stringParam(urlParts.query['X-Plex-Token']);
 	if(plexToken) {
+		// save socket per plex token
 		let sockets = clientSockets[plexToken];
 		if(!sockets) {
 			sockets = [];
@@ -146,10 +150,13 @@ server.on('upgrade', (req, socket, head) => {
 			const socketIndex = sockets.indexOf(socket);
 			if(socketIndex != -1) {
 				sockets.splice(socketIndex, 1);
+				if(sockets.length == 0) {
+					delete clientSockets[plexToken];
+				}
 			} else {
 				console.error(`Couldn't find socket to remove for ${req.url}`);
 			}
-			if(args.verbose) {
+			if(args.logUserRequests) {
 				console.log(`closed socket ${req.url}`);
 			}
 		});
