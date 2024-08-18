@@ -7,11 +7,11 @@ export enum PlexNotificationType {
 export type PlexNotification = {
 	type: PlexNotificationType.Activity;
 	size: number;
-	ActivityNotification?: PlexActivityNotification[];
+	ActivityNotification: PlexActivityNotification[];
 } | {
 	type: PlexNotificationType.Playing;
 	size: number;
-	PlaySessionStateNotification?: PlexPlaySessionStateNotification[];
+	PlaySessionStateNotification: PlexPlaySessionStateNotification[];
 };
 
 
