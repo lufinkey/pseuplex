@@ -447,6 +447,10 @@ export class LoadableList<ItemType,ItemTokenType,PageTokenType> {
 	}
 	
 	async getOrFetchItems(startToken: ItemTokenType, offset: number, count: number, options: GetItemsOptions): Promise<LoadableListChunk<ItemType,ItemTokenType>> {
+		// get starting fragment if needed
+		if(this._fragment == null) {
+			await this.getOrFetchStartItems(count, options);
+		}
 		// find where the start token begins in the list
 		const tokenPoint = this._fragment.findItemTokenPoint(startToken);
 		if(tokenPoint == null) {

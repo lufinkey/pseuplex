@@ -1,15 +1,18 @@
 import url from 'url';
 import qs from 'querystring';
 import fs from 'fs';
+import stream from 'stream';
+import https from 'https';
 import httpolyglot from 'httpolyglot';
 import express from 'express';
 import { readConfigFile } from './config';
 import * as constants from './constants';
 import { parseCmdArgs } from './cmdargs';
 import {
-	plexProxy,
 	plexThinProxy,
-	plexApiProxy } from './plex/proxy';
+	plexApiProxy,
+	plexHttpProxy
+} from './plex/proxy';
 import * as plexTypes from './plex/types';
 import { handlePlexAPIRequest } from './plex/requesthandling';
 import pseuplex from './pseuplex';
@@ -18,7 +21,8 @@ import {
 	stringParam,
 	intParam,
 	stringArrayParam,
-	booleanParam
+	booleanParam,
+	parseURLPath
 } from './utils';
 
 // parse command line arguments
@@ -47,6 +51,7 @@ if (!cfg.ssl?.certPath) {
 
 // prepare server
 const app = express();
+const clientSockets: {[key: string]: stream.Duplex[]} = {};
 
 // handle letterboxd requests
 app.get(`${pseuplex.letterboxd.metadata.basePath}/:filmSlugs`, async (req, res) => {
@@ -111,13 +116,46 @@ app.get('/hubs', plexApiProxy(cfg, args, {
 	}
 }));*/
 
+const plexWSProxy = plexHttpProxy(cfg, args);
+app.get('/:/websockets/notifications', (req, res) => {
+	plexWSProxy.web(req,res);
+});
+
 // proxy requests to plex
 app.use(plexThinProxy(cfg, args));
 
-const server = httpolyglot.createServer({
+const server: https.Server = httpolyglot.createServer({
 	key: fs.readFileSync(cfg.ssl.keyPath),
 	cert: fs.readFileSync(cfg.ssl.certPath)
 }, app);
+
+server.on('upgrade', (req, socket, head) => {
+	if(args.logUserRequests) {
+		console.log(`upgrade ws ${req.url}`);
+	}
+	const urlParts = parseURLPath(req.url);
+	const plexToken = stringParam(urlParts.query['X-Plex-Token']);
+	if(plexToken) {
+		let sockets = clientSockets[plexToken];
+		if(!sockets) {
+			sockets = [];
+			clientSockets[plexToken] = sockets;
+		}
+		sockets.push(socket);
+		socket.on('close', () => {
+			const socketIndex = sockets.indexOf(socket);
+			if(socketIndex != -1) {
+				sockets.splice(socketIndex, 1);
+			} else {
+				console.error(`Couldn't find socket to remove for ${req.url}`);
+			}
+			if(args.verbose) {
+				console.log(`closed socket ${req.url}`);
+			}
+		});
+	}
+	plexWSProxy.ws(req, socket, head);
+});
 
 // start server
 server.listen(cfg.port, () => {

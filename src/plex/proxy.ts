@@ -3,6 +3,7 @@ import url from 'url';
 import http from 'http';
 import express from 'express';
 import expressHttpProxy from 'express-http-proxy';
+import httpProxy from 'http-proxy';
 import * as constants from '../constants';
 import { Config } from '../config';
 import { CommandArguments } from '../cmdargs';
@@ -29,7 +30,7 @@ export const plexThinProxy = (cfg: Config, args: CommandArguments, opts: express
 			return req.originalUrl;
 		};
 	}
-	return expressHttpProxy(`${cfg.plex.host}:${cfg.plex.port}`, options);
+	return expressHttpProxy(`${cfg.plex.host.indexOf('://') != -1 ? '' : 'http://'}${cfg.plex.host}:${cfg.plex.port}`, options);
 };
 
 export const plexProxy = (cfg: Config, args: CommandArguments, opts: expressHttpProxy.ProxyOptions = {}) => {
@@ -141,5 +142,21 @@ export const plexApiProxy = (cfg: Config, args: CommandArguments, opts: {
 			}
 			return resData;
 		}
+	});
+};
+
+export const plexHttpProxy = (cfg: Config, args: CommandArguments) => {
+	let host = cfg.plex.host;
+	const protocolIndex = host.indexOf('://');
+	if(protocolIndex != -1) {
+		host = host.substring(protocolIndex+3);
+	}
+	return httpProxy.createProxyServer({
+		target: {
+			host: host,
+			port: cfg.plex.port
+		},
+		ws: true,
+		xfwd: true
 	});
 };
