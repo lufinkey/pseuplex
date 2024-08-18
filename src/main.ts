@@ -85,19 +85,23 @@ app.get(pseuplex.letterboxd.hubs.userFollowingActivity.path, async (req, res) =>
 
 app.get('/hubs', plexApiProxy(cfg, args, {
 	responseModifier: async (proxyRes, resData: plexTypes.PlexMediaContainerResponse, userReq, userRes) => {
-		const params = plexTypes.parsePlexHubQueryParams(userReq.query, {includePagination:false});
-		const hub = pseuplex.letterboxd.hubs.userFollowingActivity.get('luisfinke');
-		const page = await hub.getHubListEntry({
-			...params,
-			listStartToken: stringParam(userReq.query['listStartToken'])
-		});
-		if(!resData.MediaContainer.Hub) {
-			resData.MediaContainer.Hub = [];
-		} else if(!(resData.MediaContainer.Hub instanceof Array)) {
-			resData.MediaContainer.Hub = [resData.MediaContainer.Hub];
+		try {
+			const params = plexTypes.parsePlexHubQueryParams(userReq.query, {includePagination:false});
+			const hub = pseuplex.letterboxd.hubs.userFollowingActivity.get(cfg.letterboxdUsername);
+			const page = await hub.getHubListEntry({
+				...params,
+				listStartToken: stringParam(userReq.query['listStartToken'])
+			});
+			if(!resData.MediaContainer.Hub) {
+				resData.MediaContainer.Hub = [];
+			} else if(!(resData.MediaContainer.Hub instanceof Array)) {
+				resData.MediaContainer.Hub = [resData.MediaContainer.Hub];
+			}
+			resData.MediaContainer.Hub.splice(0, 0, page);
+			resData.MediaContainer.size += 1;
+		} catch(error) {
+			console.error(error);
 		}
-		resData.MediaContainer.Hub.splice(0, 0, page);
-		resData.MediaContainer.size += 1;
 		return resData;
 	}
 }));

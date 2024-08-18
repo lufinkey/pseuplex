@@ -10,7 +10,8 @@ export interface Config {
 	ssl: {
 		keyPath: string,
 		certPath: string
-	}
+	},
+	letterboxdUsername: string
 }
 
 export const readConfigFile = (path: string): Config => {
