@@ -8,7 +8,7 @@ services:
       - 32401:32400
     environment:
       - TZ=America/New_York
-      - ADVERTISE_IP=http://192.168.1.148:32400/
+      - ADVERTISE_IP=https://mydomain.com:32400,http://mydomain.com:32400,http://192.168.1.148:32400/
     hostname: mydomain.com
     volumes:
       - /var/lib/plexmediaserver:/config
