@@ -27,6 +27,7 @@ export type PlexLibrarySection = {
 	title: string; // "My Movies"
 	updatedAt: number; // timestamp in seconds from 1970
 	scannedAt: number; // timestamp in seconds from 1970
+	Pivot?: PlexLibrarySectionPivot[]
 }
 
 export enum PlexLibrarySectionPivotType {
@@ -42,7 +43,7 @@ export enum PlexPivotContext {
 	Categories = 'content.categories'
 }
 
-export type PlexPivot = {
+export type PlexLibrarySectionPivot = {
 	id: string; // "recommended", "library", "collections", "playlists", "categories"
 	key: string; // "/hubs/section/1", "/library/sections/1/all?type=1", "/library/sections/1/collections", "/playlists?type=15&sectionID=1&playlistType=video"
 	type: PlexLibrarySectionPivotType;

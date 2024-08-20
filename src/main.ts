@@ -120,6 +120,32 @@ app.get('/hubs', plexApiProxy(cfg, args, {
 	}
 }));
 
+/*app.get('/:/prefs', (req, res) => {
+	res.status(200);
+	res.appendHeader('access-control-allow-origin', 'https://app.plex.tv')
+	res.status(200).send(
+		`<MediaContainer size="163">
+	<Setting id="TestSetting" label="Tee Hee" summary="This name will be used to identify this media server to other computers on your network. If you leave it blank, your computer&#39;s name will be used instead." type="text" default="" value="pseuplex" hidden="0" advanced="0" group="general" />
+</MediaContainer>`
+	);
+});
+
+app.get('/media/providers', plexApiProxy(cfg, args, {
+	responseModifier: (proxyRes, resData: plexTypes.PlexMediaProvidersPage, userReq, userRes) => {
+		if(resData.MediaContainer.MediaProvider[0].Feature.findIndex((f) => f.type == 'manage') == -1) {
+			resData.MediaContainer.MediaProvider[0].Feature.push({type:'manage'} as any);
+		}
+		return resData;
+	}
+}));
+
+app.get('/activities', (req, res) => {
+	res.status(200);
+	res.appendHeader('access-control-allow-origin', 'https://app.plex.tv');
+	res.appendHeader('content-type', 'application/json');
+	res.status(200).send(JSON.stringify({MediaContainer:{size:0}}));
+});*/
+
 // proxy requests to plex
 /*app.use('/library/metadata/:metadataId', plexApiProxy(cfg, args, {
 	requestModifier: (proxyReqOpts, userReq) => {
