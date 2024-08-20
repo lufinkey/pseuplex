@@ -94,7 +94,10 @@ app.get(pseuplex.letterboxd.hubs.userFollowingActivity.path, async (req, res) =>
 app.get('/hubs', plexApiProxy(cfg, args, {
 	responseModifier: async (proxyRes, resData: plexTypes.PlexMediaContainerResponse, userReq, userRes) => {
 		try {
-			const plexToken = stringParam(userReq.query['X-Plex-Token']);
+			let plexToken = stringParam(userReq.query['X-Plex-Token']);
+			if(!plexToken) {
+				plexToken = stringParam(userReq.headers['x-plex-token']);
+			}
 			const userInfo = await accountsStore.getTokenUserInfoOrNull(plexToken);
 			console.log(`userInfo for token ${plexToken} is ${userInfo?.email} (isServerOwner=${userInfo?.isServerOwner})`);
 			const perUserCfg = userInfo ? cfg.perUser[userInfo.email] : null;
@@ -181,7 +184,10 @@ server.on('upgrade', (req, socket, head) => {
 		console.log(`upgrade ws ${req.url}`);
 	}
 	const urlParts = parseURLPath(req.url);
-	const plexToken = stringParam(urlParts.query['X-Plex-Token']);
+	let plexToken = stringParam(urlParts.query['X-Plex-Token']);
+	if(!plexToken) {
+		plexToken = stringParam(req.headers['x-plex-token']);
+	}
 	if(plexToken) {
 		// save socket per plex token
 		let sockets = clientWebSockets[plexToken];
