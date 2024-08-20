@@ -2,7 +2,6 @@
 import xml2js from 'xml2js';
 import express from 'express';
 
-
 export const parseHttpContentType = (contentType: string): {contentType: string, contentTypeSuffix: string} => {
 	if(!contentType) {
 		return { contentType, contentTypeSuffix: '' };
@@ -33,18 +32,38 @@ export const parseHttpContentType = (contentType: string): {contentType: string,
 	return {contentType,contentTypeSuffix};
 };
 
+const attrKey = '$';
 
 const xmlToJsonParser = new xml2js.Parser({
-	mergeAttrs: true,
 	explicitRoot: true,
-	explicitArray: true
+	explicitArray: true,
+	attrkey: attrKey as any
+	//mergeAttrs: true
 });
 
 export const plexXMLToJS = async (xmlString: string): Promise<any> => {
-	return await xmlToJsonParser.parseStringPromise(xmlString);
+	const parsedXml = await xmlToJsonParser.parseStringPromise(xmlString);
+	return mergeXML2JSAttrs(parsedXml);
 };
 
-const attrKey = Symbol("Attribute key");
+const mergeXML2JSAttrs = (obj: object) => {
+	if(obj instanceof Array) {
+		for(const element of obj) {
+			mergeXML2JSAttrs(element);
+		}
+	} else {
+		const attrs = obj[attrKey];
+		delete obj[attrKey];
+		for(const key in obj) {
+			const element = obj[key];
+			if(element != null && typeof element === 'object') {
+				mergeXML2JSAttrs(element);
+			}
+		}
+		Object.assign(obj, attrs);
+	}
+	return obj;
+};
 
 const convertPlexJSForXMLBuilder = (json: any, parentKey: string) => {
 	const xmlObj = {};

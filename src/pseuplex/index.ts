@@ -1,8 +1,6 @@
 
-import * as letterboxdRetriever from 'letterboxd-retriever';
 import * as pseuLetterboxd from './letterboxd';
 import * as plexTypes from '../plex/types';
-import { CachedFetcher } from '../fetching/CachedFetcher';
 
 const pseuplex = {
 	letterboxd: {
@@ -12,6 +10,7 @@ const pseuplex = {
 
 		metadata: {
 			basePath: '/pseuplex/letterboxd/metadata',
+			cache: pseuLetterboxd.metadataCache,
 			get: async (slugs: string[]): Promise<plexTypes.PlexMediaContainerPage> => {
 				const metadataItems = await Promise.all(slugs.map((slug) => {
 					return pseuLetterboxd.metadataCache.fetch(slug);

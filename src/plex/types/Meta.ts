@@ -1,7 +1,7 @@
 
 import {
 	PlexMediaItemType
-} from './core';
+} from './common';
 
 export type PlexMetaType = {
 	key: string;

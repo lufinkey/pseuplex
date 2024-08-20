@@ -173,3 +173,36 @@ export const addQueryArgumentToURLPath = (urlPath: string, queryEntry: string) =
 	}
 	return stringifyURLPathParts(parts);
 };
+
+export const unleakString = (str: string) => {
+	return (' '+str).substr(1);
+};
+
+export const fixStringLeaks = (obj: object) => {
+	if(obj == null) {
+		return;
+	}
+	if(obj instanceof Array) {
+		for(let i=0; i<obj.length; i++) {
+			const element = obj[i];
+			if(typeof element === 'string') {
+				obj[i] = unleakString(element);
+			} else if(typeof element === 'object') {
+				if(element != null) {
+					fixStringLeaks(element);
+				}
+			}
+		}
+	} else {
+		for(const key in obj) {
+			const element = obj[key];
+			if(typeof element === 'string') {
+				obj[key] = unleakString(element);
+			} else if(typeof element === 'object') {
+				if(element != null) {
+					fixStringLeaks(element);
+				}
+			}
+		}
+	}
+};

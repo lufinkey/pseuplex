@@ -2,7 +2,7 @@
 import {
 	PlexContentRating,
 	PlexMediaItemType
-} from './core';
+} from './common';
 import {
 	PlexMedia
 } from './Media';

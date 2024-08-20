@@ -15,7 +15,8 @@ import {
 	PlexMetadataItem
 } from '../../plex/types';
 import {
-	addQueryArgumentToURLPath
+	addQueryArgumentToURLPath,
+	fixStringLeaks
 } from '../../utils';
 import {
 	LoadableList,
@@ -60,6 +61,7 @@ export class LetterboxdUserFollowingActivityFeedHub extends PseuplexHub<Letterbo
 					after: pageToken?.token ?? undefined,
 					csrf: pageToken?.csrf ?? undefined
 				});
+				//fixStringLeaks(page);
 				return {
 					items: page.items.filter((item) => (item.film != null)).map((item) => {
 						const token = Number.parseInt(item.id);

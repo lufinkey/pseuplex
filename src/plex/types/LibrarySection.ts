@@ -2,7 +2,7 @@ import {
 	PlexSymbol,
 	PlexLibraryAgent,
 	PlexLibraryScanner
-} from './core';
+} from './common';
 
 export enum PlexLibrarySectionType {
 	Movie = 'movie',

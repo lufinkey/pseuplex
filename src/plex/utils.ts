@@ -3,6 +3,9 @@ export const parseMetadataIDFromKey = (basePath: string, metadataKey: string | n
 	if(!metadataKey) {
 		return null;
 	}
+	if(!metadataKey.endsWith('/')) {
+		metadataKey += '/';
+	}
 	if(!metadataKey.startsWith(basePath)) {
 		console.warn(`Unrecognized metadata key ${metadataKey}`);
 		return null;

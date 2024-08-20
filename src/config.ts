@@ -6,12 +6,17 @@ export interface Config {
 	plex: {
 		host: string;
 		port: number;
+		token: string;
 	},
 	ssl: {
 		keyPath: string,
 		certPath: string
 	},
-	letterboxdUsername: string
+	perUser: {
+		[email: string]: {
+			letterboxdUsername?: string | null;
+		}
+	}
 }
 
 export const readConfigFile = (path: string): Config => {

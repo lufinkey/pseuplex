@@ -24,6 +24,7 @@ import {
 	booleanParam,
 	parseURLPath
 } from './utils';
+import { PseuplexAccountsStore } from './pseuplex/accounts';
 
 // parse command line arguments
 const args = parseCmdArgs(process.argv.slice(2));
@@ -51,7 +52,14 @@ if (!cfg.ssl?.certPath) {
 
 // prepare server
 const app = express();
-const clientSockets: {[key: string]: stream.Duplex[]} = {};
+const accountsStore = new PseuplexAccountsStore({
+	plexServerURL: cfg.plex.host.indexOf('://') != -1 ? `${cfg.plex.host}:${cfg.plex.port}` : `https://${cfg.plex.host}:${cfg.plex.port}`,
+	plexAuthContext: {
+		'X-Plex-Token': cfg.plex.token
+	},
+	sharedServersMinLifetime: 60 * 5
+});
+const clientWebSockets: {[key: string]: stream.Duplex[]} = {};
 
 // handle letterboxd requests
 app.get(`${pseuplex.letterboxd.metadata.basePath}/:filmSlugs`, async (req, res) => {
@@ -86,19 +94,25 @@ app.get(pseuplex.letterboxd.hubs.userFollowingActivity.path, async (req, res) =>
 app.get('/hubs', plexApiProxy(cfg, args, {
 	responseModifier: async (proxyRes, resData: plexTypes.PlexMediaContainerResponse, userReq, userRes) => {
 		try {
-			const params = plexTypes.parsePlexHubQueryParams(userReq.query, {includePagination:false});
-			const hub = pseuplex.letterboxd.hubs.userFollowingActivity.get(cfg.letterboxdUsername);
-			const page = await hub.getHubListEntry({
-				...params,
-				listStartToken: stringParam(userReq.query['listStartToken'])
-			});
-			if(!resData.MediaContainer.Hub) {
-				resData.MediaContainer.Hub = [];
-			} else if(!(resData.MediaContainer.Hub instanceof Array)) {
-				resData.MediaContainer.Hub = [resData.MediaContainer.Hub];
+			const plexToken = stringParam(userReq.query['X-Plex-Token']);
+			const userInfo = await accountsStore.getTokenUserInfoOrNull(plexToken);
+			console.log(`userInfo for token ${plexToken} is ${userInfo?.email} (isServerOwner=${userInfo?.isServerOwner})`);
+			const perUserCfg = userInfo ? cfg.perUser[userInfo.email] : null;
+			if(perUserCfg?.letterboxdUsername) {
+				const params = plexTypes.parsePlexHubQueryParams(userReq.query, {includePagination:false});
+				const hub = pseuplex.letterboxd.hubs.userFollowingActivity.get(perUserCfg.letterboxdUsername);
+				const page = await hub.getHubListEntry({
+					...params,
+					listStartToken: stringParam(userReq.query['listStartToken'])
+				});
+				if(!resData.MediaContainer.Hub) {
+					resData.MediaContainer.Hub = [];
+				} else if(!(resData.MediaContainer.Hub instanceof Array)) {
+					resData.MediaContainer.Hub = [resData.MediaContainer.Hub];
+				}
+				resData.MediaContainer.Hub.splice(0, 0, page);
+				resData.MediaContainer.size += 1;
 			}
-			resData.MediaContainer.Hub.splice(0, 0, page);
-			resData.MediaContainer.size += 1;
 		} catch(error) {
 			console.error(error);
 		}
@@ -144,10 +158,10 @@ server.on('upgrade', (req, socket, head) => {
 	const plexToken = stringParam(urlParts.query['X-Plex-Token']);
 	if(plexToken) {
 		// save socket per plex token
-		let sockets = clientSockets[plexToken];
+		let sockets = clientWebSockets[plexToken];
 		if(!sockets) {
 			sockets = [];
-			clientSockets[plexToken] = sockets;
+			clientWebSockets[plexToken] = sockets;
 		}
 		sockets.push(socket);
 		socket.on('close', () => {
@@ -155,7 +169,7 @@ server.on('upgrade', (req, socket, head) => {
 			if(socketIndex != -1) {
 				sockets.splice(socketIndex, 1);
 				if(sockets.length == 0) {
-					delete clientSockets[plexToken];
+					delete clientWebSockets[plexToken];
 				}
 			} else {
 				console.error(`Couldn't find socket to remove for ${req.url}`);

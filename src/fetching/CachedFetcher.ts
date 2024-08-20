@@ -1,24 +1,32 @@
 
 export type Fetcher<ItemType> = (id: string | number) => Promise<ItemType>;
 
+export type CacheItemNode<ItemType> = {
+	item: ItemType;
+	updatedAt: number;
+	accessedAt: number;
+};
+
 export class CachedFetcher<ItemType> {
 	_fetcher: Fetcher<ItemType>;
-	_cache: {[key: string | number]: { item: ItemType, fetchTime: number } | Promise<ItemType>} = {};
+	_cache: {[key: string | number]: CacheItemNode<ItemType> | Promise<ItemType>} = {};
 
 	constructor(fetcher: Fetcher<ItemType>) {
 		this._fetcher = fetcher;
 	}
 
 	async fetch(id: string | number): Promise<ItemType> {
-		let val = this._cache[id];
-		if(val == null) {
+		let itemNode = this._cache[id];
+		if(itemNode == null) {
 			const itemTask = this._fetcher(id);
 			this._cache[id] = itemTask;
 			try {
 				const item = await itemTask;
+				const now = process.uptime();
 				this._cache[id] = {
 					item: item,
-					fetchTime: process.uptime()
+					updatedAt: now,
+					accessedAt: now
 				};
 				return item;
 			} catch(error) {
@@ -26,9 +34,12 @@ export class CachedFetcher<ItemType> {
 				throw error;
 			}
 		}
-		if(val instanceof Promise) {
-			return await val;
+		if(itemNode instanceof Promise) {
+			return await itemNode;
 		}
-		return val.item;
+		itemNode.accessedAt = process.uptime();
+		return itemNode.item;
 	}
+
+	
 }

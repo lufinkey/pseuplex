@@ -2,7 +2,7 @@
 import * as qs from 'qs';
 import {
 	PlexMediaItemType
-} from './core';
+} from './common';
 import {
 	PlexHubContext
 } from './HubContext';
