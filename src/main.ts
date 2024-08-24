@@ -9,7 +9,6 @@ import { readConfigFile } from './config';
 import * as constants from './constants';
 import { parseCmdArgs } from './cmdargs';
 import {
-	plexThinProxy,
 	plexApiProxy,
 	plexHttpProxy
 } from './plex/proxy';
@@ -63,7 +62,7 @@ const clientWebSockets: {[key: string]: stream.Duplex[]} = {};
 
 // handle letterboxd requests
 app.get(`${pseuplex.letterboxd.metadata.basePath}/:filmSlugs`, async (req, res) => {
-	await handlePlexAPIRequest(req, res, async (): Promise<plexTypes.PlexMediaContainerResponse> => {
+	await handlePlexAPIRequest(req, res, async (): Promise<plexTypes.PlexMetadataPage> => {
 		console.log(`got request for letterboxd movie ${req.params.filmSlugs}`);
 		const filmSlugsStr = req.params.filmSlugs?.trim();
 		if(!filmSlugsStr) {
@@ -71,28 +70,27 @@ app.get(`${pseuplex.letterboxd.metadata.basePath}/:filmSlugs`, async (req, res) 
 		}
 		const filmSlugs = filmSlugsStr.split(',');
 		const page = await pseuplex.letterboxd.metadata.get(filmSlugs);
-		return {MediaContainer:page};
+		return page;
 	});
 });
 
 app.get(pseuplex.letterboxd.hubs.userFollowingActivity.path, async (req, res) => {
-	await handlePlexAPIRequest(req, res, async (): Promise<plexTypes.PlexMediaContainerResponse> => {
+	await handlePlexAPIRequest(req, res, async (): Promise<plexTypes.PlexHubPage> => {
 		const letterboxdUsername = stringParam(req.query['letterboxdUsername']);
 		if(!letterboxdUsername) {
 			throw httpError(400, "No user provided");
 		}
 		const params = plexTypes.parsePlexHubQueryParams(req.query, {includePagination:true});
 		const hub = pseuplex.letterboxd.hubs.userFollowingActivity.get(letterboxdUsername);
-		const page = await hub.getHub({
+		return await hub.getHub({
 			...params,
 			listStartToken: stringParam(req.query['listStartToken'])
 		});
-		return {MediaContainer:page};
 	});
 });
 
 app.get('/hubs', plexApiProxy(cfg, args, {
-	responseModifier: async (proxyRes, resData: plexTypes.PlexMediaContainerResponse, userReq, userRes) => {
+	responseModifier: async (proxyRes, resData: plexTypes.PlexHubsPage, userReq, userRes): Promise<plexTypes.PlexHubsPage> => {
 		try {
 			let plexToken = stringParam(userReq.query['X-Plex-Token']);
 			if(!plexToken) {
@@ -163,14 +161,11 @@ app.get('/activities', (req, res) => {
 	}
 }));*/
 
-// handle websocket notifications
-const plexWSProxy = plexHttpProxy(cfg, args);
-app.get('/:/websockets/notifications', (req, res) => {
-	plexWSProxy.web(req,res);
-});
-
 // proxy requests to plex
-app.use(plexThinProxy(cfg, args));
+const plexGeneralProxy = plexHttpProxy(cfg, args);
+app.use((req, res) => {
+	plexGeneralProxy.web(req,res);
+});
 
 // create http+https server
 const server: https.Server = httpolyglot.createServer({
@@ -211,7 +206,7 @@ server.on('upgrade', (req, socket, head) => {
 			}
 		});
 	}
-	plexWSProxy.ws(req, socket, head);
+	plexGeneralProxy.ws(req, socket, head);
 });
 
 // start server

@@ -13,4 +13,6 @@ export type PlexAuthContext = {
 	'X-Plex-Token'?: string;
 	'X-Plex-Language'?: string;
 	'X-Plex-Session-Id'?: string;
+	'X-Plex-Drm'?: string;
+	'X-Plex-Text-Format'?: string;
 };

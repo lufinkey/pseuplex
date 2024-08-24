@@ -7,14 +7,18 @@ import {
 	PlexHubContext
 } from './HubContext';
 import {
-	PlexMetadataPage
+	PlexMetadataItem
 } from './Metadata';
+import {
+	PlexMeta
+} from './Meta';
 import {
 	intParam,
 	stringParam,
 	stringArrayParam,
 	booleanParam
 } from '../../utils';
+import { PlexMediaContainer } from './MediaContainer';
 
 
 export enum PlexHubNumericType {
@@ -37,11 +41,11 @@ export type PlexHub = {
 	promoted?: boolean;
 }
 
-export type PlexHubPage = PlexHub & {
+export type PlexHubWithItems = PlexHub & {
 	hubKey: string; // "/library/metadata/21406,1859,18071"
 	size?: number;
 	more?: boolean;
-	Metadata?: PlexMetadataPage[]
+	Metadata?: PlexMetadataItem[]
 }
 
 
@@ -63,4 +67,17 @@ export const parsePlexHubQueryParams = (query: qs.ParsedQs, options: {includePag
 		excludeFields: stringArrayParam(query['excludeFields']),
 		includeMeta: booleanParam(query['includeMeta'])
 	};
+};
+
+export type PlexHubsPage = {
+	MediaContainer: PlexMediaContainer & {
+		Hub: PlexHub | PlexHub[]
+	}
+};
+
+export type PlexHubPage = {
+	MediaContainer: PlexMediaContainer & {
+		Meta: PlexMeta;
+		Metadata: PlexMetadataItem[]
+	}
 };

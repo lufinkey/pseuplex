@@ -6,6 +6,9 @@ import {
 import {
 	PlexMedia
 } from './Media';
+import {
+	PlexMediaContainer
+} from './MediaContainer';
 
 
 export type PlexMetadataItem = {
@@ -44,6 +47,9 @@ export type PlexMetadataItem = {
 	availabilityId?: string;
 	streamingMediaId?: string;
 
+	Guid?: {
+		id: `${string}://${string}`;
+	}[]
 	Media?: PlexMedia[];
 } & ({} |
 	{
@@ -71,6 +77,8 @@ export type PlexMetadataItem = {
 		}))
 );
 
-export type PlexMetadataPage = PlexMetadataItem & {
-	// TODO add other properties
+export type PlexMetadataPage = {
+	MediaContainer: PlexMediaContainer & {
+		Metadata: PlexMetadataItem | PlexMetadataItem[]
+	}
 };

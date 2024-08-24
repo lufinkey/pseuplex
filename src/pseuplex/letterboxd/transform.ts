@@ -1,9 +1,10 @@
 
 import aguid from 'aguid';
-import * as letterboxd from "letterboxd-retriever";
+import * as letterboxd from 'letterboxd-retriever';
 import {
 	PlexMediaItemType,
-	PlexMetadataPage } from "../../plex/types";
+	PlexMetadataItem
+} from '../../plex/types';
 import {
 	intParam,
 	combinePathSegments
@@ -13,7 +14,7 @@ export interface LetterboxdToPlexOptions {
 	letterboxdMetadataBasePath: string
 }
 
-export const filmInfoToPlexMetadata = (filmInfo: letterboxd.FilmInfo, options: LetterboxdToPlexOptions): PlexMetadataPage => {
+export const filmInfoToPlexMetadata = (filmInfo: letterboxd.FilmInfo, options: LetterboxdToPlexOptions): PlexMetadataItem => {
 	const releasedEvent = filmInfo.ldJson.releasedEvent;
 	return {
 		//guid: `plex://letterboxd/film/${aguid(`l${filmInfo.pageData.slug}`)}`,
@@ -27,7 +28,7 @@ export const filmInfoToPlexMetadata = (filmInfo: letterboxd.FilmInfo, options: L
 	};
 };
 
-export const activityFeedFilmToPlexMetadata = (film: letterboxd.ActivityFeedFilm, options: LetterboxdToPlexOptions): PlexMetadataPage => {
+export const activityFeedFilmToPlexMetadata = (film: letterboxd.Film, options: LetterboxdToPlexOptions): PlexMetadataItem => {
 	return {
 		//guid: `plex://letterboxd/film/${aguid(`l${film.slug}`)}`,
 		key: combinePathSegments(options.letterboxdMetadataBasePath, film.slug),

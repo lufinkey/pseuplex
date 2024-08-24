@@ -10,6 +10,6 @@ export type PlexMetaType = {
 	active?: boolean;
 };
 
-export type PlexMetaPage = {
+export type PlexMeta = {
 	Type: PlexMetaType[]
 };

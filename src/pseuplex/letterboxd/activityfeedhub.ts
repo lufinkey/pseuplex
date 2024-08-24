@@ -2,17 +2,14 @@
 import * as letterboxd from 'letterboxd-retriever';
 import {
 	PseuplexHub,
-	PseuplexHubItemsPage,
 	PseuplexHubPage
 } from '../hub';
 import {
 	PlexHub,
 	PlexHubContext,
 	PlexHubPageParams,
-	PlexHubPage,
 	PlexHubStyle,
-	PlexMediaItemType,
-	PlexMetadataItem
+	PlexMediaItemType
 } from '../../plex/types';
 import {
 	addQueryArgumentToURLPath,
@@ -47,12 +44,12 @@ export type LetterboxdFeedHubParams = PlexHubPageParams & {
 
 export class LetterboxdUserFollowingActivityFeedHub extends PseuplexHub<LetterboxdFeedHubParams> {
 	_options: LetterboxdUserFeedHubOptions;
-	_itemList: LoadableList<letterboxd.ActivityFeedFilm,number,PageToken>;
+	_itemList: LoadableList<letterboxd.Film,number,PageToken>;
 	
 	constructor(options: LetterboxdUserFeedHubOptions) {
 		super();
 		this._options = options;
-		this._itemList = new LoadableList<letterboxd.ActivityFeedFilm,number,PageToken>({
+		this._itemList = new LoadableList<letterboxd.Film,number,PageToken>({
 			loader: async (pageToken: PageToken | null) => {
 				if(this._options.verbose) {
 					console.log(`Fetching letterboxd following feed for user ${this._options.letterboxdUsername} (pageToken=${JSON.stringify(pageToken)})`);
@@ -89,7 +86,7 @@ export class LetterboxdUserFollowingActivityFeedHub extends PseuplexHub<Letterbo
 
 	override async get(params: LetterboxdFeedHubParams): Promise<PseuplexHubPage> {
 		const opts = this._options;
-		let chunk: LoadableListChunk<letterboxd.ActivityFeedFilm,number>;
+		let chunk: LoadableListChunk<letterboxd.Film,number>;
 		let start: number;
 		let { listStartToken } = params;
 		if(params.listStartToken != null) {
@@ -119,20 +116,18 @@ export class LetterboxdUserFollowingActivityFeedHub extends PseuplexHub<Letterbo
 				style: opts.style,
 				promoted: opts.promoted
 			},
-			itemsPage: {
-				items: await Promise.all(chunk.items.map(async (itemNode) => {
-					try {
-						const filmInfo = await pseuLetterboxdCache.metadataCache.fetch(itemNode.item.slug);
-						return lbtransform.filmInfoToPlexMetadata(filmInfo, lbTransformFilmOpts);
-					} catch(error) {
-						console.error(error);
-					}
-					return lbtransform.activityFeedFilmToPlexMetadata(itemNode.item, lbTransformFilmOpts);
-				})),
-				offset: start,
-				more: chunk.hasMore,
-				totalCount: opts.uniqueItemsOnly ? this._itemList.totalUniqueItemCount : this._itemList.totalItemCount
-			}
+			items: await Promise.all(chunk.items.map(async (itemNode) => {
+				try {
+					const filmInfo = await pseuLetterboxdCache.metadataCache.fetch(itemNode.item.slug);
+					return lbtransform.filmInfoToPlexMetadata(filmInfo, lbTransformFilmOpts);
+				} catch(error) {
+					console.error(error);
+				}
+				return lbtransform.activityFeedFilmToPlexMetadata(itemNode.item, lbTransformFilmOpts);
+			})),
+			offset: start,
+			more: chunk.hasMore,
+			totalCount: opts.uniqueItemsOnly ? this._itemList.totalUniqueItemCount : this._itemList.totalItemCount
 		};
 	}
 }

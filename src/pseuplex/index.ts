@@ -11,7 +11,7 @@ const pseuplex = {
 		metadata: {
 			basePath: '/pseuplex/letterboxd/metadata',
 			cache: pseuLetterboxd.metadataCache,
-			get: async (slugs: string[]): Promise<plexTypes.PlexMediaContainerPage> => {
+			get: async (slugs: string[]): Promise<plexTypes.PlexMetadataPage> => {
 				const metadataItems = await Promise.all(slugs.map((slug) => {
 					return pseuLetterboxd.metadataCache.fetch(slug);
 				}));
@@ -22,13 +22,15 @@ const pseuplex = {
 					return pseuLetterboxd.filmInfoToPlexMetadata(item, transformOpts);
 				});
 				return {
-					size: metadatas.length,
-					allowSync: false,
-					//augmentationKey: '/library/metadata/augmentations/1',
-					librarySectionID: pseuplex.letterboxd.sectionID,
-					librarySectionTitle: pseuplex.letterboxd.sectionTitle,
-					librarySectionUUID: pseuplex.letterboxd.sectionGuid,
-					Metadata: metadatas
+					MediaContainer: {
+						size: metadatas.length,
+						allowSync: false,
+						//augmentationKey: '/library/metadata/augmentations/1',
+						librarySectionID: pseuplex.letterboxd.sectionID,
+						librarySectionTitle: pseuplex.letterboxd.sectionTitle,
+						librarySectionUUID: pseuplex.letterboxd.sectionGuid,
+						Metadata: metadatas
+					}
 				};
 			}
 		},

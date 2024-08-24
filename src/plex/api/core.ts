@@ -16,7 +16,12 @@ export const plexServerFetch = async <TResult>(options: {
 	if(serverURL.indexOf('://') == -1) {
 		serverURL = 'https://'+serverURL;
 	}
-	let url = `${serverURL}/${options.endpoint}`;
+	let url: string;
+	if(options.serverURL.endsWith('/') || options.endpoint.startsWith('/')) {
+		url = options.serverURL + options.endpoint;
+	} else {
+		url = `${serverURL}/${options.endpoint}`;
+	}
 	if(options.params != null || options.authContext != null) {
 		url += '?';
 		let hasQuery = false;
