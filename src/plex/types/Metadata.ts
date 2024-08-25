@@ -10,7 +10,6 @@ import {
 	PlexMediaContainer
 } from './MediaContainer';
 
-
 export type PlexMetadataItem = {
 	guid?: string; // "plex://episode/6rv4x76r8x9bqb98xqt9qbt29r"
 	key: string; // "/library/metadata/20205"
@@ -47,11 +46,12 @@ export type PlexMetadataItem = {
 	availabilityId?: string;
 	streamingMediaId?: string;
 
-	Guid?: {
-		id: `${string}://${string}`;
-	}[]
+	Guid?: PlexGuid[];
 	Media?: PlexMedia[];
 	Review?: PlexReview[];
+	Director?: PlexDirector[];
+	Writer?: PlexWriter[];
+	Role?: PlexRole[];
 } & ({} |
 	{
 		librarySectionTitle: string; // "My TV Shows"
@@ -84,6 +84,10 @@ export type PlexMetadataPage = {
 	}
 };
 
+export type PlexGuid = {
+	id: `${string}://${string}`;
+};
+
 export type PlexReview = {
 	id?: number | string; // 2086
 	filter?: string; // "art=2086"
@@ -92,4 +96,21 @@ export type PlexReview = {
 	image: string; // "rottontomatoes://image.review.fresh", "rottontomatoes://image.review.rotton"
 	link: string;
 	source: string; // "Observer", "Wall Street Journal", "RogerEbert.com"
+};
+
+export type PlexPerson = {
+	id?: number | string; // 195049
+	filter?: string; // "director=195049"
+	tag: string; // "Sam Pillsbury"
+	tagKey: string; // "o827tvx98bxtfi2r8297e342"
+};
+
+export type PlexPersonWithImage = PlexPerson & {
+	thumb: string; // "https://metadata-static.plex.tv/people/5d77687febdf2200209c082d.jpg"
+};
+
+export type PlexDirector = PlexPerson;
+export type PlexWriter = PlexPersonWithImage;
+export type PlexRole = PlexPersonWithImage & {
+	role: string; // "Lightning McQueen"
 };

@@ -152,7 +152,7 @@ app.get(`/library/metadata/:metadataId`, plexApiProxy(cfg, args, {
 											username: userPrefs.letterboxdUsername,
 											filmSlug: letterboxdSlug
 										});
-										const reviews = friendViewings.map((viewing) => {
+										const reviews = friendViewings.items.map((viewing) => {
 											return pseuLetterboxd.viewingToPlexReview(viewing);
 										});
 										if(item.Review) {

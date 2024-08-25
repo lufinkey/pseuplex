@@ -11,9 +11,9 @@ import {
 	combinePathSegments
 } from '../../utils';
 
-export interface LetterboxdToPlexOptions {
+export type LetterboxdToPlexOptions = {
 	letterboxdMetadataBasePath: string
-}
+};
 
 export const filmInfoToPlexMetadata = (filmInfo: letterboxd.FilmInfo, options: LetterboxdToPlexOptions): PlexMetadataItem => {
 	const releasedEvent = filmInfo.ldJson.releasedEvent;
@@ -25,7 +25,10 @@ export const filmInfoToPlexMetadata = (filmInfo: letterboxd.FilmInfo, options: L
 		thumb: filmInfo.ldJson.image,
 		tagline: filmInfo.pageData.tagline,
 		summary: filmInfo.pageData.description,
-		year: intParam(releasedEvent?.[0]?.startDate)
+		year: intParam(releasedEvent?.[0]?.startDate),
+		Review: filmInfo.pageData.popularReviews?.map((viewing) => {
+			return viewingToPlexReview(viewing);
+		})
 	};
 };
 
@@ -44,7 +47,7 @@ export const viewingToPlexReview = (viewing: letterboxd.Viewing): PlexReview => 
 	return {
 		source: "Letterboxd",
 		tag: viewing.user.displayName,
-		image: viewing.user.imageURL,
+		//image: viewing.user.imageURL,
 		link: letterboxd.BASE_URL + viewing.href,
 		text: viewing.text
 	};
