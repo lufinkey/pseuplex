@@ -20,7 +20,6 @@ import {
 	LoadableListChunk
 } from '../../fetching/LoadableList';
 import * as lbtransform from './transform';
-import * as pseuLetterboxdCache from './cache';
 
 export type LetterboxdUserFeedHubOptions = {
 	letterboxdUsername: string;
