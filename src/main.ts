@@ -147,17 +147,19 @@ app.get(`/library/metadata/:metadataId`, plexApiProxy(cfg, args, {
 								if(tmdbId) {
 									tmdbId = tmdbId.substring(7);
 									const letterboxdSlug = await letterboxd.getFilmSlugFromExternalID({tmdbId});
-									const friendViewings = await letterboxd.getFriendsReviews({
-										username: userPrefs.letterboxdUsername,
-										filmSlug: letterboxdSlug
-									});
-									const reviews = friendViewings.map((viewing) => {
-										return pseuLetterboxd.viewingToPlexReview(viewing);
-									});
-									if(item.Review) {
-										item.Review = reviews.concat(item.Review);
-									} else {
-										item.Review = reviews;
+									if(letterboxdSlug) {
+										const friendViewings = await letterboxd.getFriendsReviews({
+											username: userPrefs.letterboxdUsername,
+											filmSlug: letterboxdSlug
+										});
+										const reviews = friendViewings.map((viewing) => {
+											return pseuLetterboxd.viewingToPlexReview(viewing);
+										});
+										if(item.Review) {
+											item.Review = reviews.concat(item.Review);
+										} else {
+											item.Review = reviews;
+										}
 									}
 								}
 							}
