@@ -93,7 +93,7 @@ export type PlexReview = {
 	filter?: string; // "art=2086"
 	tag: string; // "Richard Whittaker"
 	text: string;
-	image: string; // "rottontomatoes://image.review.fresh", "rottontomatoes://image.review.rotton"
+	image?: string; // "rottontomatoes://image.review.fresh", "rottontomatoes://image.review.rotton"
 	link: string;
 	source: string; // "Observer", "Wall Street Journal", "RogerEbert.com"
 };
