@@ -51,6 +51,7 @@ export type PlexMetadataItem = {
 		id: `${string}://${string}`;
 	}[]
 	Media?: PlexMedia[];
+	Review?: PlexReview[];
 } & ({} |
 	{
 		librarySectionTitle: string; // "My TV Shows"
@@ -81,4 +82,14 @@ export type PlexMetadataPage = {
 	MediaContainer: PlexMediaContainer & {
 		Metadata: PlexMetadataItem | PlexMetadataItem[]
 	}
+};
+
+export type PlexReview = {
+	id?: number | string; // 2086
+	filter?: string; // "art=2086"
+	tag: string; // "Richard Whittaker"
+	text: string;
+	image: string; // "rottontomatoes://image.review.fresh", "rottontomatoes://image.review.rotton"
+	link: string;
+	source: string; // "Observer", "Wall Street Journal", "RogerEbert.com"
 };

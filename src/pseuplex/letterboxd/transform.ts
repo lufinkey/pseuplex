@@ -3,7 +3,8 @@ import aguid from 'aguid';
 import * as letterboxd from 'letterboxd-retriever';
 import {
 	PlexMediaItemType,
-	PlexMetadataItem
+	PlexMetadataItem,
+	PlexReview
 } from '../../plex/types';
 import {
 	intParam,
@@ -36,5 +37,15 @@ export const activityFeedFilmToPlexMetadata = (film: letterboxd.Film, options: L
 		title: film.name,
 		thumb: film.imageURL,
 		year: intParam(film.year)
+	};
+};
+
+export const viewingToPlexReview = (viewing: letterboxd.Viewing): PlexReview => {
+	return {
+		source: "Letterboxd",
+		tag: viewing.user.displayName,
+		image: viewing.user.imageURL,
+		link: letterboxd.BASE_URL + viewing.href,
+		text: viewing.text
 	};
 };

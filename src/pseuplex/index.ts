@@ -1,6 +1,8 @@
 
+import * as letterboxd from 'letterboxd-retriever';
 import * as pseuLetterboxd from './letterboxd';
 import * as plexTypes from '../plex/types';
+import { CachedFetcher } from '../fetching/CachedFetcher';
 
 const pseuplex = {
 	letterboxd: {
@@ -10,10 +12,15 @@ const pseuplex = {
 
 		metadata: {
 			basePath: '/pseuplex/letterboxd/metadata',
-			cache: pseuLetterboxd.metadataCache,
+			cache: new CachedFetcher(async (id: string) => {
+				console.log(`Fetching letterboxd film info for film ${id}`);
+				const filmInfo = await letterboxd.getFilmInfo({slug: id});
+				//fixStringLeaks(filmInfo);
+				return filmInfo;
+			}),
 			get: async (slugs: string[]): Promise<plexTypes.PlexMetadataPage> => {
 				const metadataItems = await Promise.all(slugs.map((slug) => {
-					return pseuLetterboxd.metadataCache.fetch(slug);
+					return pseuplex.letterboxd.metadata.cache.fetch(slug);
 				}));
 				const transformOpts: pseuLetterboxd.LetterboxdToPlexOptions = {
 					letterboxdMetadataBasePath: pseuplex.letterboxd.metadata.basePath

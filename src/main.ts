@@ -5,6 +5,7 @@ import stream from 'stream';
 import https from 'https';
 import httpolyglot from 'httpolyglot';
 import express from 'express';
+import * as letterboxd from 'letterboxd-retriever';
 import { readConfigFile } from './config';
 import * as constants from './constants';
 import { parseCmdArgs } from './cmdargs';
@@ -14,7 +15,6 @@ import {
 } from './plex/proxy';
 import * as plexTypes from './plex/types';
 import { handlePlexAPIRequest } from './plex/requesthandling';
-import pseuplex from './pseuplex';
 import {
 	httpError,
 	stringParam,
@@ -23,6 +23,8 @@ import {
 	booleanParam,
 	parseURLPath
 } from './utils';
+import pseuplex from './pseuplex';
+import * as pseuLetterboxd from './pseuplex/letterboxd';
 import { PseuplexAccountsStore } from './pseuplex/accounts';
 
 // parse command line arguments
@@ -98,24 +100,74 @@ app.get('/hubs', plexApiProxy(cfg, args, {
 			}
 			const userInfo = await accountsStore.getTokenUserInfoOrNull(plexToken);
 			console.log(`userInfo for token ${plexToken} is ${userInfo?.email} (isServerOwner=${userInfo?.isServerOwner})`);
-			const perUserCfg = userInfo ? cfg.perUser[userInfo.email] : null;
-			if(perUserCfg?.letterboxdUsername) {
-				const params = plexTypes.parsePlexHubQueryParams(userReq.query, {includePagination:false});
-				const hub = pseuplex.letterboxd.hubs.userFollowingActivity.get(perUserCfg.letterboxdUsername);
-				const page = await hub.getHubListEntry({
-					...params,
-					listStartToken: stringParam(userReq.query['listStartToken'])
-				});
-				if(!resData.MediaContainer.Hub) {
-					resData.MediaContainer.Hub = [];
-				} else if(!(resData.MediaContainer.Hub instanceof Array)) {
-					resData.MediaContainer.Hub = [resData.MediaContainer.Hub];
+			if(userInfo) {
+				const perUserCfg = userInfo ? cfg.perUser[userInfo.email] : null;
+				if(perUserCfg?.letterboxdUsername) {
+					const params = plexTypes.parsePlexHubQueryParams(userReq.query, {includePagination:false});
+					const hub = pseuplex.letterboxd.hubs.userFollowingActivity.get(perUserCfg.letterboxdUsername);
+					const page = await hub.getHubListEntry({
+						...params,
+						listStartToken: stringParam(userReq.query['listStartToken'])
+					});
+					if(!resData.MediaContainer.Hub) {
+						resData.MediaContainer.Hub = [];
+					} else if(!(resData.MediaContainer.Hub instanceof Array)) {
+						resData.MediaContainer.Hub = [resData.MediaContainer.Hub];
+					}
+					resData.MediaContainer.Hub.splice(0, 0, page);
+					resData.MediaContainer.size += 1;
 				}
-				resData.MediaContainer.Hub.splice(0, 0, page);
-				resData.MediaContainer.size += 1;
 			}
 		} catch(error) {
 			console.error(error);
+		}
+		return resData;
+	}
+}));
+
+app.get(`/library/metadata/:metadataId`, plexApiProxy(cfg, args, {
+	responseModifier: async (proxyRes, resData: plexTypes.PlexMetadataPage, userReq, userRes) => {
+		let metadata = resData.MediaContainer.Metadata;
+		if(metadata) {
+			let plexToken = stringParam(userReq.query['X-Plex-Token']);
+			if(!plexToken) {
+				plexToken = stringParam(userReq.headers['x-plex-token']);
+			}
+			const userInfo = await accountsStore.getTokenUserInfoOrNull(plexToken);
+			if(userInfo) {
+				const userPrefs = cfg.perUser[userInfo.email];
+				if(userPrefs && userPrefs.letterboxdUsername) {
+					if(!(metadata instanceof Array)) {
+						metadata = [ metadata ];
+					}
+					resData.MediaContainer.Metadata = await Promise.all(metadata.map(async (item) => {
+						try {
+							if(item.Guid) {
+								let tmdbId: string = item.Guid.find((g) => g.id.startsWith('tmdb://'))?.id;
+								if(tmdbId) {
+									tmdbId = tmdbId.substring(7);
+									const letterboxdSlug = await letterboxd.getFilmSlugFromExternalID({tmdbId});
+									const friendViewings = await letterboxd.getFriendsReviews({
+										username: userPrefs.letterboxdUsername,
+										filmSlug: letterboxdSlug
+									});
+									const reviews = friendViewings.map((viewing) => {
+										return pseuLetterboxd.viewingToPlexReview(viewing);
+									});
+									if(item.Review) {
+										item.Review = reviews.concat(item.Review);
+									} else {
+										item.Review = reviews;
+									}
+								}
+							}
+						} catch(error) {
+							console.error(error);
+						}
+						return item;
+					}));
+				}
+			}
 		}
 		return resData;
 	}

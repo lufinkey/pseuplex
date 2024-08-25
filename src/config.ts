@@ -21,9 +21,12 @@ export interface Config {
 
 export const readConfigFile = (path: string): Config => {
 	const data = fs.readFileSync(path, 'utf8');
-	const cfg = JSON.parse(data);
+	const cfg: Config = JSON.parse(data);
 	if(!cfg || typeof cfg !== 'object') {
 		throw new Error("Invalid config file");
+	}
+	if(!cfg.perUser) {
+		cfg.perUser = {};
 	}
 	return cfg;
 };
