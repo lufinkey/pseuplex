@@ -35,3 +35,7 @@ export enum PlexMediaItemType {
 	Photos = 'photos',
 	Mixed = 'mixed'
 }
+
+export enum PlexMediaItemTypeNumeric {
+	Movie = 1
+}

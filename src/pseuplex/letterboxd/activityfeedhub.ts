@@ -117,12 +117,6 @@ export class LetterboxdUserFollowingActivityFeedHub extends PseuplexHub<Letterbo
 				promoted: opts.promoted
 			},
 			items: await Promise.all(chunk.items.map(async (itemNode) => {
-				try {
-					const filmInfo = await pseuLetterboxdCache.metadataCache.fetch(itemNode.item.slug);
-					return lbtransform.filmInfoToPlexMetadata(filmInfo, lbTransformFilmOpts);
-				} catch(error) {
-					console.error(error);
-				}
 				return lbtransform.activityFeedFilmToPlexMetadata(itemNode.item, lbTransformFilmOpts);
 			})),
 			offset: start,
