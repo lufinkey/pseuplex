@@ -50,14 +50,16 @@ if (!cfg.ssl?.certPath) {
 	console.error("No ssl cert path specified in config");
 	process.exit(1);
 }
+const plexServerURL = cfg.plex.host.indexOf('://') != -1 ? `${cfg.plex.host}:${cfg.plex.port}` : `http://${cfg.plex.host}:${cfg.plex.port}`;
+const plexAuthContext = {
+	'X-Plex-Token': cfg.plex.token
+};
 
 // prepare server
 const app = express();
 const accountsStore = new PseuplexAccountsStore({
-	plexServerURL: cfg.plex.host.indexOf('://') != -1 ? `${cfg.plex.host}:${cfg.plex.port}` : `https://${cfg.plex.host}:${cfg.plex.port}`,
-	plexAuthContext: {
-		'X-Plex-Token': cfg.plex.token
-	},
+	plexServerURL,
+	plexAuthContext,
 	sharedServersMinLifetime: 60 * 5
 });
 const clientWebSockets: {[key: string]: stream.Duplex[]} = {};
@@ -65,13 +67,16 @@ const clientWebSockets: {[key: string]: stream.Duplex[]} = {};
 // handle letterboxd requests
 app.get(`${pseuplex.letterboxd.metadata.basePath}/:filmSlugs`, async (req, res) => {
 	await handlePlexAPIRequest(req, res, async (): Promise<plexTypes.PlexMetadataPage> => {
-		console.log(`got request for letterboxd movie ${req.params.filmSlugs}`);
+		console.log(`\ngot request for letterboxd movie ${req.params.filmSlugs}`);
 		const filmSlugsStr = req.params.filmSlugs?.trim();
 		if(!filmSlugsStr) {
 			throw httpError(400, "No slug was provided");
 		}
 		const filmSlugs = filmSlugsStr.split(',');
-		const page = await pseuplex.letterboxd.metadata.get(filmSlugs);
+		const page = await pseuplex.letterboxd.metadata.get(filmSlugs, {
+			plexServerURL,
+			plexAuthContext
+		});
 		return page;
 	});
 });
@@ -230,7 +235,7 @@ const server: https.Server = httpolyglot.createServer({
 // handle upgrade to socket
 server.on('upgrade', (req, socket, head) => {
 	if(args.logUserRequests) {
-		console.log(`upgrade ws ${req.url}`);
+		console.log(`\nupgrade ws ${req.url}`);
 	}
 	const urlParts = parseURLPath(req.url);
 	let plexToken = stringParam(urlParts.query['X-Plex-Token']);

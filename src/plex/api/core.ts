@@ -22,17 +22,17 @@ export const plexServerFetch = async <TResult>(options: {
 	} else {
 		url = `${serverURL}/${options.endpoint}`;
 	}
-	if(options.params != null || options.authContext != null) {
+	if(options.params || options.authContext) {
 		url += '?';
 		let hasQuery = false;
-		if(options.params != null) {
+		if(options.params) {
 			const paramsQs = qs.stringify(options.params);
 			if(paramsQs.length > 0) {
 				url += paramsQs;
 				hasQuery = true;
 			}
 		}
-		if(options.authContext != null) {
+		if(options.authContext) {
 			const contextQs = qs.stringify(options.authContext);
 			if(contextQs.length > 0) {
 				if(hasQuery) {
@@ -43,6 +43,7 @@ export const plexServerFetch = async <TResult>(options: {
 		}
 	}
 	// send request
+	console.log(`Sending request ${options.method ?? 'GET'} ${url}`);
 	const res = await fetch(url, {
 		method: options.method ?? 'GET',
 		headers: {

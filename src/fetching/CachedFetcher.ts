@@ -15,7 +15,7 @@ export class CachedFetcher<ItemType> {
 		this._fetcher = fetcher;
 	}
 
-	async fetch(id: string | number): Promise<ItemType> {
+	async getOrFetch(id: string | number): Promise<ItemType> {
 		let itemNode = this._cache[id];
 		if(itemNode == null) {
 			const itemTask = this._fetcher(id);
@@ -41,5 +41,33 @@ export class CachedFetcher<ItemType> {
 		return itemNode.item;
 	}
 
-	
+	get(id: string | number): (ItemType | Promise<ItemType> | undefined) {
+		const itemNode = this._cache[id];
+		if(itemNode) {
+			if(itemNode instanceof Promise) {
+				return itemNode;
+			} else {
+				return itemNode.item;
+			}
+		}
+		return undefined;
+	}
+
+	async set(id: string | number, value: ItemType | Promise<ItemType>) {
+		if(value instanceof Promise) {
+			this._cache[id] = value;
+			try {
+				value = await value;
+			} catch(error) {
+				delete this._cache[id];
+				throw error;
+			}
+		}
+		const now = process.uptime();
+		this._cache[id] = {
+			item: value,
+			updatedAt: now,
+			accessedAt: now
+		};
+	}
 }
