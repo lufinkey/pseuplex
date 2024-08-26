@@ -22,9 +22,8 @@ const pseuplex = {
 				//fixStringLeaks(filmInfo);
 				return filmInfo;
 			}),
-			slugToPlexGuidCache: new CachedFetcher(async (slug: string) => {
-				const filmInfo = await pseuplex.letterboxd.metadata.cache.getOrFetch(slug);
-				return (await pseuLetterboxd.findPlexMetadataFromLetterboxdFilm(filmInfo))?.guid;
+			slugToPlexGuidCache: new CachedFetcher(async (slug: string): Promise<string> => {
+				throw new Error(`Cannot fetch plex GUID from slug`);
 			}),
 			get: async (slugs: string[], options: {
 				plexServerURL: string,
@@ -52,7 +51,9 @@ const pseuplex = {
 					if(plexGuid !== null) {
 						const metadataTask = (async () => {
 							const item = await itemTask;
-							return await pseuLetterboxd.findPlexMetadataFromLetterboxdFilm(item);
+							return await pseuLetterboxd.findPlexMetadataFromLetterboxdFilm(item, {
+								authContext: options.plexAuthContext
+							});
 						})();
 						const guidTask = metadataTask.then((m) => (m.guid ?? null));
 						plexMatches[slug] = metadataTask;

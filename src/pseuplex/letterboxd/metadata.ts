@@ -4,7 +4,9 @@ import * as plexTypes from '../../plex/types';
 import * as plexDiscoverAPI from '../../plexdiscover';
 import { findMatchingPlexMovieOrShow } from '../matching';
 
-export const findPlexMetadataFromLetterboxdFilm = async (filmInfo: letterboxd.FilmInfo): Promise<plexTypes.PlexMetadataItem | null> => {
+export const findPlexMetadataFromLetterboxdFilm = async (filmInfo: letterboxd.FilmInfo, options: {
+	authContext?: plexTypes.PlexAuthContext | null
+}): Promise<plexTypes.PlexMetadataItem | null> => {
 	let types: plexDiscoverAPI.SearchType[];
 	let guids: `${string}://${string}`[] = [];
 	const tmdbInfo = filmInfo.pageData.tmdb;
@@ -30,6 +32,7 @@ export const findPlexMetadataFromLetterboxdFilm = async (filmInfo: letterboxd.Fi
 		title: filmInfo.pageData.name,
 		year: filmInfo.pageData.year,
 		types: [plexDiscoverAPI.SearchType.Movies, plexDiscoverAPI.SearchType.TV],
-		guids: guids
+		guids: guids,
+		authContext: options.authContext
 	});
 };
