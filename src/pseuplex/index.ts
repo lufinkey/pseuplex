@@ -62,13 +62,7 @@ const pseuplex = {
 					}
 				}
 				// get guids and map them to items on the server
-				const guidsToFetch = (await Promise.all(Object.keys(plexGuids).map(async (slug) => {
-					const plexMatch = await plexMatches[slug];
-					if(plexMatch) {
-						return null;
-					}
-					return plexGuids[slug];
-				}))).filter((guid) => guid);
+				const guidsToFetch = (await Promise.all(Object.values(plexGuids))).filter((guid) => guid);
 				const plexMetadataMap: {[guid: string]: plexTypes.PlexMetadataItem} = {};
 				let serverResult: plexTypes.PlexMetadataPage | undefined = undefined;
 				if(guidsToFetch.length > 0) {
@@ -94,6 +88,18 @@ const pseuplex = {
 						}
 					}
 				}
+				// fill any missing items in plexMetadataMap with values from plexMatches
+				for(const slug of slugs) {
+					const guid = await plexGuids[slug];
+					if(guid) {
+						if(!plexMetadataMap[guid]) {
+							const matchMetadata = await plexMatches[slug];
+							if(matchMetadata?.guid && !plexMetadataMap[matchMetadata.guid]) {
+								plexMetadataMap[matchMetadata.guid] = matchMetadata;
+							}
+						}
+					}
+				}
 				// get any remaining guids from plex discover
 				const remainingGuids = guidsToFetch.filter((guid) => !plexMetadataMap[guid]);
 				if(remainingGuids.length > 0) {
@@ -115,10 +121,10 @@ const pseuplex = {
 				}
 				// get all results
 				const metadatas = await Promise.all(slugs.map(async (slug) => {
-					let metadataItem = plexMatches[slug];
+					const guid = await plexGuids[slug];
+					let metadataItem = guid ? plexMetadataMap[guid] : null;
 					if(!metadataItem) {
-						const guid = await plexGuids[slug];
-						metadataItem = guid ? plexMetadataMap[guid] : null;
+						metadataItem = await plexMatches[slug];
 						if(!metadataItem) {
 							let lbTask = letterboxdPages[slug];
 							if(!lbTask) {
@@ -131,7 +137,6 @@ const pseuplex = {
 							});
 						}
 					}
-					metadataItem = await metadataItem;
 					metadataItem.key = `${pseuplex.letterboxd.metadata.basePath}/${slug}`;
 					return metadataItem;
 				}));
