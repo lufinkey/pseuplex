@@ -4,6 +4,10 @@ import { CachedFetcher } from '../fetching/CachedFetcher';
 import * as plexServerAPI from '../plex/api';
 import * as plexTypes from '../plex/types';
 import * as plexDiscoverAPI from '../plexdiscover';
+import {
+	PseuplexMetadataItem,
+	PseuplexMetadataPage
+} from './types';
 import * as pseuExternalPlex from './externalplex';
 import * as pseuLetterboxd from './letterboxd';
 import { HttpError } from '../utils';
@@ -28,7 +32,7 @@ const pseuplex = {
 			get: async (slugs: string[], options: {
 				plexServerURL: string,
 				plexAuthContext: plexTypes.PlexAuthContext
-			}): Promise<plexTypes.PlexMetadataPage> => {
+			}): Promise<PseuplexMetadataPage> => {
 				let plexGuids: {[slug: string]: Promise<string> | string | null} = {};
 				let plexMatches: {[slug: string]: (Promise<plexTypes.PlexMetadataItem> | plexTypes.PlexMetadataItem | null)} = {};
 				let letterboxdPages: {[slug: string]: Promise<letterboxd.FilmInfo>} = {};
@@ -63,7 +67,7 @@ const pseuplex = {
 				}
 				// get guids and map them to items on the server
 				const guidsToFetch = (await Promise.all(Object.values(plexGuids))).filter((guid) => guid);
-				const plexMetadataMap: {[guid: string]: plexTypes.PlexMetadataItem} = {};
+				const plexMetadataMap: {[guid: string]: PseuplexMetadataItem} = {};
 				let serverResult: plexTypes.PlexMetadataPage | undefined = undefined;
 				if(guidsToFetch.length > 0) {
 					try {
@@ -83,7 +87,11 @@ const pseuplex = {
 						}
 						for(const metadata of metadatas) {
 							if(metadata.guid) {
-								plexMetadataMap[metadata.guid] = metadata;
+								const pseuMetadata = metadata as PseuplexMetadataItem;
+								pseuMetadata.Pseuplex = {
+									isOnServer: true
+								};
+								plexMetadataMap[metadata.guid] = pseuMetadata;
 							}
 						}
 					}
@@ -95,7 +103,7 @@ const pseuplex = {
 						if(!plexMetadataMap[guid]) {
 							const matchMetadata = await plexMatches[slug];
 							if(matchMetadata?.guid && !plexMetadataMap[matchMetadata.guid]) {
-								plexMetadataMap[matchMetadata.guid] = matchMetadata;
+								plexMetadataMap[matchMetadata.guid] = pseuExternalPlex.transformExternalPlexMetadata(matchMetadata, plexDiscoverAPI.BASE_URL);
 							}
 						}
 					}
@@ -124,18 +132,15 @@ const pseuplex = {
 					const guid = await plexGuids[slug];
 					let metadataItem = guid ? plexMetadataMap[guid] : null;
 					if(!metadataItem) {
-						metadataItem = await plexMatches[slug];
-						if(!metadataItem) {
-							let lbTask = letterboxdPages[slug];
-							if(!lbTask) {
-								lbTask = pseuplex.letterboxd.metadata.cache.getOrFetch(slug);
-								letterboxdPages[slug] = lbTask;
-							}
-							const letterboxdFilm = await lbTask;
-							metadataItem = pseuLetterboxd.filmInfoToPlexMetadata(letterboxdFilm, {
-								letterboxdMetadataBasePath: pseuplex.letterboxd.metadata.basePath
-							});
+						let lbTask = letterboxdPages[slug];
+						if(!lbTask) {
+							lbTask = pseuplex.letterboxd.metadata.cache.getOrFetch(slug);
+							letterboxdPages[slug] = lbTask;
 						}
+						const letterboxdFilm = await lbTask;
+						metadataItem = pseuLetterboxd.filmInfoToPlexMetadata(letterboxdFilm, {
+							letterboxdMetadataBasePath: pseuplex.letterboxd.metadata.basePath
+						});
 					}
 					metadataItem.key = `${pseuplex.letterboxd.metadata.basePath}/${slug}`;
 					return metadataItem;

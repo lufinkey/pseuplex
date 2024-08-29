@@ -10,12 +10,15 @@ import {
 	intParam,
 	combinePathSegments
 } from '../../utils';
+import {
+	PseuplexMetadataItem
+} from '../types';
 
 export type LetterboxdToPlexOptions = {
 	letterboxdMetadataBasePath: string
 };
 
-export const filmInfoToPlexMetadata = (filmInfo: letterboxd.FilmInfo, options: LetterboxdToPlexOptions): PlexMetadataItem => {
+export const filmInfoToPlexMetadata = (filmInfo: letterboxd.FilmInfo, options: LetterboxdToPlexOptions): PseuplexMetadataItem => {
 	const releasedEvent = filmInfo.ldJson.releasedEvent;
 	return {
 		//guid: `plex://letterboxd/film/${aguid(`l${filmInfo.pageData.slug}`)}`,
@@ -26,6 +29,9 @@ export const filmInfoToPlexMetadata = (filmInfo: letterboxd.FilmInfo, options: L
 		tagline: filmInfo.pageData.tagline,
 		summary: filmInfo.pageData.description,
 		year: intParam(releasedEvent?.[0]?.startDate),
+		Pseuplex: {
+			isOnServer: false
+		},
 		Review: filmInfo.pageData.popularReviews?.map((viewing) => {
 			return viewingToPlexReview(viewing);
 		})

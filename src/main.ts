@@ -6,6 +6,10 @@ import https from 'https';
 import httpolyglot from 'httpolyglot';
 import express from 'express';
 import * as letterboxd from 'letterboxd-retriever';
+import {
+	httpError,
+	stringParam
+} from './utils';
 import { readConfigFile } from './config';
 import * as constants from './constants';
 import { parseCmdArgs } from './cmdargs';
@@ -14,18 +18,11 @@ import {
 	plexHttpProxy
 } from './plex/proxy';
 import * as plexTypes from './plex/types';
-import { handlePlexAPIRequest } from './plex/requesthandling';
-import {
-	httpError,
-	stringParam,
-	intParam,
-	stringArrayParam,
-	booleanParam,
-	parseURLPath
-} from './utils';
 import pseuplex from './pseuplex';
 import * as pseuLetterboxd from './pseuplex/letterboxd';
 import { PseuplexAccountsStore } from './pseuplex/accounts';
+import { handleAuthenticatedPlexAPIRequest } from './pseuplex/requesthandling';
+import * as pseuplexNotifications from './pseuplex/notifications';
 
 // parse command line arguments
 const args = parseCmdArgs(process.argv.slice(2));
@@ -66,7 +63,7 @@ const clientWebSockets: {[key: string]: stream.Duplex[]} = {};
 
 // handle letterboxd requests
 app.get(`${pseuplex.letterboxd.metadata.basePath}/:filmSlugs`, async (req, res) => {
-	await handlePlexAPIRequest(req, res, async (): Promise<plexTypes.PlexMetadataPage> => {
+	await handleAuthenticatedPlexAPIRequest(req, res, accountsStore, async (reqInfo): Promise<plexTypes.PlexMetadataPage> => {
 		console.log(`\ngot request for letterboxd movie ${req.params.filmSlugs}`);
 		const filmSlugsStr = req.params.filmSlugs?.trim();
 		if(!filmSlugsStr) {
@@ -75,14 +72,36 @@ app.get(`${pseuplex.letterboxd.metadata.basePath}/:filmSlugs`, async (req, res) 
 		const filmSlugs = filmSlugsStr.split(',');
 		const page = await pseuplex.letterboxd.metadata.get(filmSlugs, {
 			plexServerURL,
-			plexAuthContext
+			plexAuthContext: reqInfo.authContext
 		});
+		if(page?.MediaContainer?.Metadata) {
+			let metadataItems = page.MediaContainer.Metadata;
+			if(!(metadataItems instanceof Array)) {
+				metadataItems = [metadataItems];
+			}
+			if(metadataItems.length > 0) {
+				setTimeout(() => {
+					const sockets = clientWebSockets[reqInfo.authContext['X-Plex-Token']];
+					if(sockets && sockets.length > 0) {
+						for(const metadataItem of metadataItems) {
+							if(!metadataItem.Pseuplex?.isOnServer) {
+								console.log(`Sending unavailable notification for ${metadataItem.key} item(s) on ${sockets.length} sockets`);
+								pseuplexNotifications.sendMediaUnavailableNotification(sockets, {
+									userID: reqInfo.userInfo.userID,
+									metadataKey: metadataItem.key
+								});
+							}
+						}
+					}
+				}, 100);
+			}
+		}
 		return page;
 	});
 });
 
 app.get(pseuplex.letterboxd.hubs.userFollowingActivity.path, async (req, res) => {
-	await handlePlexAPIRequest(req, res, async (): Promise<plexTypes.PlexHubPage> => {
+	await handleAuthenticatedPlexAPIRequest(req, res, accountsStore, async (reqInfo): Promise<plexTypes.PlexHubPage> => {
 		const letterboxdUsername = stringParam(req.query['letterboxdUsername']);
 		if(!letterboxdUsername) {
 			throw httpError(400, "No user provided");
@@ -99,10 +118,7 @@ app.get(pseuplex.letterboxd.hubs.userFollowingActivity.path, async (req, res) =>
 app.get('/hubs', plexApiProxy(cfg, args, {
 	responseModifier: async (proxyRes, resData: plexTypes.PlexHubsPage, userReq, userRes): Promise<plexTypes.PlexHubsPage> => {
 		try {
-			let plexToken = stringParam(userReq.query['X-Plex-Token']);
-			if(!plexToken) {
-				plexToken = stringParam(userReq.headers['x-plex-token']);
-			}
+			const plexToken = plexTypes.parsePlexTokenFromRequest(userReq);
 			const userInfo = await accountsStore.getTokenUserInfoOrNull(plexToken);
 			console.log(`userInfo for token ${plexToken} is ${userInfo?.email} (isServerOwner=${userInfo?.isServerOwner})`);
 			if(userInfo) {
@@ -134,10 +150,7 @@ app.get(`/library/metadata/:metadataId`, plexApiProxy(cfg, args, {
 	responseModifier: async (proxyRes, resData: plexTypes.PlexMetadataPage, userReq, userRes) => {
 		let metadata = resData.MediaContainer.Metadata;
 		if(metadata) {
-			let plexToken = stringParam(userReq.query['X-Plex-Token']);
-			if(!plexToken) {
-				plexToken = stringParam(userReq.headers['x-plex-token']);
-			}
+			const plexToken = plexTypes.parsePlexTokenFromRequest(userReq);
 			const userInfo = await accountsStore.getTokenUserInfoOrNull(plexToken);
 			if(userInfo) {
 				const userPrefs = cfg.perUser[userInfo.email];
@@ -237,11 +250,7 @@ server.on('upgrade', (req, socket, head) => {
 	if(args.logUserRequests) {
 		console.log(`\nupgrade ws ${req.url}`);
 	}
-	const urlParts = parseURLPath(req.url);
-	let plexToken = stringParam(urlParts.query['X-Plex-Token']);
-	if(!plexToken) {
-		plexToken = stringParam(req.headers['x-plex-token']);
-	}
+	const plexToken = plexTypes.parsePlexTokenFromRequest(req);
 	if(plexToken) {
 		// save socket per plex token
 		let sockets = clientWebSockets[plexToken];

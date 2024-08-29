@@ -9,6 +9,7 @@ import { httpError, HttpError } from '../utils';
 
 export type PseuplexAccountInfo = {
 	email: string;
+	userID: number | string;
 	isServerOwner: boolean;
 };
 
@@ -65,6 +66,7 @@ export class PseuplexAccountsStore {
 				if(result?.MyPlex?.username) {
 					return {
 						email: result.MyPlex.username,
+						userID: 1, // user 1 is the server owner
 						isServerOwner: true
 					};
 				}
@@ -82,6 +84,7 @@ export class PseuplexAccountsStore {
 					if(result?.MyPlex?.username) {
 						const userInfo = {
 							email: result.MyPlex.username,
+							userID: 1, // user 1 is the server owner
 							isServerOwner: true
 						};
 						this._tokenUsers[token] = userInfo;
@@ -125,8 +128,10 @@ export class PseuplexAccountsStore {
 					for(const sharedServer of sharedServersPage.MediaContainer.SharedServer) {
 						if(sharedServer.accessToken && sharedServer.email) {
 							newServerTokens.add(sharedServer.accessToken);
+							const userID = Number.parseInt(sharedServer.userID);
 							this._tokenUsers[sharedServer.accessToken] = {
 								email: sharedServer.email,
+								userID: !Number.isNaN(userID) ? userID : sharedServer.userID,
 								isServerOwner: false
 							};
 						}
