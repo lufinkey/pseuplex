@@ -19,6 +19,9 @@ export const stringParam = (value: any): string | undefined => {
 };
 
 export const stringArrayParam = (value: any): string[] | undefined => {
+	if(value instanceof Array) {
+		return value;
+	}
 	const str = stringParam(value);
 	if(str == undefined) {
 		return undefined;
@@ -93,7 +96,8 @@ export type URLPathParts = {
 
 export type URLPath = {
 	path: string;
-	query?: qs.ParsedUrlQuery;
+	query?: string;
+	queryItems?: qs.ParsedUrlQuery;
 	hash?: string;
 };
 
@@ -146,17 +150,17 @@ export const stringifyURLPathParts = (urlPathObj: URLPathParts): string => {
 
 export const parseURLPath = (urlPath: string): URLPath => {
 	const parts = parseURLPathParts(urlPath);
-	const newParts: URLPath = (parts as any);
+	const newParts = (parts as URLPath);
 	if(parts.query != null) {
-		newParts.query = qs.parse(parts.query);
+		newParts.queryItems = qs.parse(parts.query);
 	}
 	return newParts;
 };
 
 export const stringifyURLPath = (urlPathObj: URLPath): string => {
 	let urlPath = urlPathObj.path;
-	if(urlPathObj.query != null) {
-		urlPath += `?${qs.stringify(urlPathObj.query)}`;
+	if(urlPathObj.queryItems != null) {
+		urlPath += `?${qs.stringify(urlPathObj.queryItems)}`;
 	}
 	if(urlPathObj.hash != null) {
 		urlPath += `#${urlPathObj.hash}`;

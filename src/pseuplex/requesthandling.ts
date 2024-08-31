@@ -3,15 +3,15 @@ import express from 'express';
 import { httpError } from '../utils';
 import * as plexTypes from '../plex/types';
 import { handlePlexAPIRequest } from '../plex/requesthandling';
-import { PseuplexAccountInfo, PseuplexAccountsStore } from './accounts';
+import { PlexServerAccountInfo, PlexServerAccountsStore } from '../plex/accounts';
 
 export const handleAuthenticatedPlexAPIRequest = <ResultType>(
 	req: express.Request,
 	res: express.Response,
-	accountsStore: PseuplexAccountsStore,
+	accountsStore: PlexServerAccountsStore,
 	handler: (reqInfo: {
 		authContext: plexTypes.PlexAuthContext,
-		userInfo: PseuplexAccountInfo
+		userInfo: PlexServerAccountInfo
 	}) => Promise<ResultType>) => {
 	return handlePlexAPIRequest(req, res, async () => {
 		const authContext = plexTypes.parseAuthContextFromRequest(req);

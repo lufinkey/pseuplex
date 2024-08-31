@@ -21,11 +21,14 @@ export class PlexMetadataMatchStore {
 	}
 }
 
-export const findMatchingPlexMovieOrShow = async (options: {
+export type PlexMediaItemMatchParams = {
 	title: string,
-	year: number | string,
+	year?: number | string,
 	types: plexDiscoverAPI.SearchType | plexDiscoverAPI.SearchType[],
 	guids: `${string}://${string}`[],
+};
+
+export const findMatchingPlexMediaItem = async (options: PlexMediaItemMatchParams & {
 	authContext?: PlexAuthContext | null
 }) => {
 	var guidsSet = new Set<string>(options.guids);

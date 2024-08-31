@@ -1,6 +1,8 @@
 
 import * as qs from 'qs';
+import express from 'express';
 import {
+	PlexXMLBoolean,
 	PlexMediaItemType
 } from './common';
 import {
@@ -12,13 +14,13 @@ import {
 import {
 	PlexMeta
 } from './Meta';
+import { PlexMediaContainer } from './MediaContainer';
 import {
 	intParam,
 	stringParam,
 	stringArrayParam,
 	booleanParam
 } from '../../utils';
-import { PlexMediaContainer } from './MediaContainer';
 
 
 export enum PlexHubNumericType {
@@ -52,16 +54,20 @@ export type PlexHubWithItems = PlexHub & {
 export type PlexHubPageParams = {
 	contentDirectoryID?: string[];
 	pinnedContentDirectoryID?: string[];
-	includeMeta?: number | boolean;
+	includeMeta?: boolean;
 	excludeFields?: string[]; // "summary"
 	start?: number;
 	count?: number
 };
 
-export const parsePlexHubQueryParams = (query: qs.ParsedQs, options: {includePagination: boolean}): PlexHubPageParams => {
+export const parsePlexHubPageParams = (req: express.Request, options: {fromListPage: boolean}): PlexHubPageParams => {
+	const query = req.query;
+	if(!query) {
+		return {};
+	}
 	return {
-		start: options.includePagination ? intParam(query['X-Plex-Container-Start']) : undefined,
-		count: options.includePagination ? intParam(query['X-Plex-Container-Size']) : undefined,
+		start: options.fromListPage ? undefined : intParam(query['X-Plex-Container-Start'] ?? req.header('x-plex-container-start')),
+		count: options.fromListPage ? intParam(query['count']) : intParam(query['X-Plex-Container-Size'] ?? req.header('x-plex-container-size')),
 		contentDirectoryID: stringArrayParam(query['contentDirectoryID']),
 		pinnedContentDirectoryID: stringArrayParam(query['pinnedContentDirectoryID']),
 		excludeFields: stringArrayParam(query['excludeFields']),
@@ -69,15 +75,51 @@ export const parsePlexHubQueryParams = (query: qs.ParsedQs, options: {includePag
 	};
 };
 
-export type PlexHubsPage = {
-	MediaContainer: PlexMediaContainer & {
-		Hub: PlexHub | PlexHub[]
-	}
-};
-
 export type PlexHubPage = {
 	MediaContainer: PlexMediaContainer & {
 		Meta: PlexMeta;
 		Metadata: PlexMetadataItem[]
+	}
+};
+
+
+export type PlexHubListPageParams = {
+	count?: number;
+	includeLibraryPlaylists?: boolean;
+	includeStations?: boolean;
+	includeRecentChannels?: boolean;
+	includeMeta?: boolean;
+	includeExternalMetadata?: boolean;
+	excludeFields?: string[]; // "summary"
+};
+
+export const parsePlexHubListPageParams = (req: express.Request): PlexHubListPageParams => {
+	const query = req.query;
+	if(!query) {
+		return {};
+	}
+	return {
+		count: intParam(query['count']),
+		includeLibraryPlaylists: booleanParam(query['includeLibraryPlaylists']),
+		includeStations: booleanParam(query['includeStations']),
+		includeRecentChannels: booleanParam(query['includeRecentChannels']),
+		includeMeta: booleanParam(query['includeMeta']),
+		includeExternalMetadata: booleanParam(query['includeExternalMetadata']),
+		excludeFields: stringArrayParam(query['excludeFields'])
+	};
+};
+
+export type PlexLibraryHubsPage = {
+	MediaContainer: PlexMediaContainer & {
+		Hub: PlexHubWithItems[]
+	}
+};
+
+export type PlexSectionHubsPage = {
+	MediaContainer: PlexMediaContainer & {
+		librarySectionID: string | number;
+		librarySectionTitle: string;
+		librarySectionUUID: string;
+		Hub?: PlexHubWithItems[]
 	}
 };

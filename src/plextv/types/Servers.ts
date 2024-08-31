@@ -1,8 +1,8 @@
 
-import { PlexMediaItemType } from '../../plex/types';
 import {
-	PlexXMLBoolean
-} from './common';
+	PlexXMLBoolean,
+	PlexMediaItemType
+} from '../../plex/types';
 
 export type PlexTVSharedServer = {
 	id: `${number}` | number;

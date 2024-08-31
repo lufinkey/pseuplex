@@ -8,7 +8,8 @@ import express from 'express';
 import * as letterboxd from 'letterboxd-retriever';
 import {
 	httpError,
-	stringParam
+	stringParam,
+	parseURLPath
 } from './utils';
 import { readConfigFile } from './config';
 import * as constants from './constants';
@@ -20,9 +21,10 @@ import {
 import * as plexTypes from './plex/types';
 import pseuplex from './pseuplex';
 import * as pseuLetterboxd from './pseuplex/letterboxd';
-import { PseuplexAccountsStore } from './pseuplex/accounts';
+import { PlexServerAccountsStore } from './plex/accounts';
 import { handleAuthenticatedPlexAPIRequest } from './pseuplex/requesthandling';
 import * as pseuplexNotifications from './pseuplex/notifications';
+import { PlexServerPropertiesStore } from './plex/serverproperties';
 
 // parse command line arguments
 const args = parseCmdArgs(process.argv.slice(2));
@@ -54,16 +56,19 @@ const plexAuthContext = {
 
 // prepare server
 const app = express();
-const accountsStore = new PseuplexAccountsStore({
+const plexServerPropertiesStore = new PlexServerPropertiesStore({
 	plexServerURL,
-	plexAuthContext,
+	plexAuthContext
+});
+const plexServerAccountsStore = new PlexServerAccountsStore({
+	plexServerProperties: plexServerPropertiesStore,
 	sharedServersMinLifetime: 60 * 5
 });
 const clientWebSockets: {[key: string]: stream.Duplex[]} = {};
 
 // handle letterboxd requests
 app.get(`${pseuplex.letterboxd.metadata.basePath}/:filmSlugs`, async (req, res) => {
-	await handleAuthenticatedPlexAPIRequest(req, res, accountsStore, async (reqInfo): Promise<plexTypes.PlexMetadataPage> => {
+	await handleAuthenticatedPlexAPIRequest(req, res, plexServerAccountsStore, async (reqInfo): Promise<plexTypes.PlexMetadataPage> => {
 		console.log(`\ngot request for letterboxd movie ${req.params.filmSlugs}`);
 		const filmSlugsStr = req.params.filmSlugs?.trim();
 		if(!filmSlugsStr) {
@@ -72,7 +77,10 @@ app.get(`${pseuplex.letterboxd.metadata.basePath}/:filmSlugs`, async (req, res) 
 		const filmSlugs = filmSlugsStr.split(',');
 		const page = await pseuplex.letterboxd.metadata.get(filmSlugs, {
 			plexServerURL,
-			plexAuthContext: reqInfo.authContext
+			plexAuthContext: reqInfo.authContext,
+			includeDiscoverMatches: true,
+			includeUnmatched: true,
+			transformMatchKeys: true
 		});
 		if(page?.MediaContainer?.Metadata) {
 			let metadataItems = page.MediaContainer.Metadata;
@@ -101,13 +109,13 @@ app.get(`${pseuplex.letterboxd.metadata.basePath}/:filmSlugs`, async (req, res) 
 });
 
 app.get(pseuplex.letterboxd.hubs.userFollowingActivity.path, async (req, res) => {
-	await handleAuthenticatedPlexAPIRequest(req, res, accountsStore, async (reqInfo): Promise<plexTypes.PlexHubPage> => {
+	await handleAuthenticatedPlexAPIRequest(req, res, plexServerAccountsStore, async (reqInfo): Promise<plexTypes.PlexHubPage> => {
 		const letterboxdUsername = stringParam(req.query['letterboxdUsername']);
 		if(!letterboxdUsername) {
 			throw httpError(400, "No user provided");
 		}
-		const params = plexTypes.parsePlexHubQueryParams(req.query, {includePagination:true});
-		const hub = pseuplex.letterboxd.hubs.userFollowingActivity.get(letterboxdUsername);
+		const params = plexTypes.parsePlexHubPageParams(req, {fromListPage:false});
+		const hub = await pseuplex.letterboxd.hubs.userFollowingActivity.get(letterboxdUsername);
 		return await hub.getHub({
 			...params,
 			listStartToken: stringParam(req.query['listStartToken'])
@@ -116,20 +124,17 @@ app.get(pseuplex.letterboxd.hubs.userFollowingActivity.path, async (req, res) =>
 });
 
 app.get('/hubs', plexApiProxy(cfg, args, {
-	responseModifier: async (proxyRes, resData: plexTypes.PlexHubsPage, userReq, userRes): Promise<plexTypes.PlexHubsPage> => {
+	responseModifier: async (proxyRes, resData: plexTypes.PlexLibraryHubsPage, userReq, userRes): Promise<plexTypes.PlexLibraryHubsPage> => {
 		try {
 			const plexToken = plexTypes.parsePlexTokenFromRequest(userReq);
-			const userInfo = await accountsStore.getTokenUserInfoOrNull(plexToken);
+			const userInfo = await plexServerAccountsStore.getTokenUserInfoOrNull(plexToken);
 			console.log(`userInfo for token ${plexToken} is ${userInfo?.email} (isServerOwner=${userInfo?.isServerOwner})`);
 			if(userInfo) {
 				const perUserCfg = userInfo ? cfg.perUser[userInfo.email] : null;
 				if(perUserCfg?.letterboxdUsername) {
-					const params = plexTypes.parsePlexHubQueryParams(userReq.query, {includePagination:false});
-					const hub = pseuplex.letterboxd.hubs.userFollowingActivity.get(perUserCfg.letterboxdUsername);
-					const page = await hub.getHubListEntry({
-						...params,
-						listStartToken: stringParam(userReq.query['listStartToken'])
-					});
+					const params = plexTypes.parsePlexHubPageParams(userReq, {fromListPage:true});
+					const hub = await pseuplex.letterboxd.hubs.userFollowingActivity.get(perUserCfg.letterboxdUsername);
+					const page = await hub.getHubListEntry(params);
 					if(!resData.MediaContainer.Hub) {
 						resData.MediaContainer.Hub = [];
 					} else if(!(resData.MediaContainer.Hub instanceof Array)) {
@@ -151,7 +156,7 @@ app.get(`/library/metadata/:metadataId`, plexApiProxy(cfg, args, {
 		let metadata = resData.MediaContainer.Metadata;
 		if(metadata) {
 			const plexToken = plexTypes.parsePlexTokenFromRequest(userReq);
-			const userInfo = await accountsStore.getTokenUserInfoOrNull(plexToken);
+			const userInfo = await plexServerAccountsStore.getTokenUserInfoOrNull(plexToken);
 			if(userInfo) {
 				const userPrefs = cfg.perUser[userInfo.email];
 				if(userPrefs && userPrefs.letterboxdUsername) {
@@ -193,11 +198,32 @@ app.get(`/library/metadata/:metadataId`, plexApiProxy(cfg, args, {
 	}
 }));
 
+/*app.post('/playQueues', plexApiProxy(cfg, args, {
+	requestModifier: (proxyReqOpts, userReq) => {
+		// parse url path
+		const urlPathParts = parseURLPath(userReq.originalUrl);
+		if(urlPathParts.query) {
+			const uri = urlPathParts.queryItems['uri'];
+			if(uri instanceof Array) {
+				//
+			} else if(uri) {
+				//
+			}
+		}
+	},
+	proxyReqPathResolver: (req) => {
+		//
+	},
+	responseModifier: (proxyRes, proxyResData, userReq, userRes) => {
+		//
+	}
+}));*/
+
 /*app.get('/:/prefs', (req, res) => {
 	res.status(200);
 	res.appendHeader('access-control-allow-origin', 'https://app.plex.tv')
 	res.status(200).send(
-		`<MediaContainer size="163">
+`<MediaContainer size="163">
 	<Setting id="TestSetting" label="Tee Hee" summary="This name will be used to identify this media server to other computers on your network. If you leave it blank, your computer&#39;s name will be used instead." type="text" default="" value="pseuplex" hidden="0" advanced="0" group="general" />
 </MediaContainer>`
 	);

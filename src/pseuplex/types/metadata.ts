@@ -13,6 +13,9 @@ export type PseuplexMetadataItem = PlexMetadataItem & {
 
 export type PseuplexMetadataPage = {
 	MediaContainer: PlexMediaContainer & {
+		librarySectionID?: string | number;
+		librarySectionTitle?: string;
+		librarySectionUUID?: string; // only included on PMS results
 		Metadata: PseuplexMetadataItem | PseuplexMetadataItem[];
 	}
 };

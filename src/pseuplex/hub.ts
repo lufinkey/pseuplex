@@ -11,14 +11,18 @@ export type PseuplexHubPage = {
 	more: boolean;
 }
 
-export abstract class PseuplexHub<TParams extends plexTypes.PlexHubPageParams> {
+export type PseuplexHubPageParams = plexTypes.PlexHubPageParams & {
+	listStartToken?: string | number | null | undefined;
+};
+
+export abstract class PseuplexHub {
 	get metadataBasePath() {
 		return '/library/metadata/';
 	}
 
-	abstract get(params: TParams): Promise<PseuplexHubPage>;
+	abstract get(params: PseuplexHubPageParams): Promise<PseuplexHubPage>;
 	
-	async getHub(params: TParams): Promise<plexTypes.PlexHubPage> {
+	async getHub(params: PseuplexHubPageParams): Promise<plexTypes.PlexHubPage> {
 		const page = await this.get(params);
 		return {
 			MediaContainer: {
@@ -42,7 +46,7 @@ export abstract class PseuplexHub<TParams extends plexTypes.PlexHubPageParams> {
 		};
 	}
 	
-	async getHubListEntry(params: TParams): Promise<plexTypes.PlexHubWithItems> {
+	async getHubListEntry(params: PseuplexHubPageParams): Promise<plexTypes.PlexHubWithItems> {
 		const page = await this.get(params);
 		let metadataBasePath = this.metadataBasePath;
 		if(metadataBasePath && !metadataBasePath.endsWith('/')) {

@@ -47,6 +47,7 @@ export type PlexMetadataItem = {
 	streamingMediaId?: string;
 
 	Guid?: PlexGuid[];
+	Genre?: PlexGenre[];
 	Media?: PlexMedia[];
 	Review?: PlexReview[];
 	Director?: PlexPerson[];
@@ -80,6 +81,9 @@ export type PlexMetadataItem = {
 
 export type PlexMetadataPage = {
 	MediaContainer: PlexMediaContainer & {
+		librarySectionID?: string | number;
+		librarySectionTitle?: string;
+		librarySectionUUID?: string; // only included on PMS results
 		Metadata: PlexMetadataItem | PlexMetadataItem[]
 	}
 };
@@ -108,4 +112,15 @@ export type PlexPerson = {
 	thumb?: string;
 	role?: string; // "Director", "Mario"
 	type?: 'person'
+};
+
+export type PlexGenre = {
+	filter: string; // "genre=4" on pms, "genre=287145bx19xbbtq" on discover
+	id: number | string; // 4 on pms, "287145bx19xbbtq" on discover
+	tag: string; // "Thriller", "Animation" etc
+	key?: string; // "/library/categories/thriller"
+	ratingKey?: string; // "genre_287145bx19xbbtq"
+	slug?: string; // "thriller"
+	type?: string; // "hub"
+	context?: string; // "tag.genre"
 };

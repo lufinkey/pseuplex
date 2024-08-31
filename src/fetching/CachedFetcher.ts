@@ -53,7 +53,7 @@ export class CachedFetcher<ItemType> {
 		return undefined;
 	}
 
-	async set(id: string | number, value: ItemType | Promise<ItemType>) {
+	async set(id: string | number, value: ItemType | Promise<ItemType>): Promise<ItemType> {
 		if(value instanceof Promise) {
 			this._cache[id] = value;
 			try {
@@ -69,5 +69,6 @@ export class CachedFetcher<ItemType> {
 			updatedAt: now,
 			accessedAt: now
 		};
+		return value;
 	}
 }

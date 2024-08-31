@@ -1,7 +1,7 @@
 
 import {
 	PlexXMLBoolean
-} from './common';
+} from '../../plex/types';
 
 export type PlexTVDevice = {
 	name: string; // "Server Name"

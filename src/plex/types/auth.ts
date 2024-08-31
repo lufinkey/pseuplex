@@ -66,7 +66,7 @@ export const parsePlexTokenFromRequest = (req: (http.IncomingMessage | express.R
 	let query = (req as express.Request).query;
 	if(!query) {
 		const urlParts = parseURLPath(req.url);
-		query = urlParts.query;
+		query = urlParts.queryItems;
 	}
 	let plexToken = query ? stringParam(query['X-Plex-Token']) : undefined;
 	if(!plexToken) {

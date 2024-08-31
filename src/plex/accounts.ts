@@ -2,61 +2,36 @@ import {
 	PlexAuthContext,
 	PlexMyPlexAccountPage,
 	PlexServerIdentityPage
-} from '../plex/types';
-import * as plexServerAPI from '../plex/api';
+} from './types';
+import * as plexServerAPI from './api';
 import * as plexTVAPI from '../plextv/api';
 import { httpError, HttpError } from '../utils';
+import { PlexServerPropertiesStore } from './serverproperties';
 
-export type PseuplexAccountInfo = {
+export type PlexServerAccountInfo = {
 	email: string;
 	userID: number | string;
 	isServerOwner: boolean;
 };
 
-export type PseuplexAccountsStoreOptions = {
-	plexServerURL: string,
-	plexAuthContext: PlexAuthContext,
-	sharedServersMinLifetime: number
+export type PlexServerAccountsStoreOptions = {
+	plexServerProperties: PlexServerPropertiesStore;
+	sharedServersMinLifetime: number;
 };
 
-export class PseuplexAccountsStore {
-	_options: PseuplexAccountsStoreOptions;
-	_serverMachineIdentifier: string | Promise<string> | null = null;
+export class PlexServerAccountsStore {
+	_options: PlexServerAccountsStoreOptions;
 	
-	_tokenUsers: {[key: string]: PseuplexAccountInfo} = {};
+	_tokenUsers: {[key: string]: PlexServerAccountInfo} = {};
 	_serverOwnerTokenCheckTasks: {[key: string]: Promise<PlexMyPlexAccountPage>} = {};
 	_sharedServersTask: Promise<void> | null = null;
 	_lastSharedServersFetchTime: number | null = null;
 
-	constructor(options: PseuplexAccountsStoreOptions) {
+	constructor(options: PlexServerAccountsStoreOptions) {
 		this._options = options;
 	}
 
-	async _getMachineIdentifier(): Promise<string> {
-		if(this._serverMachineIdentifier) {
-			return await this._serverMachineIdentifier;
-		}
-		const task = plexServerAPI.getServerIdentity({
-			serverURL: this._options.plexServerURL,
-			authContext: this._options.plexAuthContext
-		}).then((identityPage) => {
-			const machineId = identityPage?.MediaContainer?.machineIdentifier;
-			if(!machineId) {
-				throw new Error("Missing machineIdentifier in response");
-			}
-			return machineId;
-		});
-		let serverId: string | null = null;
-		try {
-			this._serverMachineIdentifier = task;
-			serverId = await task;
-		} finally {
-			this._serverMachineIdentifier = serverId;
-		}
-		return serverId;
-	}
-
-	async _getTokenServerOwnerAccount(token: string): Promise<PseuplexAccountInfo | null> {
+	async _getTokenServerOwnerAccount(token: string): Promise<PlexServerAccountInfo | null> {
 		// check if the token belongs to the server owner
 		try {
 			let ownerCheckTask = this._serverOwnerTokenCheckTasks[token];
@@ -73,7 +48,7 @@ export class PseuplexAccountsStore {
 			} else {
 				// send request for myplex account
 				const task = plexServerAPI.getMyPlexAccount({
-					serverURL: this._options.plexServerURL,
+					serverURL: this._options.plexServerProperties.plexServerURL,
 					authContext: {
 						'X-Plex-Token': token
 					}
@@ -109,7 +84,7 @@ export class PseuplexAccountsStore {
 			return;
 		}
 		// get machine ID
-		const machineId = await this._getMachineIdentifier();
+		const machineId = await this._options.plexServerProperties.getMachineIdentifier();
 		// get the shared servers or wait for existing task
 		if(this._sharedServersTask) {
 			await this._sharedServersTask;
@@ -119,7 +94,7 @@ export class PseuplexAccountsStore {
 			}
 			const task = plexTVAPI.getSharedServers({
 				clientIdentifier: machineId,
-				authContext: this._options.plexAuthContext
+				authContext: this._options.plexServerProperties.plexAuthContext
 			}).then((sharedServersPage) => {
 				// apply new shared server tokens
 				const newServerTokens = new Set<string>();
@@ -154,7 +129,7 @@ export class PseuplexAccountsStore {
 		}
 	}
 
-	async getTokenUserInfo(token: string): Promise<PseuplexAccountInfo | null> {
+	async getTokenUserInfo(token: string): Promise<PlexServerAccountInfo | null> {
 		if(!token) {
 			return null;
 		}
@@ -173,7 +148,7 @@ export class PseuplexAccountsStore {
 		return this._tokenUsers[token];
 	}
 
-	async getTokenUserInfoOrNull(token: string): Promise<PseuplexAccountInfo | null> {
+	async getTokenUserInfoOrNull(token: string): Promise<PlexServerAccountInfo | null> {
 		try {
 			return await this.getTokenUserInfo(token);
 		} catch(error) {

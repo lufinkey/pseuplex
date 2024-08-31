@@ -1,13 +1,16 @@
 
 import * as letterboxd from 'letterboxd-retriever';
 import {
+	LoadableList,
+	LoadableListChunk
+} from '../../fetching/LoadableList';
+import {
 	PseuplexHub,
-	PseuplexHubPage
+	PseuplexHubPage,
+	PseuplexHubPageParams
 } from '../hub';
 import {
-	PlexHub,
 	PlexHubContext,
-	PlexHubPageParams,
 	PlexHubStyle,
 	PlexMediaItemType
 } from '../../plex/types';
@@ -15,21 +18,17 @@ import {
 	addQueryArgumentToURLPath,
 	fixStringLeaks
 } from '../../utils';
-import {
-	LoadableList,
-	LoadableListChunk
-} from '../../fetching/LoadableList';
 import * as lbtransform from './transform';
 
-export type LetterboxdUserFeedHubOptions = {
-	letterboxdUsername: string;
+export type LetterboxdActivityFeedHubOptions = {
+	title: string;
 	hubPath: string;
 	context: PlexHubContext | string;
 	style: PlexHubStyle;
 	promoted?: boolean;
 	defaultItemCount: number;
 	uniqueItemsOnly: boolean;
-	verbose: boolean;
+	fetchPage: (pageToken: PageToken | null) => Promise<letterboxd.ActivityFeedPage>;
 } & lbtransform.LetterboxdToPlexOptions;
 
 type PageToken = {
@@ -37,26 +36,16 @@ type PageToken = {
 	token: string;
 };
 
-export type LetterboxdFeedHubParams = PlexHubPageParams & {
-	listStartToken: string | number | null | undefined;
-};
-
-export class LetterboxdUserFollowingActivityFeedHub extends PseuplexHub<LetterboxdFeedHubParams> {
-	_options: LetterboxdUserFeedHubOptions;
+export class LetterboxdActivityFeedHub extends PseuplexHub {
+	_options: LetterboxdActivityFeedHubOptions;
 	_itemList: LoadableList<letterboxd.Film,number,PageToken>;
 	
-	constructor(options: LetterboxdUserFeedHubOptions) {
+	constructor(options: LetterboxdActivityFeedHubOptions) {
 		super();
 		this._options = options;
 		this._itemList = new LoadableList<letterboxd.Film,number,PageToken>({
 			loader: async (pageToken: PageToken | null) => {
-				if(this._options.verbose) {
-					console.log(`Fetching letterboxd following feed for user ${this._options.letterboxdUsername} (pageToken=${JSON.stringify(pageToken)})`);
-				}
-				const page = await letterboxd.getUserFollowingFeed(this._options.letterboxdUsername, {
-					after: pageToken?.token ?? undefined,
-					csrf: pageToken?.csrf ?? undefined
-				});
+				const page = await this._options.fetchPage(pageToken);
 				//fixStringLeaks(page);
 				return {
 					items: page.items.filter((item) => (item.film != null)).map((item) => {
@@ -83,7 +72,7 @@ export class LetterboxdUserFollowingActivityFeedHub extends PseuplexHub<Letterbo
 		return this._options.letterboxdMetadataBasePath;
 	}
 
-	override async get(params: LetterboxdFeedHubParams): Promise<PseuplexHubPage> {
+	override async get(params: PseuplexHubPageParams): Promise<PseuplexHubPage> {
 		const opts = this._options;
 		let chunk: LoadableListChunk<letterboxd.Film,number>;
 		let start: number;
@@ -108,7 +97,7 @@ export class LetterboxdUserFollowingActivityFeedHub extends PseuplexHub<Letterbo
 		return {
 			hub: {
 				key: hubKey,
-				title: `${opts.letterboxdUsername}'s Letterboxd Following Feed`,
+				title: opts.title,
 				type: PlexMediaItemType.Movie,
 				hubIdentifier: opts.context + ((params.contentDirectoryID != null && !(params.contentDirectoryID instanceof Array)) ? `.${params.contentDirectoryID}` : ''),
 				context: opts.context,
