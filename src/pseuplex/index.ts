@@ -59,7 +59,7 @@ const pseuplex = {
 								authContext: options.plexAuthContext
 							});
 						})();
-						const guidTask = metadataTask.then((m) => (m.guid ?? null));
+						const guidTask = metadataTask.then((m) => (m?.guid ?? null));
 						plexMatches[slug] = metadataTask;
 						plexGuids[slug] = guidTask;
 						pseuplex.letterboxd.metadata.slugToPlexGuidCache.set(slug, guidTask);

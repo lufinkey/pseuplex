@@ -49,9 +49,9 @@ export type PlexMetadataItem = {
 	Guid?: PlexGuid[];
 	Media?: PlexMedia[];
 	Review?: PlexReview[];
-	Director?: PlexDirector[];
-	Writer?: PlexWriter[];
-	Role?: PlexRole[];
+	Director?: PlexPerson[];
+	Writer?: PlexPerson[];
+	Role?: PlexPerson[];
 } & ({} |
 	{
 		librarySectionTitle: string; // "My TV Shows"
@@ -99,18 +99,13 @@ export type PlexReview = {
 };
 
 export type PlexPerson = {
-	id?: number | string; // 195049
-	filter?: string; // "director=195049"
-	tag: string; // "Sam Pillsbury"
-	tagKey: string; // "o827tvx98bxtfi2r8297e342"
-};
-
-export type PlexPersonWithImage = PlexPerson & {
-	thumb: string; // "https://metadata-static.plex.tv/people/5d77687febdf2200209c082d.jpg"
-};
-
-export type PlexDirector = PlexPerson;
-export type PlexWriter = PlexPersonWithImage;
-export type PlexRole = PlexPersonWithImage & {
-	role: string; // "Lightning McQueen"
+	key?: string; // "/library/people/012365071260xt01rt23n0" < this will always point to a plex discover endpoint
+	id?: number | string; // 195049 or "012365071260xt01rt23n0"
+	slug: string; // "chris-pratt"
+	filter?: string; // "director=195049" or "director=012365071260xt01rt23n0" < use this if you want to point to pms server instead of discover
+	tag: string; // "Chris Pratt"
+	tagKey: string; // "o827tvx98bxtfi2r8297e342".
+	thumb?: string;
+	role?: string; // "Director", "Mario"
+	type?: 'person'
 };

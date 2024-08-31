@@ -1,11 +1,7 @@
 
 import aguid from 'aguid';
 import * as letterboxd from 'letterboxd-retriever';
-import {
-	PlexMediaItemType,
-	PlexMetadataItem,
-	PlexReview
-} from '../../plex/types';
+import * as plexTypes from '../../plex/types';
 import {
 	intParam,
 	combinePathSegments
@@ -21,10 +17,12 @@ export type LetterboxdToPlexOptions = {
 export const filmInfoToPlexMetadata = (filmInfo: letterboxd.FilmInfo, options: LetterboxdToPlexOptions): PseuplexMetadataItem => {
 	const releasedEvent = filmInfo.ldJson.releasedEvent;
 	return {
-		//guid: `plex://letterboxd/film/${aguid(`l${filmInfo.pageData.slug}`)}`,
+		guid: `letterboxd://film/${filmInfo.pageData.slug}`,
 		key: combinePathSegments(options.letterboxdMetadataBasePath, filmInfo.pageData.slug),
-		type: PlexMediaItemType.Movie,
+		ratingKey: `letterboxd:film:${filmInfo.pageData.slug}`,
+		type: plexTypes.PlexMediaItemType.Movie,
 		title: filmInfo.ldJson.name,
+		art: filmInfo.pageData.backdrop.default,
 		thumb: filmInfo.ldJson.image,
 		tagline: filmInfo.pageData.tagline,
 		summary: filmInfo.pageData.description,
@@ -32,24 +30,45 @@ export const filmInfoToPlexMetadata = (filmInfo: letterboxd.FilmInfo, options: L
 		Pseuplex: {
 			isOnServer: false
 		},
+		Director: filmInfo.ldJson?.director?.map((directorInfo): plexTypes.PlexPerson => {
+			return {
+				tag: directorInfo.name,
+				role: "Director"
+			} as plexTypes.PlexPerson;
+		}) ?? undefined,
+		Role: filmInfo.pageData?.cast?.map((actorInfo): plexTypes.PlexPerson => {
+			return {
+				tag: actorInfo.name,
+				role: actorInfo.role
+			} as plexTypes.PlexPerson;
+		}) ?? undefined,
+		Writer: filmInfo.pageData?.crew
+			?.filter((crewMember) => (crewMember.role == letterboxd.CrewRoleType.Writer))
+			.map((crewMember): plexTypes.PlexPerson => {
+				return {
+					tag: crewMember.name,
+					role: crewMember.role
+				} as plexTypes.PlexPerson;
+			}) ?? undefined,
 		Review: filmInfo.pageData.popularReviews?.map((viewing) => {
 			return viewingToPlexReview(viewing);
 		})
 	};
 };
 
-export const activityFeedFilmToPlexMetadata = (film: letterboxd.Film, options: LetterboxdToPlexOptions): PlexMetadataItem => {
+export const activityFeedFilmToPlexMetadata = (film: letterboxd.Film, options: LetterboxdToPlexOptions): plexTypes.PlexMetadataItem => {
 	return {
-		//guid: `plex://letterboxd/film/${aguid(`l${film.slug}`)}`,
+		guid: `letterboxd://film/${film.slug}`,
 		key: combinePathSegments(options.letterboxdMetadataBasePath, film.slug),
-		type: PlexMediaItemType.Movie,
+		ratingKey: `letterboxd:film:${film.slug}`,
+		type: plexTypes.PlexMediaItemType.Movie,
 		title: film.name,
 		thumb: film.imageURL,
 		year: intParam(film.year)
 	};
 };
 
-export const viewingToPlexReview = (viewing: letterboxd.Viewing): PlexReview => {
+export const viewingToPlexReview = (viewing: letterboxd.Viewing): plexTypes.PlexReview => {
 	return {
 		source: "Letterboxd",
 		tag: viewing.user.displayName,
