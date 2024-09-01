@@ -176,6 +176,7 @@ export abstract class PseuplexMetadataProvider<TRawMetadataItem> {
 			MediaContainer: {
 				size: metadatas.length,
 				allowSync: false,
+				identifier: "com.plexapp.plugins.library",
 				// TODO include library section info
 				Metadata: metadatas
 			}

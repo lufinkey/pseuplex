@@ -5,5 +5,5 @@ export type PlexMediaContainer = {
 	offset?: number;
 	allowSync?: boolean;
 	augmentationKey?: string; // "/library/metadata/augmentations/1" (these are the "recommended feeds")
-	identifier?: string;
+	identifier?: string; // "com.plexapp.plugins.library"
 };
