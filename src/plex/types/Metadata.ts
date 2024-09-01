@@ -66,6 +66,7 @@ export type PlexMetadataItem = {
 	publicPagesURL?: string; // "https://watch.plex.tv/show/<TVSHOW-SLUG>/season/1/episode/4"
 	availabilityId?: string;
 	streamingMediaId?: string;
+	userState?: boolean;
 
 	Guid?: PlexGuid[];
 	Genre?: PlexGenre[];

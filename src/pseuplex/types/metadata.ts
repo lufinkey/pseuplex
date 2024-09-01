@@ -7,6 +7,7 @@ import {
 
 export type PseuplexMetadataItem = PlexMetadataItem & {
 	Pseuplex: {
+		serverURL?: string;
 		isOnServer: boolean;
 	}
 };

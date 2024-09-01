@@ -3,6 +3,11 @@ import aguid from 'aguid';
 import * as letterboxd from 'letterboxd-retriever';
 import * as plexTypes from '../../plex/types';
 import {
+	PseuplexMetadataSource,
+	PseuplexMetadataIDParts,
+	stringifyMetadataID
+} from '../metadataidentifier';
+import {
 	intParam,
 	combinePathSegments
 } from '../../utils';
@@ -17,9 +22,19 @@ export type LetterboxdToPlexOptions = {
 export const filmInfoToPlexMetadata = (filmInfo: letterboxd.FilmInfo, options: LetterboxdToPlexOptions): PseuplexMetadataItem => {
 	const releasedEvent = filmInfo.ldJson.releasedEvent;
 	return {
-		guid: `letterboxd://film/${filmInfo.pageData.slug}`,
+		guid: stringifyMetadataID({
+			isURL: true,
+			source: PseuplexMetadataSource.Letterboxd,
+			directory: filmInfo.pageData.type ?? 'film',
+			id: filmInfo.pageData.slug
+		}),
 		key: combinePathSegments(options.letterboxdMetadataBasePath, filmInfo.pageData.slug),
-		ratingKey: `letterboxd:film:${filmInfo.pageData.slug}`,
+		ratingKey: stringifyMetadataID({
+			isURL: false,
+			source: PseuplexMetadataSource.Letterboxd,
+			directory: filmInfo.pageData.type ?? 'film',
+			id: filmInfo.pageData.slug
+		}),
 		type: plexTypes.PlexMediaItemType.Movie,
 		title: filmInfo.ldJson.name,
 		art: filmInfo.pageData.backdrop.default,
@@ -30,6 +45,9 @@ export const filmInfoToPlexMetadata = (filmInfo: letterboxd.FilmInfo, options: L
 		Pseuplex: {
 			isOnServer: false
 		},
+		Guid: filmInfoGuids(filmInfo).map((guid) => {
+			return {id:guid};
+		}),
 		Director: filmInfo.ldJson?.director?.map((directorInfo): plexTypes.PlexPerson => {
 			return {
 				tag: directorInfo.name,
@@ -54,6 +72,19 @@ export const filmInfoToPlexMetadata = (filmInfo: letterboxd.FilmInfo, options: L
 			return viewingToPlexReview(viewing);
 		})
 	};
+};
+
+export const filmInfoGuids = (filmInfo: letterboxd.FilmInfo) => {
+	let guids: `${string}://${string}`[] = [];
+	const tmdbInfo = filmInfo.pageData.tmdb;
+	if(tmdbInfo && tmdbInfo.id) {
+		guids.push(`tmdb://${tmdbInfo.id}`);
+	}
+	const imdbInfo = filmInfo.pageData.imdb;
+	if(imdbInfo && imdbInfo.id) {
+		guids.push(`imdb://${imdbInfo.id}`);
+	}
+	return guids;
 };
 
 export const activityFeedFilmToPlexMetadata = (film: letterboxd.Film, options: LetterboxdToPlexOptions): plexTypes.PlexMetadataItem => {

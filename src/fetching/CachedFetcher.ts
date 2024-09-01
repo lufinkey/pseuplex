@@ -71,4 +71,14 @@ export class CachedFetcher<ItemType> {
 		};
 		return value;
 	}
+
+	setSync(id: string | number, value: ItemType | Promise<ItemType>) {
+		let caughtError: Error = undefined;
+		this.set(id, value).catch((error) => {
+			caughtError = error;
+		});
+		if(caughtError && !(value instanceof Promise)) {
+			throw caughtError;
+		}
+	}
 }

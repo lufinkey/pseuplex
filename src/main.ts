@@ -72,8 +72,8 @@ const plexServerAccountsStore = new PlexServerAccountsStore({
 	plexServerProperties: plexServerPropertiesStore,
 	sharedServersMinLifetime: 60 * 5
 });
-const plexAuthenticator = createPlexAuthenticationMiddleware(plexServerAccountsStore);
 const clientWebSockets: {[key: string]: stream.Duplex[]} = {};
+const plexAuthenticator = createPlexAuthenticationMiddleware(plexServerAccountsStore);
 
 
 // handle letterboxd requests
@@ -178,52 +178,37 @@ app.get('/hubs', plexApiProxy(cfg, args, {
 	}
 }));
 
-app.get(`/library/metadata/:metadataId`, plexApiProxy(cfg, args, {
-	responseModifier: async (proxyRes, resData: plexTypes.PlexMetadataPage, userReq, userRes) => {
-		let metadata = resData.MediaContainer.Metadata;
-		if(metadata) {
-			const plexToken = plexTypes.parsePlexTokenFromRequest(userReq);
-			const userInfo = await plexServerAccountsStore.getTokenUserInfoOrNull(plexToken);
-			if(userInfo) {
+app.get(`/library/metadata/:metadataId`, [
+	plexAuthenticator,
+	// TODO remap metadata ID if needed
+	plexApiProxy(cfg, args, {
+		responseModifier: async (proxyRes, resData: plexTypes.PlexMetadataPage, userReq: IncomingPlexAPIRequest, userRes) => {
+			let metadata = resData.MediaContainer.Metadata;
+			if(metadata) {
+				const userInfo = userReq.plex.userInfo;
 				const userPrefs = cfg.perUser[userInfo.email];
 				if(userPrefs && userPrefs.letterboxdUsername) {
-					if(!(metadata instanceof Array)) {
-						metadata = [ metadata ];
-					}
-					resData.MediaContainer.Metadata = await Promise.all(metadata.map(async (item) => {
-						try {
-							if(item.Guid) {
-								let tmdbId: string = item.Guid.find((g) => g.id.startsWith('tmdb://'))?.id;
-								if(tmdbId) {
-									tmdbId = tmdbId.substring(7);
-									const letterboxdSlug = await letterboxd.getFilmSlugFromExternalID({tmdbId});
-									if(letterboxdSlug) {
-										const friendViewings = await letterboxd.getFriendsReviews({
-											username: userPrefs.letterboxdUsername,
-											filmSlug: letterboxdSlug
-										});
-										const reviews = friendViewings.items.map((viewing) => {
-											return pseuLetterboxd.viewingToPlexReview(viewing);
-										});
-										if(item.Review) {
-											item.Review = reviews.concat(item.Review);
-										} else {
-											item.Review = reviews;
-										}
-									}
-								}
-							}
-						} catch(error) {
-							console.error(error);
+					if(metadata instanceof Array) {
+						if(metadata.length == 1) {
+							metadata[0] = await pseuLetterboxd.attachLetterboxdReviewsToPlexMetadata(metadata[0], {
+								letterboxdMetadataProvider: pseuplex.letterboxd.metadata,
+								letterboxdUsername: userPrefs.letterboxdUsername
+							});
 						}
-						return item;
-					}));
+					} else {
+						metadata = await pseuLetterboxd.attachLetterboxdReviewsToPlexMetadata(metadata, {
+							letterboxdMetadataProvider: pseuplex.letterboxd.metadata,
+							letterboxdUsername: userPrefs.letterboxdUsername
+						});
+					}
+					resData.MediaContainer.Metadata = metadata;
 				}
 			}
+			return resData;
 		}
-		return resData;
-	}
-}));
+	}),
+	expressErrorHandler
+]);
 
 app.post('/playQueues', [
 	plexAuthenticator,
@@ -309,6 +294,11 @@ const plexGeneralProxy = plexHttpProxy(cfg, args);
 app.use((req, res) => {
 	plexGeneralProxy.web(req,res);
 });
+/*app.use(plexApiProxy(cfg, args, {
+	responseModifier: (proxyRes, resData, userReq, userRes) => {
+		return resData;
+	}
+}));*/
 
 // create http+https server
 const server: https.Server = httpolyglot.createServer({

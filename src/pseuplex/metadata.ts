@@ -16,6 +16,7 @@ import {
 	HttpError
 } from '../utils';
 
+
 export type PseuplexMetadataProviderParams = {
 	plexServerURL: string;
 	plexAuthContext: plexTypes.PlexAuthContext;
@@ -29,25 +30,45 @@ export type PseuplexMetadataProviderOptions = {
 	basePath: string;
 };
 
-export abstract class PseuplexMetadataProvider<TRawMetadataItem> {
+export abstract class PseuplexMetadataProvider<TMetadataItem> {
 	readonly basePath: string;
 	readonly idToPlexGuidCache: CachedFetcher<string>;
+	readonly plexGuidToIDCache: CachedFetcher<string>;
 
 	constructor(options: PseuplexMetadataProviderOptions) {
 		this.basePath = options.basePath;
 		this.idToPlexGuidCache = new CachedFetcher(async (id: string) => {
 			throw new Error("Cannot fetch guid from cache");
 		});
+		this.plexGuidToIDCache = new CachedFetcher(async (id: string) => {
+			throw new Error("Cannot fetch id from cache");
+		});
 	}
 
-	abstract fetchRawMetadata(id: string): Promise<TRawMetadataItem>;
-	abstract transformRawMetadata(metadataItem: TRawMetadataItem): PseuplexMetadataItem;
-	abstract getRawMetadataMatchParams(metadataItem: TRawMetadataItem): PlexMediaItemMatchParams;
+	abstract fetchMetadataItem(id: string): Promise<TMetadataItem>;
+	abstract transformMetadataItem(metadataItem: TMetadataItem): PseuplexMetadataItem;
+	abstract idFromMetadataItem(metadataItem: TMetadataItem): string;
+	abstract getPlexMatchParams(metadataItem: TMetadataItem): PlexMediaItemMatchParams;
+	abstract findMatchForPlexItem(metadataItem: plexTypes.PlexMetadataItem): Promise<TMetadataItem | null>;
+	async getIDForPlexItem(metadataItem: plexTypes.PlexMetadataItem): Promise<string | null> {
+		const plexGuid = metadataItem.guid;
+		if(plexGuid) {
+			const id = await this.plexGuidToIDCache.get(plexGuid);
+			if(id) {
+				return id;
+			}
+		}
+		const result = await this.findMatchForPlexItem(metadataItem);
+		if(!result) {
+			return null;
+		}
+		return this.idFromMetadataItem(result);
+	}
 
 	async get(ids: string[], options: PseuplexMetadataProviderParams): Promise<PseuplexMetadataPage> {
 		let plexGuids: {[id: string]: Promise<string> | string | null} = {};
 		let plexMatches: {[id: string]: (Promise<plexTypes.PlexMetadataItem> | plexTypes.PlexMetadataItem | null)} = {};
-		let providerItems: {[id: string]: TRawMetadataItem | Promise<TRawMetadataItem>} = {};
+		let providerItems: {[id: string]: TMetadataItem | Promise<TMetadataItem>} = {};
 		// setup tasks for each id
 		for(const id of ids) {
 			if(id in plexGuids) {
@@ -62,12 +83,12 @@ export abstract class PseuplexMetadataProvider<TRawMetadataItem> {
 				continue;
 			}
 			// get provider metadata item
-			const itemTask = providerItems[id] ?? this.fetchRawMetadata(id);
+			const itemTask = providerItems[id] ?? this.fetchMetadataItem(id);
 			providerItems[id] = itemTask;
 			if(plexGuid !== null) {
 				const metadataTask = (async () => {
 					const item = await itemTask;
-					const matchParams = this.getRawMetadataMatchParams(item);
+					const matchParams = this.getPlexMatchParams(item);
 					if(!matchParams) {
 						return null;
 					}
@@ -79,7 +100,12 @@ export abstract class PseuplexMetadataProvider<TRawMetadataItem> {
 				})();
 				const guidTask = metadataTask.then((m) => (m?.guid ?? null));
 				plexMatches[id] = metadataTask;
-				plexGuids[id] = this.idToPlexGuidCache.set(id, guidTask);
+				plexGuids[id] = this.idToPlexGuidCache.set(id, guidTask.then((guid) => {
+					if(guid) {
+						this.plexGuidToIDCache.setSync(id, guid);
+					}
+					return guid;
+				}));
 			}
 		}
 		// get guids and map them to items on the server
@@ -157,11 +183,11 @@ export abstract class PseuplexMetadataProvider<TRawMetadataItem> {
 				if(options.includeUnmatched ?? true) {
 					let providerMetadataItemTask = providerItems[id];
 					if(!providerMetadataItemTask) {
-						providerMetadataItemTask = this.fetchRawMetadata(id);
+						providerMetadataItemTask = this.fetchMetadataItem(id);
 						providerItems[id] = providerMetadataItemTask;
 					}
 					const providerMetadataItem = await providerMetadataItemTask;
-					metadataItem = this.transformRawMetadata(providerMetadataItem);
+					metadataItem = this.transformMetadataItem(providerMetadataItem);
 				} else {
 					return null;
 				}

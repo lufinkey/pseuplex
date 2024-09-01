@@ -1,7 +1,13 @@
 
 import express from 'express';
 
-export const parseMetadataIDFromKey = (metadataKey: string | null | undefined, basePath: string): {id: string, relativePath?: string} | null => {
+export type PlexMetadataKeyParts = {
+	basePath: string;
+	id: string;
+	relativePath?: string;
+};
+
+export const parseMetadataIDFromKey = (metadataKey: string | null | undefined, basePath: string): PlexMetadataKeyParts | null => {
 	if(!metadataKey) {
 		return null;
 	}
@@ -15,10 +21,12 @@ export const parseMetadataIDFromKey = (metadataKey: string | null | undefined, b
 	const slashIndex = metadataKey.indexOf('/', basePath.length);
 	if(slashIndex == -1) {
 		return {
+			basePath,
 			id: metadataKey.substring(basePath.length)
 		};
 	}
 	return {
+		basePath,
 		id: metadataKey.substring(basePath.length, slashIndex),
 		relativePath: metadataKey.substring(slashIndex)
 	};
