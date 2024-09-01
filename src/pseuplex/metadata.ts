@@ -22,7 +22,7 @@ export type PseuplexMetadataProviderParams = {
 	includeDiscoverMatches?: boolean;
 	includeUnmatched?: boolean;
 	transformMatchKeys?: boolean;
-	plexParams?: {[key: string]: any}
+	plexParams?: plexTypes.PlexMetadataPageParams
 };
 
 export type PseuplexMetadataProviderOptions = {

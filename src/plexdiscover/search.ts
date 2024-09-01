@@ -1,6 +1,7 @@
 import {
 	PlexAuthContext,
-	PlexMetadataItem
+	PlexMetadataItem,
+	PlexMetadataPageParams
 } from '../plex/types';
 import { plexDiscoverFetch } from './core';
 
@@ -60,7 +61,7 @@ export const search = async (options: {
 		limit?: number;
 		includeMetadata?: boolean;
 		filterPeople?: boolean;
-	} & {[key: string]: any},
+	} & PlexMetadataPageParams,
 	authContext?: PlexAuthContext | null
 }): Promise<SearchResultsPage> => {
 	// parse params

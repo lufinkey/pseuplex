@@ -86,7 +86,7 @@ app.get(`${pseuplex.letterboxd.metadata.basePath}/:filmSlugs`, [
 		//console.log(JSON.stringify(req.headers));
 		const reqAuthContext = req.plex.authContext;
 		const reqUserInfo = req.plex.userInfo
-		const params = parsePlexQueryParams(req, (key) => !(key in reqAuthContext));
+		const params: plexTypes.PlexMetadataPageParams = parsePlexQueryParams(req, (key) => !(key in reqAuthContext));
 		const filmSlugsStr = req.params.filmSlugs?.trim();
 		if(!filmSlugsStr) {
 			throw httpError(400, "No slug was provided");
@@ -105,7 +105,10 @@ app.get(`${pseuplex.letterboxd.metadata.basePath}/:filmSlugs`, [
 			if(!(metadataItems instanceof Array)) {
 				metadataItems = [metadataItems];
 			}
-			if(metadataItems.length > 0) {
+			if(metadataItems.length > 0
+				&& (params.checkFiles == 1 || params.asyncCheckFiles == 1
+					|| params.refreshLocalMediaAgent == 1 || params.asyncRefreshLocalMediaAgent == 1
+					|| params.refreshAnalysis == 1 || params.asyncRefreshAnalysis)) {
 				setTimeout(() => {
 					const sockets = clientWebSockets[reqAuthContext['X-Plex-Token']];
 					if(sockets && sockets.length > 0) {

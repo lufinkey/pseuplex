@@ -1,7 +1,8 @@
 
 import {
 	PlexContentRating,
-	PlexMediaItemType
+	PlexMediaItemType,
+	PlexXMLBoolean
 } from './common';
 import {
 	PlexMedia
@@ -9,6 +10,26 @@ import {
 import {
 	PlexMediaContainer
 } from './MediaContainer';
+
+export type PlexMetadataPageParams = {
+	includeConcerts?: PlexXMLBoolean;
+	includeExtras?: PlexXMLBoolean;
+	includeOnDeck?: PlexXMLBoolean;
+	includePopularLeaves?: PlexXMLBoolean;
+	includePreferences?: PlexXMLBoolean;
+	includeReviews?: PlexXMLBoolean;
+	includeChapters?: PlexXMLBoolean;
+	includeStations?: PlexXMLBoolean;
+	includeExternalMetadata?: PlexXMLBoolean;
+	asyncAugmentMetadata?: PlexXMLBoolean;
+	checkFiles?: PlexXMLBoolean;
+	asyncCheckFiles?: PlexXMLBoolean;
+	refreshAnalysis?: PlexXMLBoolean;
+	asyncRefreshAnalysis?: PlexXMLBoolean;
+	refreshLocalMediaAgent?: PlexXMLBoolean;
+	asyncRefreshLocalMediaAgent?: PlexXMLBoolean;
+	includeUserState?: PlexXMLBoolean;
+};
 
 export type PlexMetadataItem = {
 	guid?: string; // "plex://episode/6rv4x76r8x9bqb98xqt9qbt29r"

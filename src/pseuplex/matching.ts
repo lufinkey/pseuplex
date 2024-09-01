@@ -2,7 +2,8 @@ import * as plexDiscoverAPI from '../plexdiscover';
 import {
 	PlexAuthContext,
 	PlexMetadataItem,
-	PlexMetadataPage
+	PlexMetadataPage,
+	PlexMetadataPageParams
 } from '../plex/types';
 
 export type PlexMetadataMatchStoreOptions = {
@@ -30,7 +31,7 @@ export type PlexMediaItemMatchParams = {
 
 export const findMatchingPlexMediaItem = async (options: PlexMediaItemMatchParams & {
 	authContext?: PlexAuthContext | null,
-	params?: {[key: string]: any}
+	params?: PlexMetadataPageParams
 }) => {
 	var guidsSet = new Set<string>(options.guids);
 	return await findMatchingPlexMetadata({
@@ -62,7 +63,7 @@ const findMatchingPlexMetadata = async (options: {
 	query: string,
 	limit?: number,
 	searchTypes: plexDiscoverAPI.SearchType | plexDiscoverAPI.SearchType[],
-	params?: {[key: string]: any}
+	params?: PlexMetadataPageParams
 }, filter: SearchResultMatchFilter, validate: MetadataMatchFilter): Promise<PlexMetadataItem | null> => {
 	const resultsPage = await plexDiscoverAPI.search({
 		authContext: options.authContext,
