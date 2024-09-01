@@ -29,13 +29,15 @@ export type PlexMediaItemMatchParams = {
 };
 
 export const findMatchingPlexMediaItem = async (options: PlexMediaItemMatchParams & {
-	authContext?: PlexAuthContext | null
+	authContext?: PlexAuthContext | null,
+	params?: {[key: string]: any}
 }) => {
 	var guidsSet = new Set<string>(options.guids);
 	return await findMatchingPlexMetadata({
 		query: options.year ? `${options.title} ${options.year}` : options.title,
 		searchTypes: options.types,
-		authContext: options.authContext
+		authContext: options.authContext,
+		params: options.params
 	}, (searchResult) => {
 		return ((searchResult.Metadata.title == options.title || searchResult.Metadata.originalTitle == options.title)
 			&& (searchResult.Metadata.year == options.year));
@@ -56,17 +58,21 @@ type SearchResultMatchFilter = (resultItem: plexDiscoverAPI.SearchResult) => boo
 type MetadataMatchFilter = (metadataItem: PlexMetadataItem) => boolean;
 
 const findMatchingPlexMetadata = async (options: {
+	authContext?: PlexAuthContext | null,
 	query: string,
 	limit?: number,
 	searchTypes: plexDiscoverAPI.SearchType | plexDiscoverAPI.SearchType[],
-	authContext?: PlexAuthContext | null
+	params?: {[key: string]: any}
 }, filter: SearchResultMatchFilter, validate: MetadataMatchFilter): Promise<PlexMetadataItem | null> => {
 	const resultsPage = await plexDiscoverAPI.search({
-		query: options.query,
-		searchProviders: plexDiscoverAPI.SearchProvider.Discover,
-		searchTypes: options.searchTypes,
-		limit: options.limit ?? 10,
-		authContext: options.authContext
+		authContext: options.authContext,
+		params: {
+			...options.params,
+			query: options.query,
+			searchProviders: plexDiscoverAPI.SearchProvider.Discover,
+			searchTypes: options.searchTypes,
+			limit: options.limit ?? 10
+		}
 	});
 	const searchResultsList = resultsPage.MediaContainer?.SearchResults;
 	if(searchResultsList) {
@@ -81,7 +87,8 @@ const findMatchingPlexMetadata = async (options: {
 						}
 						const metadataPage = await plexDiscoverAPI.fetch<PlexMetadataPage>({
 							endpoint: key,
-							authContext: options.authContext
+							authContext: options.authContext,
+							params: options.params
 						});
 						let metadataItems = metadataPage?.MediaContainer?.Metadata;
 						const metadataItem = (metadataItems instanceof Array) ? metadataItems[0] : metadataItems;

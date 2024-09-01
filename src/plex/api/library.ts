@@ -9,7 +9,7 @@ export const getLibraryMetadata = async (id: string | string[], options: {
 	params?: {
 		include_guids?: boolean | 0 | 1,
 		checkFiles?: boolean | 0 | 1
-	},
+	} & {[key: string]: any},
 	serverURL: string,
 	authContext?: PlexAuthContext | null
 }): Promise<PlexMetadataPage> => {

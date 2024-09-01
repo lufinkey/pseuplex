@@ -17,11 +17,12 @@ import {
 } from '../utils';
 
 export type PseuplexMetadataProviderParams = {
+	plexServerURL: string;
+	plexAuthContext: plexTypes.PlexAuthContext;
 	includeDiscoverMatches?: boolean;
 	includeUnmatched?: boolean;
 	transformMatchKeys?: boolean;
-	plexServerURL: string;
-	plexAuthContext: plexTypes.PlexAuthContext;
+	plexParams?: {[key: string]: any}
 };
 
 export type PseuplexMetadataProviderOptions = {
@@ -72,7 +73,8 @@ export abstract class PseuplexMetadataProvider<TRawMetadataItem> {
 					}
 					return await findMatchingPlexMediaItem({
 						...matchParams,
-						authContext: options.plexAuthContext
+						authContext: options.plexAuthContext,
+						params: options.plexParams
 					});
 				})();
 				const guidTask = metadataTask.then((m) => (m?.guid ?? null));
@@ -88,7 +90,8 @@ export abstract class PseuplexMetadataProvider<TRawMetadataItem> {
 			try {
 				serverResult = await plexServerAPI.getLibraryMetadata(guidsToFetch, {
 					serverURL: options.plexServerURL,
-					authContext: options.plexAuthContext
+					authContext: options.plexAuthContext,
+					params: options.plexParams
 				});
 			} catch(error) {
 				if((error as HttpError).statusCode != 404) {
@@ -130,7 +133,8 @@ export abstract class PseuplexMetadataProvider<TRawMetadataItem> {
 			if(remainingGuids.length > 0) {
 				const discoverResult = await plexServerAPI.getLibraryMetadata(remainingGuids.map((guid) => plexDiscoverAPI.guidToMetadataID(guid)), {
 					serverURL: plexDiscoverAPI.BASE_URL,
-					authContext: options.plexAuthContext
+					authContext: options.plexAuthContext,
+					params: options.plexParams
 				});
 				let metadatas = discoverResult?.MediaContainer.Metadata;
 				if(metadatas) {

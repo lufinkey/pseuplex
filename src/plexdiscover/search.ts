@@ -53,25 +53,34 @@ const booleanQueryParam = (param: boolean | undefined): string | undefined => {
 };
 
 export const search = async (options: {
-	query: string;
-	searchTypes: SearchType | SearchType[];
-	searchProviders: SearchProvider | SearchProvider[];
-	limit?: number;
-	includeMetadata?: boolean;
-	filterPeople?: boolean;
+	params: {
+		query: string;
+		searchTypes: SearchType | SearchType[];
+		searchProviders: SearchProvider | SearchProvider[];
+		limit?: number;
+		includeMetadata?: boolean;
+		filterPeople?: boolean;
+	} & {[key: string]: any},
 	authContext?: PlexAuthContext | null
 }): Promise<SearchResultsPage> => {
+	// parse params
+	if(options.params?.searchTypes instanceof Array) {
+		options.params.searchTypes = options.params.searchTypes.join(',') as any;
+	}
+	if(options.params?.searchProviders instanceof Array) {
+		options.params.searchProviders = options.params.searchProviders.join(',') as any;
+	}
+	if(options.params.includeMetadata != null) {
+		options.params.includeMetadata = booleanQueryParam(options.params.includeMetadata) as any;
+	}
+	if(options.params.filterPeople != null) {
+		options.params.filterPeople = booleanQueryParam(options.params.filterPeople) as any;
+	}
+	// send request
 	return await plexDiscoverFetch<SearchResultsPage>({
 		method: 'GET',
 		endpoint: 'library/search',
-		params: {
-			query: options.query,
-			limit: options.limit,
-			searchTypes: (options.searchTypes instanceof Array ? options.searchTypes.join(',') : options.searchTypes),
-			searchProviders: (options.searchProviders instanceof Array ? options.searchProviders.join(',') : options.searchProviders),
-			includeMetadata: booleanQueryParam(options.includeMetadata),
-			filterPeople: booleanQueryParam(options.filterPeople)
-		},
+		params: options.params,
 		authContext: options.authContext
 	});
 };

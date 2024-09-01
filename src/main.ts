@@ -24,6 +24,7 @@ import {
 import * as plexTypes from './plex/types';
 import { PlexServerPropertiesStore } from './plex/serverproperties';
 import { PlexServerAccountsStore } from './plex/accounts';
+import { parsePlexQueryParams } from './plex/utils';
 import {
 	plexAPIRequestHandler,
 	IncomingPlexAPIRequest,
@@ -81,8 +82,11 @@ app.get(`${pseuplex.letterboxd.metadata.basePath}/:filmSlugs`, [
 	plexAuthenticator,
 	plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexMetadataPage> => {
 		console.log(`\ngot request for letterboxd movie ${req.params.filmSlugs}`);
+		//console.log(JSON.stringify(req.query));
+		//console.log(JSON.stringify(req.headers));
 		const reqAuthContext = req.plex.authContext;
 		const reqUserInfo = req.plex.userInfo
+		const params = parsePlexQueryParams(req, (key) => !(key in reqAuthContext));
 		const filmSlugsStr = req.params.filmSlugs?.trim();
 		if(!filmSlugsStr) {
 			throw httpError(400, "No slug was provided");
@@ -93,7 +97,8 @@ app.get(`${pseuplex.letterboxd.metadata.basePath}/:filmSlugs`, [
 			plexAuthContext: reqAuthContext,
 			includeDiscoverMatches: true,
 			includeUnmatched: true,
-			transformMatchKeys: true
+			transformMatchKeys: true,
+			plexParams: params
 		});
 		if(page?.MediaContainer?.Metadata) {
 			let metadataItems = page.MediaContainer.Metadata;
@@ -106,8 +111,8 @@ app.get(`${pseuplex.letterboxd.metadata.basePath}/:filmSlugs`, [
 					if(sockets && sockets.length > 0) {
 						for(const metadataItem of metadataItems) {
 							if(!metadataItem.Pseuplex?.isOnServer) {
-								console.log(`Sending unavailable notification for ${metadataItem.key} item(s) on ${sockets.length} sockets`);
-								pseuplexNotifications.sendMediaUnavailableNotification(sockets, {
+								console.log(`Sending unavailable notifications for ${metadataItem.key} item(s) on ${sockets.length} sockets`);
+								pseuplexNotifications.sendMediaUnavailableNotifications(sockets, {
 									userID: reqUserInfo.userID,
 									metadataKey: metadataItem.key
 								});
