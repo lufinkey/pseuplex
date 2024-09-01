@@ -9,4 +9,5 @@ export * from './Meta';
 export * from './MediaContainer';
 export * from './MyPlex';
 export * from './Server';
+export * from './PlayQueue';
 export * from './Notifications';

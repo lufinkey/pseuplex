@@ -3,12 +3,12 @@ import * as letterboxd from 'letterboxd-retriever';
 import * as plexTypes from '../../plex/types';
 import * as plexDiscoverAPI from '../../plexdiscover';
 import { PlexMediaItemMatchParams } from '../matching';
-import { PseuplexMetadataProvider } from '../metadata';
-import { PseuplexMetadataItem } from '../types';
+import { PseuplexMetadataProvider, PseuplexMetadataProviderParams } from '../metadata';
+import { PseuplexMetadataItem, PseuplexMetadataPage } from '../types';
 import * as lbTransform from './transform';
 import * as lbMetadata from './metadata';
 
-export const getLetterboxdPlexMediaItemMatchParams = (filmInfo: letterboxd.FilmInfo): PlexMediaItemMatchParams => {
+export const getLetterboxdPlexMediaItemMatchParams = (filmInfo: letterboxd.FilmInfo): PlexMediaItemMatchParams | null => {
 	let types: plexDiscoverAPI.SearchType[];
 	let guids: `${string}://${string}`[] = [];
 	const tmdbInfo = filmInfo.pageData.tmdb;
@@ -51,13 +51,13 @@ export class LetterboxdMetadataProvider extends PseuplexMetadataProvider<Letterb
 		return filmInfo;
 	}
 
-	override transformRawMetadata(metadataItem: letterboxd.FilmInfo): PseuplexMetadataItem {
+	override transformRawMetadata(metadataItem: LetterboxdMetadataItem): PseuplexMetadataItem {
 		return lbTransform.filmInfoToPlexMetadata(metadataItem, {
 			letterboxdMetadataBasePath: this.basePath
 		});
 	}
 
-	override getRawMetadataMatchParams(metadataItem: letterboxd.FilmInfo): PlexMediaItemMatchParams {
+	override getRawMetadataMatchParams(metadataItem: LetterboxdMetadataItem): PlexMediaItemMatchParams {
 		return lbMetadata.getLetterboxdPlexMediaItemMatchParams(metadataItem);
 	}
 }

@@ -1,10 +1,10 @@
 
-export const parseMetadataIDFromKey = (basePath: string, metadataKey: string | null | undefined): {id: string, relativePath?: string} | null => {
+export const parseMetadataIDFromKey = (metadataKey: string | null | undefined, basePath: string): {id: string, relativePath?: string} | null => {
 	if(!metadataKey) {
 		return null;
 	}
-	if(!metadataKey.endsWith('/')) {
-		metadataKey += '/';
+	if(!basePath.endsWith('/')) {
+		basePath += '/';
 	}
 	if(!metadataKey.startsWith(basePath)) {
 		console.warn(`Unrecognized metadata key ${metadataKey}`);
@@ -18,6 +18,6 @@ export const parseMetadataIDFromKey = (basePath: string, metadataKey: string | n
 	}
 	return {
 		id: metadataKey.substring(basePath.length, slashIndex),
-		relativePath: metadataKey.substring(slashIndex+1)
+		relativePath: metadataKey.substring(slashIndex)
 	};
 };

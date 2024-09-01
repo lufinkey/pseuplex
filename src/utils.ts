@@ -1,5 +1,6 @@
 
 import qs from 'querystring';
+import express from 'express';
 
 export type HttpError = Error & { statusCode: number };
 
@@ -208,5 +209,26 @@ export const fixStringLeaks = (obj: object) => {
 				}
 			}
 		}
+	}
+};
+
+export const asyncRequestHandler = <TRequest extends express.Request = express.Request>(handler: (req: TRequest, res: express.Response) => Promise<void>) => {
+	return async (req, res, next) => {
+		try {
+			await handler(req,res);
+		} catch(error) {
+			next(error);
+			return;
+		}
+		next();
+	};
+};
+
+export const expressErrorHandler = (error, req: express.Request, res: express.Response, next) => {
+	if(error) {
+		res.status(error.statusCode ?? 500).send(error.message);
+		console.log(`Sent error ${error.message}`);
+	} else {
+		next();
 	}
 };

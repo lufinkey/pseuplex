@@ -49,12 +49,13 @@ export const plexProxy = (cfg: Config, args: CommandArguments, opts: expressHttp
 };
 
 export const plexApiProxy = (cfg: Config, args: CommandArguments, opts: {
-	proxyReqPathResolver?: (req: express.Request) => string,
-	requestModifier?: (proxyReqOpts: http.RequestOptions, userReq: express.Request) => http.RequestOptions,
-	responseModifier: (proxyRes: http.IncomingMessage, proxyResData: any, userReq: express.Request, userRes: express.Response) => any
+	requestOptionsModifier?: (proxyReqOpts: http.RequestOptions, userReq: express.Request) => http.RequestOptions,
+	requestPathModifier?: (req: express.Request) => string | Promise<string>,
+	requestBodyModifier?: (bodyContent: string, userReq: express.Request) => string | Promise<string>,
+	responseModifier?: (proxyRes: http.IncomingMessage, proxyResData: any, userReq: express.Request, userRes: express.Response) => any
 })=> {
 	return plexProxy(cfg, args, {
-		proxyReqPathResolver: opts.proxyReqPathResolver,
+		parseReqBody: opts.requestBodyModifier ? true : undefined,
 		proxyReqOptDecorator: async (proxyReqOpts, userReq) => {
 			// log request if needed
 			if(args.logUserRequests) {
@@ -64,7 +65,9 @@ export const plexApiProxy = (cfg: Config, args: CommandArguments, opts: {
 			const acceptType = parseHttpContentType(userReq.headers['accept']).contentType;
 			let isApiRequest = false;
 			if (acceptType == 'text/xml') {
-				proxyReqOpts.headers['accept'] = 'application/json';
+				if(opts.responseModifier) {
+					proxyReqOpts.headers['accept'] = 'application/json';
+				}
 				isApiRequest = true;
 			} else if(acceptType == 'application/json') {
 				isApiRequest = true;
@@ -79,8 +82,8 @@ export const plexApiProxy = (cfg: Config, args: CommandArguments, opts: {
 			proxyReqOpts.servername = userReq.hostname;*/
 			// modify if this is an API request
 			if (isApiRequest) {
-				if(opts.requestModifier) {
-					proxyReqOpts = await opts.requestModifier(proxyReqOpts, userReq);
+				if(opts.requestOptionsModifier) {
+					proxyReqOpts = await opts.requestOptionsModifier(proxyReqOpts, userReq);
 				}
 			}
 			// log proxy request
@@ -89,15 +92,23 @@ export const plexApiProxy = (cfg: Config, args: CommandArguments, opts: {
 			}
 			return proxyReqOpts;
 		},
+		proxyReqPathResolver: opts.requestPathModifier,
+		proxyReqBodyDecorator: opts.requestBodyModifier,
 		userResHeaderDecorator: (headers, userReq, userRes, proxyReq, proxyRes) => {
-			// set the accepted content type if we're going to change back from json to xml
-			const acceptType = parseHttpContentType(userReq.headers['accept']).contentType;
-			if(acceptType == 'text/xml') {
-				headers['content-type'] = acceptType;
+			if(opts.responseModifier) {
+				// set the accepted content type if we're going to change back from json to xml
+				const acceptType = parseHttpContentType(userReq.headers['accept']).contentType;
+				if(acceptType == 'text/xml') {
+					headers['content-type'] = acceptType;
+				}
+			} else {
+				if(args.logProxyResponses || args.logUserResponses) {
+					console.log(`\nResponse ${proxyRes.statusCode} for ${userReq.method} ${urlLogString(args, userReq.originalUrl)}`);
+				}
 			}
 			return headers;
 		},
-		userResDecorator: async (proxyRes, proxyResData, userReq, userRes) => {
+		userResDecorator: opts.responseModifier ? async (proxyRes, proxyResData, userReq, userRes) => {
 			// get response content type
 			const contentType = parseHttpContentType(proxyRes.headers['content-type']).contentType;
 			if(contentType != 'application/json') {
@@ -129,7 +140,9 @@ export const plexApiProxy = (cfg: Config, args: CommandArguments, opts: {
 				return resData;
 			}
 			// modify response
-			resData = await opts.responseModifier(proxyRes, resData, userReq, userRes);
+			if(opts.responseModifier) {
+				resData = await opts.responseModifier(proxyRes, resData, userReq, userRes);
+			}
 			// serialize response
 			resData = (await serializeResponseContent(userReq, userRes, resData)).data;
 			// log user response
@@ -141,7 +154,7 @@ export const plexApiProxy = (cfg: Config, args: CommandArguments, opts: {
 				console.log();
 			}
 			return resData;
-		}
+		} : undefined
 	});
 };
 

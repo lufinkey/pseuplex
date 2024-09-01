@@ -53,8 +53,8 @@ export abstract class PseuplexHub {
 			metadataBasePath += '/';
 		}
 		const metadataIds = page.items
-			.map((item) => parseMetadataIDFromKey(metadataBasePath, item.key)?.id)
-			.filter((metadataId) => (metadataId != null));
+			.map((item) => parseMetadataIDFromKey(item.key, metadataBasePath)?.id)
+			.filter((metadataId) => metadataId);
 		return {
 			...page.hub,
 			hubKey: metadataIds.length > 0 ? `${metadataBasePath}${metadataIds.join(',')}` : undefined,

@@ -20,6 +20,9 @@ export const plexDiscoverFetch = async <TResult>(options: {
 };
 
 export const guidToMetadataID = (guid: string) => {
+	if(!guid || !guid.startsWith('plex://')) {
+		return guid;
+	}
 	let endIndex = guid.length;
 	if(guid.endsWith('/')) {
 		endIndex--;

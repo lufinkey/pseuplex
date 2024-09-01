@@ -77,8 +77,7 @@ export abstract class PseuplexMetadataProvider<TRawMetadataItem> {
 				})();
 				const guidTask = metadataTask.then((m) => (m?.guid ?? null));
 				plexMatches[id] = metadataTask;
-				plexGuids[id] = guidTask;
-				this.idToPlexGuidCache.set(id, guidTask);
+				plexGuids[id] = this.idToPlexGuidCache.set(id, guidTask);
 			}
 		}
 		// get guids and map them to items on the server

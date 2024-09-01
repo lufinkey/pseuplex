@@ -9,7 +9,10 @@ import * as letterboxd from 'letterboxd-retriever';
 import {
 	httpError,
 	stringParam,
-	parseURLPath
+	parseURLPath,
+	expressErrorHandler,
+	stringifyURLPath,
+	asyncRequestHandler
 } from './utils';
 import { readConfigFile } from './config';
 import * as constants from './constants';
@@ -19,12 +22,16 @@ import {
 	plexHttpProxy
 } from './plex/proxy';
 import * as plexTypes from './plex/types';
+import { PlexServerPropertiesStore } from './plex/serverproperties';
+import { PlexServerAccountsStore } from './plex/accounts';
+import {
+	plexAPIRequestHandler,
+	IncomingPlexAPIRequest,
+	createPlexAuthenticationMiddleware
+} from './plex/requesthandling';
 import pseuplex from './pseuplex';
 import * as pseuLetterboxd from './pseuplex/letterboxd';
-import { PlexServerAccountsStore } from './plex/accounts';
-import { handleAuthenticatedPlexAPIRequest } from './pseuplex/requesthandling';
 import * as pseuplexNotifications from './pseuplex/notifications';
-import { PlexServerPropertiesStore } from './plex/serverproperties';
 
 // parse command line arguments
 const args = parseCmdArgs(process.argv.slice(2));
@@ -64,12 +71,31 @@ const plexServerAccountsStore = new PlexServerAccountsStore({
 	plexServerProperties: plexServerPropertiesStore,
 	sharedServersMinLifetime: 60 * 5
 });
+const plexAuthenticator = createPlexAuthenticationMiddleware(plexServerAccountsStore);
 const clientWebSockets: {[key: string]: stream.Duplex[]} = {};
 
+app.get('/testtimeout', [
+	plexAuthenticator,
+	plexApiProxy(cfg, args, {
+		requestPathModifier: async (req) => {
+			await new Promise<void>((resolve) => {
+				setTimeout(resolve, 100);
+			});
+			throw new Error("gay");
+		}
+	}),
+	expressErrorHandler
+]);
+
+
 // handle letterboxd requests
-app.get(`${pseuplex.letterboxd.metadata.basePath}/:filmSlugs`, async (req, res) => {
-	await handleAuthenticatedPlexAPIRequest(req, res, plexServerAccountsStore, async (reqInfo): Promise<plexTypes.PlexMetadataPage> => {
+
+app.get(`${pseuplex.letterboxd.metadata.basePath}/:filmSlugs`, [
+	plexAuthenticator,
+	plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexMetadataPage> => {
 		console.log(`\ngot request for letterboxd movie ${req.params.filmSlugs}`);
+		const reqAuthContext = req.plex.authContext;
+		const reqUserInfo = req.plex.userInfo
 		const filmSlugsStr = req.params.filmSlugs?.trim();
 		if(!filmSlugsStr) {
 			throw httpError(400, "No slug was provided");
@@ -77,7 +103,7 @@ app.get(`${pseuplex.letterboxd.metadata.basePath}/:filmSlugs`, async (req, res) 
 		const filmSlugs = filmSlugsStr.split(',');
 		const page = await pseuplex.letterboxd.metadata.get(filmSlugs, {
 			plexServerURL,
-			plexAuthContext: reqInfo.authContext,
+			plexAuthContext: reqAuthContext,
 			includeDiscoverMatches: true,
 			includeUnmatched: true,
 			transformMatchKeys: true
@@ -89,13 +115,13 @@ app.get(`${pseuplex.letterboxd.metadata.basePath}/:filmSlugs`, async (req, res) 
 			}
 			if(metadataItems.length > 0) {
 				setTimeout(() => {
-					const sockets = clientWebSockets[reqInfo.authContext['X-Plex-Token']];
+					const sockets = clientWebSockets[reqAuthContext['X-Plex-Token']];
 					if(sockets && sockets.length > 0) {
 						for(const metadataItem of metadataItems) {
 							if(!metadataItem.Pseuplex?.isOnServer) {
 								console.log(`Sending unavailable notification for ${metadataItem.key} item(s) on ${sockets.length} sockets`);
 								pseuplexNotifications.sendMediaUnavailableNotification(sockets, {
-									userID: reqInfo.userInfo.userID,
+									userID: reqUserInfo.userID,
 									metadataKey: metadataItem.key
 								});
 							}
@@ -105,11 +131,13 @@ app.get(`${pseuplex.letterboxd.metadata.basePath}/:filmSlugs`, async (req, res) 
 			}
 		}
 		return page;
-	});
-});
+	}),
+	expressErrorHandler
+]);
 
-app.get(pseuplex.letterboxd.hubs.userFollowingActivity.path, async (req, res) => {
-	await handleAuthenticatedPlexAPIRequest(req, res, plexServerAccountsStore, async (reqInfo): Promise<plexTypes.PlexHubPage> => {
+app.get(pseuplex.letterboxd.hubs.userFollowingActivity.path, [
+	plexAuthenticator,
+	plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexMetadataPage> => {
 		const letterboxdUsername = stringParam(req.query['letterboxdUsername']);
 		if(!letterboxdUsername) {
 			throw httpError(400, "No user provided");
@@ -120,8 +148,12 @@ app.get(pseuplex.letterboxd.hubs.userFollowingActivity.path, async (req, res) =>
 			...params,
 			listStartToken: stringParam(req.query['listStartToken'])
 		});
-	});
-});
+	}),
+	expressErrorHandler
+]);
+
+
+// handle plex requests
 
 app.get('/hubs', plexApiProxy(cfg, args, {
 	responseModifier: async (proxyRes, resData: plexTypes.PlexLibraryHubsPage, userReq, userRes): Promise<plexTypes.PlexLibraryHubsPage> => {
@@ -198,26 +230,44 @@ app.get(`/library/metadata/:metadataId`, plexApiProxy(cfg, args, {
 	}
 }));
 
-/*app.post('/playQueues', plexApiProxy(cfg, args, {
-	requestModifier: (proxyReqOpts, userReq) => {
-		// parse url path
-		const urlPathParts = parseURLPath(userReq.originalUrl);
-		if(urlPathParts.query) {
-			const uri = urlPathParts.queryItems['uri'];
-			if(uri instanceof Array) {
-				//
-			} else if(uri) {
-				//
+app.post('/playQueues', [
+	plexAuthenticator,
+	plexApiProxy(cfg, args, {
+		requestPathModifier: async (req: IncomingPlexAPIRequest): Promise<string> => {
+			// parse url path
+			const urlPathParts = parseURLPath(req.originalUrl);
+			const queryItems = urlPathParts.queryItems;
+			if(!queryItems) {
+				return req.originalUrl;
 			}
+			// check for play queue uri
+			let uri = queryItems['uri'];
+			if(!uri) {
+				return req.originalUrl;
+			}
+			// resolve play queue uri
+			const resolveOptions = {
+				plexMachineIdentifier: await plexServerPropertiesStore.getMachineIdentifier(),
+				plexServerURL,
+				plexAuthContext: req.plex.authContext
+			};
+			if(uri instanceof Array) {
+				uri = await Promise.all(uri.map(async (uriElement) => {
+					return await pseuplex.resolvePlayQueueURI(uriElement, resolveOptions);
+				}));
+			} else {
+				uri = await pseuplex.resolvePlayQueueURI(uri, resolveOptions);
+			}
+			queryItems['uri'] = uri;
+			return stringifyURLPath(urlPathParts);
+		},
+		requestBodyModifier: (bodyContent, req) => {
+			console.log(`body ${bodyContent} (type ${typeof bodyContent})`);
+			return bodyContent;
 		}
-	},
-	proxyReqPathResolver: (req) => {
-		//
-	},
-	responseModifier: (proxyRes, proxyResData, userReq, userRes) => {
-		//
-	}
-}));*/
+	}),
+	expressErrorHandler
+]);
 
 /*app.get('/:/prefs', (req, res) => {
 	res.status(200);
