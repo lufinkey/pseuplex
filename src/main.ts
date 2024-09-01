@@ -74,19 +74,6 @@ const plexServerAccountsStore = new PlexServerAccountsStore({
 const plexAuthenticator = createPlexAuthenticationMiddleware(plexServerAccountsStore);
 const clientWebSockets: {[key: string]: stream.Duplex[]} = {};
 
-app.get('/testtimeout', [
-	plexAuthenticator,
-	plexApiProxy(cfg, args, {
-		requestPathModifier: async (req) => {
-			await new Promise<void>((resolve) => {
-				setTimeout(resolve, 100);
-			});
-			throw new Error("gay");
-		}
-	}),
-	expressErrorHandler
-]);
-
 
 // handle letterboxd requests
 
