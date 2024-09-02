@@ -25,6 +25,7 @@ export enum PlexTVHubIdentifierType {
 
 // context types for "Movies" hub (not sure what makes these different from the "movie" contexts)
 export enum PlexMoviesHubIdentifierType {
+	Similar = 'movies.similar',
 	Recommended = 'movies.recommended',
 	Recent = 'movies.recent',
 	WatchList = 'movies.watchlist',
