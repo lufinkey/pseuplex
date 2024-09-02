@@ -10,6 +10,7 @@ import {
 	PseuplexHubPageParams
 } from '../hub';
 import {
+	PlexHubIdentifier,
 	PlexHubContext,
 	PlexHubStyle,
 	PlexMediaItemType
@@ -24,7 +25,8 @@ import * as lbtransform from './transform';
 export type LetterboxdActivityFeedHubOptions = {
 	title: string;
 	hubPath: string;
-	context: PlexHubContext | string;
+	hubIdentifier: PlexHubIdentifier;
+	context: PlexHubContext,
 	style: PlexHubStyle;
 	promoted?: boolean;
 	defaultItemCount: number;
@@ -98,7 +100,7 @@ export class LetterboxdActivityFeedHub extends PseuplexHub {
 				key: hubKey,
 				title: opts.title,
 				type: PlexMediaItemType.Movie,
-				hubIdentifier: opts.context + ((params.contentDirectoryID != null && !(params.contentDirectoryID instanceof Array)) ? `.${params.contentDirectoryID}` : ''),
+				hubIdentifier: `${opts.hubIdentifier}${(params.contentDirectoryID != null && !(params.contentDirectoryID instanceof Array)) ? `.${params.contentDirectoryID}` : ''}`,
 				context: opts.context,
 				style: opts.style,
 				promoted: opts.promoted

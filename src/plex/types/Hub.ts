@@ -6,7 +6,8 @@ import {
 	PlexMediaItemType
 } from './common';
 import {
-	PlexHubContext
+	PlexHubContext,
+	PlexHubIdentifier
 } from './HubContext';
 import {
 	PlexMetadataItem
@@ -36,7 +37,7 @@ export type PlexHub = {
 	key: string; // "/hubs/sections/1/continueWatching/items"
 	title: string; // "Continue Watching"
 	type: PlexMediaItemType;
-	hubIdentifier: string; // "movie.inprogress.1", "hub.movie.recentlyadded.1"
+	hubIdentifier: PlexHubIdentifier | string; // "movie.inprogress.1", "hub.movie.recentlyadded.1"
 	context: PlexHubContext | string;
 	style: PlexHubStyle;
 	random?: boolean;
