@@ -127,7 +127,7 @@ app.get(`${pseuplex.letterboxd.metadata.basePath}/:id`, [
 					if(sockets && sockets.length > 0) {
 						for(const metadataItem of metadataItems) {
 							if(!metadataItem.Pseuplex?.isOnServer) {
-								console.log(`Sending unavailable notifications for ${metadataItem.key} item(s) on ${sockets.length} sockets`);
+								console.log(`Sending unavailable notifications for ${metadataItem.key} on ${sockets.length} sockets`);
 								pseuplexNotifications.sendMediaUnavailableNotifications(sockets, {
 									userID: reqUserInfo.userID,
 									metadataKey: metadataItem.key
