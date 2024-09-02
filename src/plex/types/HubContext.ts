@@ -38,7 +38,8 @@ export enum PlexMoviesHubIdentifierType {
 	QuestsSagasAndDragons = 'movies.quests-sagas-and-dragons',
 	CrimeTime = 'movies.crimetime'
 }
-export type PlexMoviesHubIdentifierTypeBecauseYouWatched = `hub.movies.byw.${string}`;
+export const PlexMoviesHubIdentifierPrefixBecauseYouWatched = 'movies.byw';
+export type PlexMoviesHubIdentifierTypeBecauseYouWatched = `${typeof PlexMoviesHubIdentifierPrefixBecauseYouWatched}.${string}`;
 
 export type PlexHubIdentifierType =
 	PlexGeneralHubIdentifierType
