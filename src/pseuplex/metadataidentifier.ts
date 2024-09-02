@@ -115,7 +115,7 @@ export const stringifyMetadataID = (idParts: PseuplexMetadataIDParts) => {
 			if(idParts.directory == null) {
 				idString = `${idParts.source}:${qs.escape(idParts.id)}`;
 			} else {
-				idString = `${idParts.source}:${qs.escape(idParts.directory)}/${qs.escape(idParts.id)}`;
+				idString = `${idParts.source}:${qs.escape(idParts.directory)}:${qs.escape(idParts.id)}`;
 			}
 		}
 	}
