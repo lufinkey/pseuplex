@@ -10,9 +10,10 @@ import {
 	httpError,
 	stringParam,
 	parseURLPath,
-	expressErrorHandler,
 	stringifyURLPath,
-	asyncRequestHandler
+	expressErrorHandler,
+	asyncRequestHandler,
+	parseQueryParams
 } from './utils';
 import { readConfigFile } from './config';
 import * as constants from './constants';
@@ -22,17 +23,29 @@ import {
 	plexHttpProxy
 } from './plex/proxy';
 import * as plexTypes from './plex/types';
+import * as plexServerAPI from './plex/api';
 import { PlexServerPropertiesStore } from './plex/serverproperties';
 import { PlexServerAccountsStore } from './plex/accounts';
-import { parsePlexQueryParams } from './plex/utils';
 import {
 	plexAPIRequestHandler,
 	IncomingPlexAPIRequest,
-	createPlexAuthenticationMiddleware
+	createPlexAuthenticationMiddleware,
+	handlePlexAPIRequest
 } from './plex/requesthandling';
 import pseuplex from './pseuplex';
+import {
+	PseuplexMetadataSource,
+	PseuplexMetadataItem,
+	PseuplexMetadataPage
+} from './pseuplex/types';
 import * as pseuLetterboxd from './pseuplex/letterboxd';
 import * as pseuplexNotifications from './pseuplex/notifications';
+import {
+	parseMetadataID,
+	stringifyMetadataID,
+	stringifyPartialMetadataID
+} from './pseuplex/metadataidentifier';
+import { pseuplexMetadataIdRequestMiddleware } from './pseuplex/requesthandling';
 
 // parse command line arguments
 const args = parseCmdArgs(process.argv.slice(2));
@@ -78,21 +91,21 @@ const plexAuthenticator = createPlexAuthenticationMiddleware(plexServerAccountsS
 
 // handle letterboxd requests
 
-app.get(`${pseuplex.letterboxd.metadata.basePath}/:filmSlugs`, [
+app.get(`${pseuplex.letterboxd.metadata.basePath}/:id`, [
 	plexAuthenticator,
 	plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexMetadataPage> => {
-		console.log(`\ngot request for letterboxd movie ${req.params.filmSlugs}`);
+		console.log(`\ngot request for letterboxd item ${req.params.id}`);
 		//console.log(JSON.stringify(req.query));
 		//console.log(JSON.stringify(req.headers));
 		const reqAuthContext = req.plex.authContext;
 		const reqUserInfo = req.plex.userInfo
-		const params: plexTypes.PlexMetadataPageParams = parsePlexQueryParams(req, (key) => !(key in reqAuthContext));
-		const filmSlugsStr = req.params.filmSlugs?.trim();
-		if(!filmSlugsStr) {
+		const params: plexTypes.PlexMetadataPageParams = parseQueryParams(req, (key) => !(key in reqAuthContext));
+		const itemIdsStr = req.params.id?.trim();
+		if(!itemIdsStr) {
 			throw httpError(400, "No slug was provided");
 		}
-		const filmSlugs = filmSlugsStr.split(',');
-		const page = await pseuplex.letterboxd.metadata.get(filmSlugs, {
+		const ids = itemIdsStr.split(',');
+		const page = await pseuplex.letterboxd.metadata.get(ids, {
 			plexServerURL,
 			plexAuthContext: reqAuthContext,
 			includeDiscoverMatches: true,
@@ -180,7 +193,73 @@ app.get('/hubs', plexApiProxy(cfg, args, {
 
 app.get(`/library/metadata/:metadataId`, [
 	plexAuthenticator,
-	// TODO remap metadata ID if needed
+	pseuplexMetadataIdRequestMiddleware(async (req: IncomingPlexAPIRequest, res, metadataIds, params): Promise<PseuplexMetadataPage> => {
+		let caughtError: Error | undefined = undefined;
+		const metadataItems = (await Promise.all(metadataIds.map(async (metadataId) => {
+			try {
+				let source = metadataId.source;
+				if (!source) {
+					source = PseuplexMetadataSource.Plex;
+				}
+				const provider = pseuplex.getMetadataProvider(source);
+				if(provider) {
+					// fetch from provider
+					const partialId = stringifyPartialMetadataID(metadataId);
+					return (await provider.get([partialId], {
+						plexServerURL,
+						plexAuthContext: req.plex.authContext,
+						includeDiscoverMatches: true,
+						includeUnmatched: true,
+						transformMatchKeys: false,
+						metadataBasePath: '/library/metadata',
+						qualifiedMetadataIds: true,
+						plexParams: params
+					})).MediaContainer.Metadata;
+				} else if(source == PseuplexMetadataSource.Plex) {
+					// fetch from plex
+					const fullMetadataId = stringifyMetadataID(metadataId);
+					return [].concat((await plexServerAPI.getLibraryMetadata([fullMetadataId], {
+						params: params,
+						serverURL: plexServerURL,
+						authContext: req.plex.authContext
+					})).MediaContainer.Metadata).map((metadata: PseuplexMetadataItem) => {
+						metadata.Pseuplex = {
+							metadataId: fullMetadataId,
+							isOnServer: true
+						}
+						return metadata;
+					});
+				} else {
+					// TODO handle other source type
+					return [];
+				}
+			} catch(error) {
+				if(!caughtError) {
+					caughtError = error;
+				}
+			}
+		}))).reduce<PseuplexMetadataItem[]>((accumulator, element) => {
+			if(element) {
+				accumulator = accumulator.concat(element);
+			}
+			return accumulator;
+		}, []);
+		if(metadataItems.length == 0) {
+			if(caughtError) {
+				throw caughtError;
+			}
+			throw httpError(404, "Not Found");
+		}
+		return {
+			MediaContainer: {
+				size: metadataItems.length,
+				totalSize: metadataItems.length,
+				allowSync: false,
+				identifier: plexTypes.PlexPluginIdentifier.PlexAppLibrary,
+				Metadata: metadataItems
+			}
+		};
+	}),
 	plexApiProxy(cfg, args, {
 		responseModifier: async (proxyRes, resData: plexTypes.PlexMetadataPage, userReq: IncomingPlexAPIRequest, userRes) => {
 			let metadata = resData.MediaContainer.Metadata;

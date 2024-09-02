@@ -1,4 +1,8 @@
 
+export enum PlexPluginIdentifier {
+	PlexAppLibrary = 'com.plexapp.plugins.library'
+}
+
 export type PlexXMLBoolean = '1' | '0' | 1 | 0 | boolean;
 
 export enum PlexSymbol {

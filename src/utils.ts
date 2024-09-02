@@ -169,6 +169,16 @@ export const stringifyURLPath = (urlPathObj: URLPath): string => {
 	return urlPath;
 };
 
+export const parseQueryParams = (req: express.Request, includeParam: (key:string) => boolean): {[key:string]: any} => {
+	const params: {[key:string]: any} = {};
+	for(const key in req.query) {
+		if(includeParam(key)) {
+			params[key] = req.query[key];
+		}
+	}
+	return params;
+};
+
 export const addQueryArgumentToURLPath = (urlPath: string, queryEntry: string) => {
 	const parts = parseURLPathParts(urlPath);
 	if(!parts.query) {
@@ -212,15 +222,19 @@ export const fixStringLeaks = (obj: object) => {
 	}
 };
 
-export const asyncRequestHandler = <TRequest extends express.Request = express.Request>(handler: (req: TRequest, res: express.Response) => Promise<void>) => {
+export const asyncRequestHandler = <TRequest extends express.Request = express.Request>(
+	handler: (req: TRequest, res: express.Response) => Promise<boolean>) => {
 	return async (req, res, next) => {
+		let done: boolean;
 		try {
-			await handler(req,res);
+			done = await handler(req,res);
 		} catch(error) {
 			next(error);
 			return;
 		}
-		next();
+		if(!done) {
+			next();
+		}
 	};
 };
 

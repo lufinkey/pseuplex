@@ -18,6 +18,7 @@ import {
 	addQueryArgumentToURLPath,
 	fixStringLeaks
 } from '../../utils';
+import { PseuplexMetadataTransformOptions } from '../metadata';
 import * as lbtransform from './transform';
 
 export type LetterboxdActivityFeedHubOptions = {
@@ -28,8 +29,9 @@ export type LetterboxdActivityFeedHubOptions = {
 	promoted?: boolean;
 	defaultItemCount: number;
 	uniqueItemsOnly: boolean;
+	metadataTransformOptions: PseuplexMetadataTransformOptions;
 	fetchPage: (pageToken: PageToken | null) => Promise<letterboxd.ActivityFeedPage>;
-} & lbtransform.LetterboxdToPlexOptions;
+};
 
 type PageToken = {
 	csrf: string;
@@ -68,8 +70,8 @@ export class LetterboxdActivityFeedHub extends PseuplexHub {
 		});
 	}
 
-	override get metadataBasePath() {
-		return this._options.letterboxdMetadataBasePath;
+	override get metadataBasePath(): string {
+		return this._options.metadataTransformOptions.metadataBasePath;
 	}
 
 	override async get(params: PseuplexHubPageParams): Promise<PseuplexHubPage> {
@@ -87,9 +89,6 @@ export class LetterboxdActivityFeedHub extends PseuplexHub {
 			chunk = await this._itemList.getOrFetchStartItems(start, {unique:opts.uniqueItemsOnly});
 			listStartToken = chunk.items[0].token;
 		}
-		const lbTransformFilmOpts: lbtransform.LetterboxdToPlexOptions = {
-			letterboxdMetadataBasePath: opts.letterboxdMetadataBasePath
-		};
 		let hubKey = opts.hubPath;
 		if(listStartToken) {
 			hubKey = addQueryArgumentToURLPath(opts.hubPath, `listStartToken=${listStartToken}`);
@@ -105,7 +104,7 @@ export class LetterboxdActivityFeedHub extends PseuplexHub {
 				promoted: opts.promoted
 			},
 			items: await Promise.all(chunk.items.map(async (itemNode) => {
-				return lbtransform.activityFeedFilmToPlexMetadata(itemNode.item, lbTransformFilmOpts);
+				return lbtransform.activityFeedFilmToPlexMetadata(itemNode.item, opts.metadataTransformOptions);
 			})),
 			offset: start,
 			more: chunk.hasMore,

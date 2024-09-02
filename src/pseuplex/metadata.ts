@@ -5,13 +5,18 @@ import * as plexServerAPI from '../plex/api';
 import * as plexDiscoverAPI from '../plexdiscover';
 import * as extPlexTransform from './externalplex';
 import {
+	PseuplexMetadataSource,
+	PseuplexMetadataItem,
+	PseuplexMetadataPage
+} from './types';
+import {
 	findMatchingPlexMediaItem,
 	PlexMediaItemMatchParams
 } from './matching';
 import {
-	PseuplexMetadataItem,
-	PseuplexMetadataPage
-} from './types';
+	parsePartialMetadataID,
+	stringifyMetadataID
+} from './metadataidentifier';
 import {
 	HttpError
 } from '../utils';
@@ -20,17 +25,32 @@ import {
 export type PseuplexMetadataProviderParams = {
 	plexServerURL: string;
 	plexAuthContext: plexTypes.PlexAuthContext;
+	metadataBasePath?: string;
+	qualifiedMetadataIds?: boolean;
 	includeDiscoverMatches?: boolean;
 	includeUnmatched?: boolean;
 	transformMatchKeys?: boolean;
 	plexParams?: plexTypes.PlexMetadataPageParams
 };
 
+export interface PseuplexMetadataProvider {
+	get source(): PseuplexMetadataSource;
+	readonly basePath: string;
+	readonly idToPlexGuidCache: CachedFetcher<string>;
+	readonly plexGuidToIDCache: CachedFetcher<string>;
+	get(ids: string[], options: PseuplexMetadataProviderParams): Promise<PseuplexMetadataPage>;
+}
+
 export type PseuplexMetadataProviderOptions = {
 	basePath: string;
 };
 
-export abstract class PseuplexMetadataProvider<TMetadataItem> {
+export type PseuplexMetadataTransformOptions = {
+	qualifiedMetadataId: boolean;
+	metadataBasePath: string;
+};
+
+export abstract class PseuplexMetadataProviderBase<TMetadataItem> implements PseuplexMetadataProvider {
 	readonly basePath: string;
 	readonly idToPlexGuidCache: CachedFetcher<string>;
 	readonly plexGuidToIDCache: CachedFetcher<string>;
@@ -45,8 +65,9 @@ export abstract class PseuplexMetadataProvider<TMetadataItem> {
 		});
 	}
 
+	abstract get source(): PseuplexMetadataSource;
 	abstract fetchMetadataItem(id: string): Promise<TMetadataItem>;
-	abstract transformMetadataItem(metadataItem: TMetadataItem): PseuplexMetadataItem;
+	abstract transformMetadataItem(metadataItem: TMetadataItem, options: PseuplexMetadataTransformOptions): PseuplexMetadataItem;
 	abstract idFromMetadataItem(metadataItem: TMetadataItem): string;
 	abstract getPlexMatchParams(metadataItem: TMetadataItem): PlexMediaItemMatchParams;
 	abstract findMatchForPlexItem(metadataItem: plexTypes.PlexMetadataItem): Promise<TMetadataItem | null>;
@@ -69,6 +90,14 @@ export abstract class PseuplexMetadataProvider<TMetadataItem> {
 		let plexGuids: {[id: string]: Promise<string> | string | null} = {};
 		let plexMatches: {[id: string]: (Promise<plexTypes.PlexMetadataItem> | plexTypes.PlexMetadataItem | null)} = {};
 		let providerItems: {[id: string]: TMetadataItem | Promise<TMetadataItem>} = {};
+		const transformOpts: PseuplexMetadataTransformOptions = {
+			qualifiedMetadataId: options.qualifiedMetadataIds ?? false,
+			metadataBasePath: options.metadataBasePath ?? this.basePath
+		};
+		const externalPlexTransformOpts: PseuplexMetadataTransformOptions = {
+			qualifiedMetadataId: true,
+			metadataBasePath: '/library/metadata'
+		};
 		// setup tasks for each id
 		for(const id of ids) {
 			if(id in plexGuids) {
@@ -133,6 +162,7 @@ export abstract class PseuplexMetadataProvider<TMetadataItem> {
 					if(metadata.guid) {
 						const pseuMetadata = metadata as PseuplexMetadataItem;
 						pseuMetadata.Pseuplex = {
+							metadataId: metadata.guid,
 							isOnServer: true
 						};
 						plexMetadataMap[metadata.guid] = pseuMetadata;
@@ -149,7 +179,7 @@ export abstract class PseuplexMetadataProvider<TMetadataItem> {
 					if(!plexMetadataMap[guid]) {
 						const matchMetadata = await plexMatches[id];
 						if(matchMetadata?.guid && !plexMetadataMap[matchMetadata.guid]) {
-							plexMetadataMap[matchMetadata.guid] = extPlexTransform.transformExternalPlexMetadata(matchMetadata, plexDiscoverAPI.BASE_URL);
+							plexMetadataMap[matchMetadata.guid] = extPlexTransform.transformExternalPlexMetadata(matchMetadata, plexDiscoverAPI.BASE_URL, externalPlexTransformOpts);
 						}
 					}
 				}
@@ -169,7 +199,7 @@ export abstract class PseuplexMetadataProvider<TMetadataItem> {
 					}
 					for(const metadata of metadatas) {
 						if(metadata.guid) {
-							plexMetadataMap[metadata.guid] = extPlexTransform.transformExternalPlexMetadata(metadata, plexDiscoverAPI.BASE_URL);
+							plexMetadataMap[metadata.guid] = extPlexTransform.transformExternalPlexMetadata(metadata, plexDiscoverAPI.BASE_URL, externalPlexTransformOpts);
 						}
 					}
 				}
@@ -179,21 +209,37 @@ export abstract class PseuplexMetadataProvider<TMetadataItem> {
 		const metadatas = (await Promise.all(ids.map(async (id) => {
 			const guid = await plexGuids[id];
 			let metadataItem = guid ? plexMetadataMap[guid] : null;
-			if(!metadataItem) {
-				if(options.includeUnmatched ?? true) {
-					let providerMetadataItemTask = providerItems[id];
-					if(!providerMetadataItemTask) {
-						providerMetadataItemTask = this.fetchMetadataItem(id);
-						providerItems[id] = providerMetadataItemTask;
+			if(metadataItem) {
+				const idParts = parsePartialMetadataID(id);
+				metadataItem.Pseuplex.metadataId = stringifyMetadataID({
+					...idParts,
+					source: this.source,
+					isURL: false
+				});
+				if(options.transformMatchKeys || !metadataItem.Pseuplex.isOnServer) {
+					let metadataId: string;
+					if(transformOpts.qualifiedMetadataId) {
+						const idParts = parsePartialMetadataID(id);
+						metadataId = stringifyMetadataID({
+							...idParts,
+							source: this.source,
+							isURL: false
+						});
+					} else {
+						metadataId = id;
 					}
-					const providerMetadataItem = await providerMetadataItemTask;
-					metadataItem = this.transformMetadataItem(providerMetadataItem);
-				} else {
-					return null;
+					metadataItem.key = `${transformOpts.metadataBasePath}/${metadataId}`;
 				}
-			}
-			if(options.transformMatchKeys || !metadataItem.Pseuplex.isOnServer) {
-				metadataItem.key = `${this.basePath}/${id}`;
+			} else if(options.includeUnmatched ?? true) {
+				let providerMetadataItemTask = providerItems[id];
+				if(!providerMetadataItemTask) {
+					providerMetadataItemTask = this.fetchMetadataItem(id);
+					providerItems[id] = providerMetadataItemTask;
+				}
+				const providerMetadataItem = await providerMetadataItemTask;
+				metadataItem = this.transformMetadataItem(providerMetadataItem, transformOpts);
+			} else {
+				return null;
 			}
 			return metadataItem;
 		}))).filter((metadata) => metadata);
@@ -202,7 +248,7 @@ export abstract class PseuplexMetadataProvider<TMetadataItem> {
 			MediaContainer: {
 				size: metadatas.length,
 				allowSync: false,
-				identifier: "com.plexapp.plugins.library",
+				identifier: plexTypes.PlexPluginIdentifier.PlexAppLibrary,
 				// TODO include library section info
 				Metadata: metadatas
 			}

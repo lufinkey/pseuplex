@@ -1,6 +1,4 @@
 
-import express from 'express';
-
 export type PlexMetadataKeyParts = {
 	basePath: string;
 	id: string;
@@ -30,14 +28,4 @@ export const parseMetadataIDFromKey = (metadataKey: string | null | undefined, b
 		id: metadataKey.substring(basePath.length, slashIndex),
 		relativePath: metadataKey.substring(slashIndex)
 	};
-};
-
-export const parsePlexQueryParams = (req: express.Request, includeParam: (key:string) => boolean): {[key:string]: any} => {
-	const params: {[key:string]: any} = {};
-	for(const key in req.query) {
-		if(includeParam(key)) {
-			params[key] = req.query[key];
-		}
-	}
-	return params;
 };

@@ -1,40 +1,59 @@
 
-import aguid from 'aguid';
+import qs from 'querystring';
 import * as letterboxd from 'letterboxd-retriever';
 import * as plexTypes from '../../plex/types';
-import {
-	PseuplexMetadataSource,
-	PseuplexMetadataIDParts,
-	stringifyMetadataID
-} from '../metadataidentifier';
 import {
 	intParam,
 	combinePathSegments
 } from '../../utils';
 import {
+	PseuplexMetadataSource,
 	PseuplexMetadataItem
 } from '../types';
+import {
+	parsePartialMetadataID,
+	PseuplexMetadataIDParts,
+	stringifyMetadataID,
+	stringifyPartialMetadataID
+} from '../metadataidentifier';
+import { PseuplexMetadataTransformOptions } from '../metadata';
 
-export type LetterboxdToPlexOptions = {
-	letterboxdMetadataBasePath: string
+export const partialMetadataIdFromFilmInfo = (filmInfo: letterboxd.FilmInfo): string => {
+	return stringifyPartialMetadataID({
+		directory: filmInfo.pageData.type,
+		id: filmInfo.pageData.slug
+	});
 };
 
-export const filmInfoToPlexMetadata = (filmInfo: letterboxd.FilmInfo, options: LetterboxdToPlexOptions): PseuplexMetadataItem => {
+export const getFilmOptsFromPartialMetadataId = (metadataId: string): letterboxd.FilmURLOptions => {
+	const idParts = parsePartialMetadataID(metadataId);
+	if(idParts.directory == null) {
+		if(idParts.id.indexOf('/') != -1) {
+			return {href:idParts.id};
+		} else {
+			return {filmSlug:idParts.id};
+		}
+	} else {
+		return {href:`/${idParts.directory}/${idParts.id}`};
+	}
+};
+
+export const fullMetadataIdFromFilmInfo = (filmInfo: letterboxd.FilmInfo, opts:{asUrl: boolean}): string => {
+	return stringifyMetadataID({
+		isURL: opts.asUrl,
+		source: PseuplexMetadataSource.Letterboxd,
+		directory: filmInfo.pageData.type ?? 'film',
+		id: filmInfo.pageData.slug
+	});
+};
+
+export const filmInfoToPlexMetadata = (filmInfo: letterboxd.FilmInfo, options: PseuplexMetadataTransformOptions): PseuplexMetadataItem => {
 	const releasedEvent = filmInfo.ldJson.releasedEvent;
+	const fullMetadataId = fullMetadataIdFromFilmInfo(filmInfo,{asUrl:false});
 	return {
-		guid: stringifyMetadataID({
-			isURL: true,
-			source: PseuplexMetadataSource.Letterboxd,
-			directory: filmInfo.pageData.type ?? 'film',
-			id: filmInfo.pageData.slug
-		}),
-		key: combinePathSegments(options.letterboxdMetadataBasePath, filmInfo.pageData.slug),
-		ratingKey: stringifyMetadataID({
-			isURL: false,
-			source: PseuplexMetadataSource.Letterboxd,
-			directory: filmInfo.pageData.type ?? 'film',
-			id: filmInfo.pageData.slug
-		}),
+		guid: fullMetadataIdFromFilmInfo(filmInfo, {asUrl:true}),
+		key: combinePathSegments(options.metadataBasePath, options.qualifiedMetadataId ? fullMetadataId : partialMetadataIdFromFilmInfo(filmInfo)),
+		ratingKey: fullMetadataId,
 		type: plexTypes.PlexMediaItemType.Movie,
 		title: filmInfo.ldJson.name,
 		art: filmInfo.pageData.backdrop.default,
@@ -43,6 +62,7 @@ export const filmInfoToPlexMetadata = (filmInfo: letterboxd.FilmInfo, options: L
 		summary: filmInfo.pageData.description,
 		year: intParam(releasedEvent?.[0]?.startDate),
 		Pseuplex: {
+			metadataId: fullMetadataId,
 			isOnServer: false
 		},
 		Guid: filmInfoGuids(filmInfo).map((guid) => {
@@ -87,11 +107,29 @@ export const filmInfoGuids = (filmInfo: letterboxd.FilmInfo) => {
 	return guids;
 };
 
-export const activityFeedFilmToPlexMetadata = (film: letterboxd.Film, options: LetterboxdToPlexOptions): plexTypes.PlexMetadataItem => {
+export const partialMetadataIdFromFilm = (film: letterboxd.Film): string => {
+	return stringifyPartialMetadataID({
+		directory: film.type,
+		id: film.slug
+	});
+};
+
+export const fullMetadataIdFromFilm = (film: letterboxd.Film, opts:{asUrl:boolean}): string => {
+	return stringifyMetadataID({
+		isURL: opts.asUrl,
+		source: PseuplexMetadataSource.Letterboxd,
+		directory: film.type,
+		id: film.slug
+	});
+};
+
+export const activityFeedFilmToPlexMetadata = (film: letterboxd.Film, options: PseuplexMetadataTransformOptions): plexTypes.PlexMetadataItem => {
+	const fullMetadataId = fullMetadataIdFromFilm(film, {asUrl:false});
+	const metadataId = options.qualifiedMetadataId ? fullMetadataId : partialMetadataIdFromFilm(film);
 	return {
-		guid: `letterboxd://film/${film.slug}`,
-		key: combinePathSegments(options.letterboxdMetadataBasePath, film.slug),
-		ratingKey: `letterboxd:film:${film.slug}`,
+		guid: fullMetadataIdFromFilm(film, {asUrl:true}),
+		key: combinePathSegments(options.metadataBasePath, metadataId),
+		ratingKey: fullMetadataId,
 		type: plexTypes.PlexMediaItemType.Movie,
 		title: film.name,
 		thumb: film.imageURL,

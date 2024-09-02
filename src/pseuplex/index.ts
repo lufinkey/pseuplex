@@ -4,10 +4,14 @@ import { CachedFetcher } from '../fetching/CachedFetcher';
 import * as plexTypes from '../plex/types';
 import { parseMetadataIDFromKey } from '../plex/utils';
 import {
+	PseuplexMetadataSource
+} from './types';
+import {
 	LetterboxdMetadataProvider,
 	LetterboxdActivityFeedHub,
 	createLetterboxdUserFollowingFeedHub
 } from './letterboxd';
+import { PseuplexMetadataProvider } from './metadata';
 
 const pseuplex = {
 	basePath: '/pseuplex',
@@ -28,10 +32,13 @@ const pseuplex = {
 					// TODO validate that the profile exists
 					return createLetterboxdUserFollowingFeedHub(letterboxdUsername, {
 						hubPath: `${pseuplex.letterboxd.hubs.userFollowingActivity.path}?letterboxdUsername=${letterboxdUsername}`,
-						letterboxdMetadataBasePath: pseuplex.letterboxd.metadata.basePath,
 						style: plexTypes.PlexHubStyle.Shelf,
 						promoted: true,
-						uniqueItemsOnly: true
+						uniqueItemsOnly: true,
+						metadataTransformOptions: {
+							metadataBasePath: pseuplex.letterboxd.metadata.basePath,
+							qualifiedMetadataId: false
+						}
 					});
 				}),
 				get: (letterboxdUsername: string): Promise<LetterboxdActivityFeedHub> => {
@@ -39,6 +46,14 @@ const pseuplex = {
 				}
 			}
 		}
+	},
+
+	getMetadataProvider: (source: PseuplexMetadataSource): (PseuplexMetadataProvider | null) => {
+		switch(source) {
+			case PseuplexMetadataSource.Letterboxd:
+				return pseuplex.letterboxd.metadata;
+		}
+		return null;
 	},
 
 	resolvePlayQueueURI: async (uri: string, options: {

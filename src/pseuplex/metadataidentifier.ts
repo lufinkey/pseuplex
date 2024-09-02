@@ -1,10 +1,6 @@
 
 import qs from 'querystring';
-
-export enum PseuplexMetadataSource {
-	Plex = 'plex',
-	Letterboxd = 'letterboxd'
-};
+import { PseuplexMetadataSource } from './types';
 
 export type PseuplexMetadataIDParts = {
 	isURL?: undefined;
@@ -27,32 +23,29 @@ export type PseuplexMetadataIDString =
 	| `${PseuplexMetadataSource}://${string}`
 	| `${PseuplexMetadataSource}://${string}/${string}`;
 
-export const parseMetadataID = (idString: PseuplexMetadataIDString) => {
+export const parseMetadataID = (idString: PseuplexMetadataIDString): PseuplexMetadataIDParts => {
 	// find metadata source / protocol
 	let delimiterIndex = idString.indexOf(':');
 	if(delimiterIndex === -1) {
 		// just an ID string
 		return {
-			id: idString
+			id: qs.unescape(idString)
 		};
 	}
-	const source = idString.substring(0, delimiterIndex);
+	const source = idString.substring(0, delimiterIndex) as PseuplexMetadataSource;
 	// check if link is a url
 	let startIndex: number;
 	let delimiter: string;
-	let needsUnescape: boolean;
 	let isURL: boolean;
 	if(idString[delimiterIndex+1] == '/' && idString[delimiterIndex+2] == '/') {
 		// ID is ://
 		startIndex = delimiterIndex+3;
 		delimiter = '/';
-		needsUnescape = false;
 		isURL = true;
 	} else {
 		// ID is source:directory:ID or source:ID
 		startIndex = delimiterIndex+1;
 		delimiter = ':';
-		needsUnescape = true;
 		isURL = false;
 	}
 	// parse directory
@@ -74,9 +67,7 @@ export const parseMetadataID = (idString: PseuplexMetadataIDString) => {
 				relativePath = id.substring(delimiterIndex);
 			}
 		}
-		if(needsUnescape) {
-			id = qs.unescape(id);
-		}
+		id = qs.unescape(id);
 		return {
 			isURL,
 			source: source,
@@ -85,27 +76,26 @@ export const parseMetadataID = (idString: PseuplexMetadataIDString) => {
 		};
 	}
 	let directory = idString.substring(startIndex, delimiterIndex);
-	if(needsUnescape) {
-		directory = qs.unescape(directory);
-	}
+	directory = qs.unescape(directory);
 	// parse id and relative path
 	startIndex = delimiterIndex+1;
-	delimiterIndex = idString.indexOf('/', startIndex);
+	const remainingStr = idString.substring(startIndex);
+	delimiterIndex = remainingStr.search(/(\/|\?|\#)/);
 	let id: string;
 	let relativePath: string | undefined;
 	if(delimiterIndex == -1) {
-		id = idString.substring(startIndex);
+		id = remainingStr;
 		relativePath = undefined;
 	} else {
-		id = idString.substring(startIndex, delimiterIndex);
-		relativePath = idString.substring(delimiterIndex);
+		id = remainingStr.substring(0, delimiterIndex);
+		relativePath = remainingStr.substring(delimiterIndex);
 	}
 	// format was source:basePath:ID
 	return {
 		isURL,
 		source: source,
 		directory: directory,
-		id: id,
+		id: qs.unescape(id),
 		relativePath: relativePath
 	};
 };
@@ -114,9 +104,9 @@ export const stringifyMetadataID = (idParts: PseuplexMetadataIDParts) => {
 	let idString: string;
 	if(idParts.isURL) {
 		if(idParts.directory == null) {
-			idString = `${idParts.source}://${idParts.id}`;
+			idString = `${idParts.source}://${qs.escape(idParts.id)}`;
 		} else {
-			idString = `${idParts.source}://${idParts.directory}/${idParts.id}`;
+			idString = `${idParts.source}://${qs.escape(idParts.directory)}/${qs.escape(idParts.id)}`;
 		}
 	} else {
 		if(idParts.source == null) {
@@ -133,4 +123,27 @@ export const stringifyMetadataID = (idParts: PseuplexMetadataIDParts) => {
 		idString += idParts.relativePath;
 	}
 	return idString;
+};
+
+export type PseuplexPartialMetadataIDParts = {
+	directory?: string;
+	id: string;
+};
+
+export const parsePartialMetadataID = (metadataId: string): PseuplexPartialMetadataIDParts => {
+	const colonIndex = metadataId.indexOf(':');
+	if(colonIndex == -1) {
+		return {id:metadataId};
+	}
+	return {
+		directory: qs.unescape(metadataId.substring(0, colonIndex)),
+		id: qs.unescape(metadataId.substring(colonIndex+1))
+	};
+};
+
+export const stringifyPartialMetadataID = (idParts: PseuplexPartialMetadataIDParts): string => {
+	if(idParts.directory == null) {
+		return idParts.id;
+	}
+	return `${qs.escape(idParts.directory)}:${qs.escape(idParts.id)}`;
 };

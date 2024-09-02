@@ -5,9 +5,15 @@ import {
 	PlexMediaContainer
 } from '../../plex/types';
 
+export enum PseuplexMetadataSource {
+	Plex = 'plex',
+	PlexServer = 'plexserver',
+	Letterboxd = 'letterboxd'
+};
+
 export type PseuplexMetadataItem = PlexMetadataItem & {
 	Pseuplex: {
-		serverURL?: string;
+		metadataId: string;
 		isOnServer: boolean;
 	}
 };
