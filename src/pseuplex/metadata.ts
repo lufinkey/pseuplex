@@ -22,14 +22,14 @@ import {
 } from '../utils';
 
 
-export type PseuplexMetadataProviderParams = {
+export type PseuplexMetadataParams = {
 	plexServerURL: string;
 	plexAuthContext: plexTypes.PlexAuthContext;
-	metadataBasePath?: string;
-	qualifiedMetadataIds?: boolean;
 	includeDiscoverMatches?: boolean;
 	includeUnmatched?: boolean;
 	transformMatchKeys?: boolean;
+	metadataBasePath?: string;
+	qualifiedMetadataIds?: boolean;
 	plexParams?: plexTypes.PlexMetadataPageParams
 };
 
@@ -38,7 +38,7 @@ export interface PseuplexMetadataProvider {
 	readonly basePath: string;
 	readonly idToPlexGuidCache: CachedFetcher<string>;
 	readonly plexGuidToIDCache: CachedFetcher<string>;
-	get(ids: string[], options: PseuplexMetadataProviderParams): Promise<PseuplexMetadataPage>;
+	get(ids: string[], options: PseuplexMetadataParams): Promise<PseuplexMetadataPage>;
 }
 
 export type PseuplexMetadataProviderOptions = {
@@ -86,7 +86,7 @@ export abstract class PseuplexMetadataProviderBase<TMetadataItem> implements Pse
 		return this.idFromMetadataItem(result);
 	}
 
-	async get(ids: string[], options: PseuplexMetadataProviderParams): Promise<PseuplexMetadataPage> {
+	async get(ids: string[], options: PseuplexMetadataParams): Promise<PseuplexMetadataPage> {
 		let plexGuids: {[id: string]: Promise<string> | string | null} = {};
 		let plexMatches: {[id: string]: (Promise<plexTypes.PlexMetadataItem> | plexTypes.PlexMetadataItem | null)} = {};
 		let providerItems: {[id: string]: TMetadataItem | Promise<TMetadataItem>} = {};

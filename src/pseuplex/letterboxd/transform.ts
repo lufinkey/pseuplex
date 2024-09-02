@@ -12,20 +12,21 @@ import {
 } from '../types';
 import {
 	parsePartialMetadataID,
-	PseuplexMetadataIDParts,
+	PseuplexMetadataIDString,
+	PseuplexPartialMetadataIDString,
 	stringifyMetadataID,
 	stringifyPartialMetadataID
 } from '../metadataidentifier';
 import { PseuplexMetadataTransformOptions } from '../metadata';
 
-export const partialMetadataIdFromFilmInfo = (filmInfo: letterboxd.FilmInfo): string => {
+export const partialMetadataIdFromFilmInfo = (filmInfo: letterboxd.FilmInfo): PseuplexPartialMetadataIDString => {
 	return stringifyPartialMetadataID({
 		directory: filmInfo.pageData.type,
 		id: filmInfo.pageData.slug
 	});
 };
 
-export const getFilmOptsFromPartialMetadataId = (metadataId: string): letterboxd.FilmURLOptions => {
+export const getFilmOptsFromPartialMetadataId = (metadataId: PseuplexPartialMetadataIDString): letterboxd.FilmURLOptions => {
 	const idParts = parsePartialMetadataID(metadataId);
 	if(idParts.directory == null) {
 		if(idParts.id.indexOf('/') != -1) {
@@ -38,7 +39,7 @@ export const getFilmOptsFromPartialMetadataId = (metadataId: string): letterboxd
 	}
 };
 
-export const fullMetadataIdFromFilmInfo = (filmInfo: letterboxd.FilmInfo, opts:{asUrl: boolean}): string => {
+export const fullMetadataIdFromFilmInfo = (filmInfo: letterboxd.FilmInfo, opts:{asUrl: boolean}): PseuplexMetadataIDString => {
 	return stringifyMetadataID({
 		isURL: opts.asUrl,
 		source: PseuplexMetadataSource.Letterboxd,
@@ -107,14 +108,14 @@ export const filmInfoGuids = (filmInfo: letterboxd.FilmInfo) => {
 	return guids;
 };
 
-export const partialMetadataIdFromFilm = (film: letterboxd.Film): string => {
+export const partialMetadataIdFromFilm = (film: letterboxd.Film): PseuplexPartialMetadataIDString => {
 	return stringifyPartialMetadataID({
 		directory: film.type,
 		id: film.slug
 	});
 };
 
-export const fullMetadataIdFromFilm = (film: letterboxd.Film, opts:{asUrl:boolean}): string => {
+export const fullMetadataIdFromFilm = (film: letterboxd.Film, opts:{asUrl:boolean}): PseuplexMetadataIDString => {
 	return stringifyMetadataID({
 		isURL: opts.asUrl,
 		source: PseuplexMetadataSource.Letterboxd,

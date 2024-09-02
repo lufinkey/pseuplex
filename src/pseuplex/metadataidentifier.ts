@@ -100,7 +100,7 @@ export const parseMetadataID = (idString: PseuplexMetadataIDString): PseuplexMet
 	};
 };
 
-export const stringifyMetadataID = (idParts: PseuplexMetadataIDParts) => {
+export const stringifyMetadataID = (idParts: PseuplexMetadataIDParts): PseuplexMetadataIDString => {
 	let idString: string;
 	if(idParts.isURL) {
 		if(idParts.directory == null) {
@@ -130,7 +130,11 @@ export type PseuplexPartialMetadataIDParts = {
 	id: string;
 };
 
-export const parsePartialMetadataID = (metadataId: string): PseuplexPartialMetadataIDParts => {
+export type PseuplexPartialMetadataIDString =
+	`${string}`
+	| `${string}:${string}`;
+
+export const parsePartialMetadataID = (metadataId: PseuplexPartialMetadataIDString): PseuplexPartialMetadataIDParts => {
 	const colonIndex = metadataId.indexOf(':');
 	if(colonIndex == -1) {
 		return {id:metadataId};
@@ -141,7 +145,7 @@ export const parsePartialMetadataID = (metadataId: string): PseuplexPartialMetad
 	};
 };
 
-export const stringifyPartialMetadataID = (idParts: PseuplexPartialMetadataIDParts): string => {
+export const stringifyPartialMetadataID = (idParts: PseuplexPartialMetadataIDParts): PseuplexPartialMetadataIDString => {
 	if(idParts.directory == null) {
 		return idParts.id;
 	}

@@ -111,6 +111,8 @@ app.get(`${pseuplex.letterboxd.metadata.basePath}/:id`, [
 			includeDiscoverMatches: true,
 			includeUnmatched: true,
 			transformMatchKeys: true,
+			metadataBasePath: pseuplex.letterboxd.metadata.basePath,
+			qualifiedMetadataIds: false,
 			plexParams: params
 		});
 		if(page?.MediaContainer?.Metadata) {
@@ -161,6 +163,7 @@ app.get(pseuplex.letterboxd.hubs.userFollowingActivity.path, [
 ]);
 
 
+
 // handle plex requests
 
 app.get('/hubs', plexApiProxy(cfg, args, {
@@ -194,71 +197,16 @@ app.get('/hubs', plexApiProxy(cfg, args, {
 app.get(`/library/metadata/:metadataId`, [
 	plexAuthenticator,
 	pseuplexMetadataIdRequestMiddleware(async (req: IncomingPlexAPIRequest, res, metadataIds, params): Promise<PseuplexMetadataPage> => {
-		let caughtError: Error | undefined = undefined;
-		const metadataItems = (await Promise.all(metadataIds.map(async (metadataId) => {
-			try {
-				let source = metadataId.source;
-				if (!source) {
-					source = PseuplexMetadataSource.Plex;
-				}
-				const provider = pseuplex.getMetadataProvider(source);
-				if(provider) {
-					// fetch from provider
-					const partialId = stringifyPartialMetadataID(metadataId);
-					return (await provider.get([partialId], {
-						plexServerURL,
-						plexAuthContext: req.plex.authContext,
-						includeDiscoverMatches: true,
-						includeUnmatched: true,
-						transformMatchKeys: false,
-						metadataBasePath: '/library/metadata',
-						qualifiedMetadataIds: true,
-						plexParams: params
-					})).MediaContainer.Metadata;
-				} else if(source == PseuplexMetadataSource.Plex) {
-					// fetch from plex
-					const fullMetadataId = stringifyMetadataID(metadataId);
-					return [].concat((await plexServerAPI.getLibraryMetadata([fullMetadataId], {
-						params: params,
-						serverURL: plexServerURL,
-						authContext: req.plex.authContext
-					})).MediaContainer.Metadata).map((metadata: PseuplexMetadataItem) => {
-						metadata.Pseuplex = {
-							metadataId: fullMetadataId,
-							isOnServer: true
-						}
-						return metadata;
-					});
-				} else {
-					// TODO handle other source type
-					return [];
-				}
-			} catch(error) {
-				if(!caughtError) {
-					caughtError = error;
-				}
-			}
-		}))).reduce<PseuplexMetadataItem[]>((accumulator, element) => {
-			if(element) {
-				accumulator = accumulator.concat(element);
-			}
-			return accumulator;
-		}, []);
-		if(metadataItems.length == 0) {
-			if(caughtError) {
-				throw caughtError;
-			}
-			throw httpError(404, "Not Found");
-		}
-		return {
-			MediaContainer: {
-				size: metadataItems.length,
-				totalSize: metadataItems.length,
-				allowSync: false,
-				identifier: plexTypes.PlexPluginIdentifier.PlexAppLibrary,
-				Metadata: metadataItems
-			}
-		};
+		return await pseuplex.getMetadata(metadataIds, {
+			plexServerURL,
+			plexAuthContext: req.plex.authContext,
+			includeDiscoverMatches: true,
+			includeUnmatched: true,
+			transformMatchKeys: false,
+			metadataBasePath: '/library/metadata',
+			qualifiedMetadataIds: true,
+			plexParams: params
+		});
 	}),
 	plexApiProxy(cfg, args, {
 		responseModifier: async (proxyRes, resData: plexTypes.PlexMetadataPage, userReq: IncomingPlexAPIRequest, userRes) => {

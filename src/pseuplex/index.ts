@@ -2,16 +2,32 @@
 import qs from 'querystring';
 import { CachedFetcher } from '../fetching/CachedFetcher';
 import * as plexTypes from '../plex/types';
+import * as plexServerAPI from '../plex/api';
 import { parseMetadataIDFromKey } from '../plex/utils';
 import {
-	PseuplexMetadataSource
+	PseuplexMetadataSource,
+	PseuplexMetadataPage,
+	PseuplexMetadataItem
 } from './types';
+import {
+	parseMetadataID,
+	PseuplexMetadataIDParts,
+	PseuplexMetadataIDString,
+	stringifyMetadataID,
+	stringifyPartialMetadataID
+} from './metadataidentifier';
+import {
+	PseuplexMetadataParams,
+	PseuplexMetadataProvider
+} from './metadata';
 import {
 	LetterboxdMetadataProvider,
 	LetterboxdActivityFeedHub,
 	createLetterboxdUserFollowingFeedHub
 } from './letterboxd';
-import { PseuplexMetadataProvider } from './metadata';
+import {
+	httpError
+} from '../utils';
 
 const pseuplex = {
 	basePath: '/pseuplex',
@@ -54,6 +70,77 @@ const pseuplex = {
 				return pseuplex.letterboxd.metadata;
 		}
 		return null;
+	},
+
+	getMetadata: async (metadataIds: (PseuplexMetadataIDParts | PseuplexMetadataIDString)[], params: PseuplexMetadataParams): Promise<PseuplexMetadataPage> => {
+		let caughtError: Error | undefined = undefined;
+		const providerParams: PseuplexMetadataParams = {
+			...params
+		};
+		if(!providerParams.metadataBasePath) {
+			providerParams.metadataBasePath = '/library/metadata';
+			if(providerParams.qualifiedMetadataIds == null) {
+				providerParams.qualifiedMetadataIds = true;
+			}
+		}
+		const metadataItems = (await Promise.all(metadataIds.map(async (metadataId) => {
+			if(typeof metadataId === 'string') {
+				metadataId = parseMetadataID(metadataId);
+			}
+			try {
+				let source = metadataId.source;
+				if (!source) {
+					source = PseuplexMetadataSource.Plex;
+				}
+				const provider = pseuplex.getMetadataProvider(source);
+				if(provider) {
+					// fetch from provider
+					const partialId = stringifyPartialMetadataID(metadataId);
+					return (await provider.get([partialId], providerParams)).MediaContainer.Metadata;
+				} else if(source == PseuplexMetadataSource.Plex) {
+					// fetch from plex
+					const fullMetadataId = stringifyMetadataID(metadataId);
+					return [].concat((await plexServerAPI.getLibraryMetadata([fullMetadataId], {
+						params: params.plexParams,
+						serverURL: params.plexServerURL,
+						authContext: params.plexAuthContext
+					})).MediaContainer.Metadata).map((metadata: PseuplexMetadataItem) => {
+						metadata.Pseuplex = {
+							metadataId: fullMetadataId,
+							isOnServer: true
+						}
+						return metadata;
+					});
+				} else {
+					// TODO handle other source type
+					return [];
+				}
+			} catch(error) {
+				if(!caughtError) {
+					caughtError = error;
+				}
+			}
+		}))).reduce<PseuplexMetadataItem[]>((accumulator, element) => {
+			if(element) {
+				accumulator = accumulator.concat(element);
+			}
+			return accumulator;
+		}, []);
+		if(metadataItems.length == 0) {
+			if(caughtError) {
+				throw caughtError;
+			}
+			throw httpError(404, "Not Found");
+		}
+		return {
+			MediaContainer: {
+				size: metadataItems.length,
+				totalSize: metadataItems.length,
+				allowSync: false,
+				identifier: plexTypes.PlexPluginIdentifier.PlexAppLibrary,
+				Metadata: metadataItems
+			}
+		};
 	},
 
 	resolvePlayQueueURI: async (uri: string, options: {
