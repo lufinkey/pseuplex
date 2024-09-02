@@ -34,7 +34,7 @@ export const getFilmOptsFromPartialMetadataId = (metadataId: string): letterboxd
 			return {filmSlug:idParts.id};
 		}
 	} else {
-		return {href:`/${idParts.directory}/${idParts.id}`};
+		return {href:`/${idParts.directory}/${idParts.id}/`};
 	}
 };
 
