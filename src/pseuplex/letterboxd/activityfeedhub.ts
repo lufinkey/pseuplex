@@ -109,14 +109,23 @@ export class LetterboxdActivityFeedHub extends PseuplexHub {
 			},
 			items: await Promise.all(chunk.items.map(async (itemNode) => {
 				const metadataItem = lbtransform.activityFeedFilmToPlexMetadata(itemNode.item, opts.metadataTransformOptions);
-				if(params.plexAuthContext?.['X-Plex-Token']) {
+				try {
 					const metadataId = lbtransform.partialMetadataIdFromFilm(itemNode.item);
-					const plexGuid = await opts.letterboxdMetadataProvider.getPlexGUIDForID(metadataId, {
-						plexAuthContext: params.plexAuthContext
-					});
-					if(plexGuid) {
-						metadataItem.guid = plexGuid;
+					if(params.plexAuthContext?.['X-Plex-Token']) {
+						const plexGuid = await opts.letterboxdMetadataProvider.getPlexGUIDForID(metadataId, {
+							plexAuthContext: params.plexAuthContext
+						});
+						if(plexGuid) {
+							metadataItem.guid = plexGuid;
+						}
+					} else {
+						const plexGuid = await opts.letterboxdMetadataProvider.idToPlexGuidCache.get(metadataId);
+						if(plexGuid) {
+							metadataItem.guid = plexGuid;
+						}
 					}
+				} catch(error) {
+					console.error(error);
 				}
 				return metadataItem;
 			})),
