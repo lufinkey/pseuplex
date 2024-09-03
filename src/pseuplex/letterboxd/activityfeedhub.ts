@@ -21,6 +21,7 @@ import {
 } from '../../utils';
 import { PseuplexMetadataTransformOptions } from '../metadata';
 import * as lbtransform from './transform';
+import { LetterboxdMetadataProvider } from './metadata';
 
 export type LetterboxdActivityFeedHubOptions = {
 	title: string;
@@ -32,6 +33,7 @@ export type LetterboxdActivityFeedHubOptions = {
 	defaultItemCount: number;
 	uniqueItemsOnly: boolean;
 	metadataTransformOptions: PseuplexMetadataTransformOptions;
+	letterboxdMetadataProvider: LetterboxdMetadataProvider;
 	fetchPage: (pageToken: PageToken | null) => Promise<letterboxd.ActivityFeedPage>;
 };
 
@@ -106,7 +108,17 @@ export class LetterboxdActivityFeedHub extends PseuplexHub {
 				promoted: opts.promoted
 			},
 			items: await Promise.all(chunk.items.map(async (itemNode) => {
-				return lbtransform.activityFeedFilmToPlexMetadata(itemNode.item, opts.metadataTransformOptions);
+				const metadataItem = lbtransform.activityFeedFilmToPlexMetadata(itemNode.item, opts.metadataTransformOptions);
+				if(params.plexAuthContext?.['X-Plex-Token']) {
+					const metadataId = lbtransform.partialMetadataIdFromFilm(itemNode.item);
+					const plexGuid = await opts.letterboxdMetadataProvider.getPlexGUIDForID(metadataId, {
+						plexAuthContext: params.plexAuthContext
+					});
+					if(plexGuid) {
+						metadataItem.guid = plexGuid;
+					}
+				}
+				return metadataItem;
 			})),
 			offset: start,
 			more: chunk.hasMore,

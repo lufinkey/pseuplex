@@ -182,7 +182,8 @@ app.get(pseuplex.letterboxd.hubs.userFollowingActivity.path, [
 		const hub = await pseuplex.letterboxd.hubs.userFollowingActivity.get(letterboxdUsername);
 		return await hub.getHub({
 			...params,
-			listStartToken: stringParam(req.query['listStartToken'])
+			listStartToken: stringParam(req.query['listStartToken']),
+			plexAuthContext: req.plex.authContext
 		});
 	}),
 	expressErrorHandler
@@ -192,33 +193,39 @@ app.get(pseuplex.letterboxd.hubs.userFollowingActivity.path, [
 
 // handle plex requests
 
-app.get('/hubs', plexApiProxy(cfg, args, {
-	responseModifier: async (proxyRes, resData: plexTypes.PlexLibraryHubsPage, userReq, userRes): Promise<plexTypes.PlexLibraryHubsPage> => {
-		try {
-			const plexToken = plexTypes.parsePlexTokenFromRequest(userReq);
-			const userInfo = await plexServerAccountsStore.getTokenUserInfoOrNull(plexToken);
-			console.log(`userInfo for token ${plexToken} is ${userInfo?.email} (isServerOwner=${userInfo?.isServerOwner})`);
-			if(userInfo) {
-				const perUserCfg = userInfo ? cfg.perUser[userInfo.email] : null;
-				if(perUserCfg?.letterboxdUsername) {
-					const params = plexTypes.parsePlexHubPageParams(userReq, {fromListPage:true});
-					const hub = await pseuplex.letterboxd.hubs.userFollowingActivity.get(perUserCfg.letterboxdUsername);
-					const page = await hub.getHubListEntry(params);
-					if(!resData.MediaContainer.Hub) {
-						resData.MediaContainer.Hub = [];
-					} else if(!(resData.MediaContainer.Hub instanceof Array)) {
-						resData.MediaContainer.Hub = [resData.MediaContainer.Hub];
+app.get('/hubs', [
+	plexAuthenticator,
+	plexApiProxy(cfg, args, {
+		responseModifier: async (proxyRes, resData: plexTypes.PlexLibraryHubsPage, userReq: IncomingPlexAPIRequest, userRes): Promise<plexTypes.PlexLibraryHubsPage> => {
+			try {
+				const plexToken = plexTypes.parsePlexTokenFromRequest(userReq);
+				const userInfo = await plexServerAccountsStore.getTokenUserInfoOrNull(plexToken);
+				console.log(`userInfo for token ${plexToken} is ${userInfo?.email} (isServerOwner=${userInfo?.isServerOwner})`);
+				if(userInfo) {
+					const perUserCfg = userInfo ? cfg.perUser[userInfo.email] : null;
+					if(perUserCfg?.letterboxdUsername) {
+						const params = plexTypes.parsePlexHubPageParams(userReq, {fromListPage:true});
+						const hub = await pseuplex.letterboxd.hubs.userFollowingActivity.get(perUserCfg.letterboxdUsername);
+						const page = await hub.getHubListEntry({
+							...params,
+							plexAuthContext: userReq.plex.authContext
+						});
+						if(!resData.MediaContainer.Hub) {
+							resData.MediaContainer.Hub = [];
+						} else if(!(resData.MediaContainer.Hub instanceof Array)) {
+							resData.MediaContainer.Hub = [resData.MediaContainer.Hub];
+						}
+						resData.MediaContainer.Hub.splice(0, 0, page);
+						resData.MediaContainer.size += 1;
 					}
-					resData.MediaContainer.Hub.splice(0, 0, page);
-					resData.MediaContainer.size += 1;
 				}
+			} catch(error) {
+				console.error(error);
 			}
-		} catch(error) {
-			console.error(error);
+			return resData;
 		}
-		return resData;
-	}
-}));
+	})
+]);
 
 app.get(`/library/metadata/:metadataId`, [
 	plexAuthenticator,

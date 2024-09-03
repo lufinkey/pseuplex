@@ -54,7 +54,8 @@ const pseuplex = {
 						metadataTransformOptions: {
 							metadataBasePath: pseuplex.letterboxd.metadata.basePath,
 							qualifiedMetadataId: false
-						}
+						},
+						letterboxdMetadataProvider: pseuplex.letterboxd.metadata
 					});
 				}),
 				get: (letterboxdUsername: string): Promise<LetterboxdActivityFeedHub> => {

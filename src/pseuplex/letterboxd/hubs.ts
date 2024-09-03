@@ -3,13 +3,15 @@ import * as letterboxd from 'letterboxd-retriever';
 import * as plexTypes from '../../plex/types';
 import { PseuplexMetadataTransformOptions } from '../metadata';
 import { LetterboxdActivityFeedHub } from './activityfeedhub';
+import { LetterboxdMetadataProvider } from './metadata';
 
 export const createLetterboxdUserFollowingFeedHub = (letterboxdUsername: string, options: {
 	hubPath: string,
 	style: plexTypes.PlexHubStyle,
 	promoted: boolean,
 	uniqueItemsOnly: boolean,
-	metadataTransformOptions: PseuplexMetadataTransformOptions
+	metadataTransformOptions: PseuplexMetadataTransformOptions,
+	letterboxdMetadataProvider: LetterboxdMetadataProvider
 }) => {
 	return new LetterboxdActivityFeedHub({
 		hubPath: options.hubPath,
@@ -21,6 +23,7 @@ export const createLetterboxdUserFollowingFeedHub = (letterboxdUsername: string,
 		promoted: options.promoted,
 		uniqueItemsOnly: options.uniqueItemsOnly,
 		metadataTransformOptions: options.metadataTransformOptions,
+		letterboxdMetadataProvider: options.letterboxdMetadataProvider,
 		fetchPage: async (pageToken) => {
 			return letterboxd.getUserFollowingFeed(letterboxdUsername, {
 				after: pageToken?.token ?? undefined,

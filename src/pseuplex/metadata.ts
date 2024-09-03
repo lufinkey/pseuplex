@@ -70,7 +70,35 @@ export abstract class PseuplexMetadataProviderBase<TMetadataItem> implements Pse
 	abstract fetchMetadataItem(id: PseuplexPartialMetadataIDString): Promise<TMetadataItem>;
 	abstract transformMetadataItem(metadataItem: TMetadataItem, options: PseuplexMetadataTransformOptions): PseuplexMetadataItem;
 	abstract idFromMetadataItem(metadataItem: TMetadataItem): string;
+	
 	abstract getPlexMatchParams(metadataItem: TMetadataItem): PlexMediaItemMatchParams;
+	async getPlexGUIDForID(id: PseuplexPartialMetadataIDString, options: {
+		plexAuthContext: plexTypes.PlexAuthContext
+	}): Promise<string> {
+		let plexGuid = this.idToPlexGuidCache.get(id);
+		if(plexGuid || plexGuid === null) {
+			return await plexGuid;
+		}
+		// get provider metadata item
+		return await this.idToPlexGuidCache.set(id, (async () => {
+			const item = await this.fetchMetadataItem(id);
+			const matchParams = this.getPlexMatchParams(item);
+			if(!matchParams) {
+				return null;
+			}
+			const matchingMetadata = await findMatchingPlexMediaItem({
+				...matchParams,
+				authContext: options.plexAuthContext
+			});
+			const plexGuid = matchingMetadata?.guid;
+			if(!plexGuid) {
+				return null;
+			}
+			this.plexGuidToIDCache.setSync(plexGuid, id);
+			return plexGuid;
+		})());
+	}
+
 	abstract findMatchForPlexItem(metadataItem: plexTypes.PlexMetadataItem): Promise<TMetadataItem | null>;
 	async getIDForPlexItem(metadataItem: plexTypes.PlexMetadataItem): Promise<string | null> {
 		const plexGuid = metadataItem.guid;

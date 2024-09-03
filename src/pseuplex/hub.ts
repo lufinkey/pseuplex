@@ -13,6 +13,7 @@ export type PseuplexHubPage = {
 
 export type PseuplexHubPageParams = plexTypes.PlexHubPageParams & {
 	listStartToken?: string | number | null | undefined;
+	plexAuthContext?: plexTypes.PlexAuthContext;
 };
 
 export abstract class PseuplexHub {
