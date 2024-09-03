@@ -124,7 +124,7 @@ export const fullMetadataIdFromFilm = (film: letterboxd.Film, opts:{asUrl:boolea
 	});
 };
 
-export const activityFeedFilmToPlexMetadata = (film: letterboxd.Film, options: PseuplexMetadataTransformOptions): plexTypes.PlexMetadataItem => {
+export const filmToPlexMetadata = (film: letterboxd.Film, options: PseuplexMetadataTransformOptions): plexTypes.PlexMetadataItem => {
 	const fullMetadataId = fullMetadataIdFromFilm(film, {asUrl:false});
 	const metadataId = options.qualifiedMetadataId ? fullMetadataId : partialMetadataIdFromFilm(film);
 	return {

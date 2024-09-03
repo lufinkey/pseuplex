@@ -32,7 +32,7 @@ export type LetterboxdActivityFeedHubOptions = {
 	promoted?: boolean;
 	defaultItemCount: number;
 	uniqueItemsOnly: boolean;
-	metadataTransformOptions: PseuplexMetadataTransformOptions;
+	metadataTransformOptions?: PseuplexMetadataTransformOptions;
 	letterboxdMetadataProvider: LetterboxdMetadataProvider;
 	fetchPage: (pageToken: PageToken | null) => Promise<letterboxd.ActivityFeedPage>;
 };
@@ -97,6 +97,10 @@ export class LetterboxdActivityFeedHub extends PseuplexHub {
 		if(listStartToken) {
 			hubKey = addQueryArgumentToURLPath(opts.hubPath, `listStartToken=${listStartToken}`);
 		}
+		const transformOpts = opts.metadataTransformOptions ?? {
+			metadataBasePath: opts.letterboxdMetadataProvider.basePath,
+			qualifiedMetadataId: false
+		};
 		return {
 			hub: {
 				key: hubKey,
@@ -108,21 +112,16 @@ export class LetterboxdActivityFeedHub extends PseuplexHub {
 				promoted: opts.promoted
 			},
 			items: await Promise.all(chunk.items.map(async (itemNode) => {
-				const metadataItem = lbtransform.activityFeedFilmToPlexMetadata(itemNode.item, opts.metadataTransformOptions);
+				const metadataItem = lbtransform.filmToPlexMetadata(itemNode.item, transformOpts);
 				try {
 					const metadataId = lbtransform.partialMetadataIdFromFilm(itemNode.item);
-					if(params.plexAuthContext?.['X-Plex-Token']) {
-						const plexGuid = await opts.letterboxdMetadataProvider.getPlexGUIDForID(metadataId, {
+					const plexGuid = (params.plexAuthContext?.['X-Plex-Token']) ?
+						await opts.letterboxdMetadataProvider.getPlexGUIDForID(metadataId, {
 							plexAuthContext: params.plexAuthContext
-						});
-						if(plexGuid) {
-							metadataItem.guid = plexGuid;
-						}
-					} else {
-						const plexGuid = await opts.letterboxdMetadataProvider.idToPlexGuidCache.get(metadataId);
-						if(plexGuid) {
-							metadataItem.guid = plexGuid;
-						}
+						})
+						: await opts.letterboxdMetadataProvider.idToPlexGuidCache.get(metadataId);
+					if(plexGuid) {
+						metadataItem.guid = plexGuid;
 					}
 				} catch(error) {
 					console.error(error);

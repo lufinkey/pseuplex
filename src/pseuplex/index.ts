@@ -51,10 +51,6 @@ const pseuplex = {
 						style: plexTypes.PlexHubStyle.Shelf,
 						promoted: true,
 						uniqueItemsOnly: true,
-						metadataTransformOptions: {
-							metadataBasePath: pseuplex.letterboxd.metadata.basePath,
-							qualifiedMetadataId: false
-						},
 						letterboxdMetadataProvider: pseuplex.letterboxd.metadata
 					});
 				}),

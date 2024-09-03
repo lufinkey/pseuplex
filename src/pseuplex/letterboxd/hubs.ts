@@ -10,7 +10,7 @@ export const createLetterboxdUserFollowingFeedHub = (letterboxdUsername: string,
 	style: plexTypes.PlexHubStyle,
 	promoted: boolean,
 	uniqueItemsOnly: boolean,
-	metadataTransformOptions: PseuplexMetadataTransformOptions,
+	metadataTransformOptions?: PseuplexMetadataTransformOptions,
 	letterboxdMetadataProvider: LetterboxdMetadataProvider
 }) => {
 	return new LetterboxdActivityFeedHub({
