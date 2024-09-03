@@ -2,6 +2,7 @@
 import * as plexTypes from '../plex/types';
 import {
 	PseuplexHub,
+	PseuplexHubContext,
 	PseuplexHubPageParams
 } from './hub';
 
@@ -15,7 +16,7 @@ export abstract class PseuplexSection {
 	abstract readonly sectionInfo: PseuplexSectionInfo;
 
 	abstract getHubs?(options: {maxCount?: number}): Promise<PseuplexHub[]>;
-	async getHubsPage?(params: plexTypes.PlexHubListPageParams): Promise<plexTypes.PlexSectionHubsPage> {
+	async getHubsPage?(params: plexTypes.PlexHubListPageParams, context: PseuplexHubContext): Promise<plexTypes.PlexSectionHubsPage> {
 		const hubs = await this.getHubs({
 			maxCount: params.count
 		});
@@ -32,7 +33,7 @@ export abstract class PseuplexSection {
 				librarySectionTitle: this.sectionInfo.title,
 				librarySectionUUID: this.sectionInfo.uuid,
 				Hub: await Promise.all(hubs.map((hub) => {
-					return hub.getHubListEntry(hubPageParams)
+					return hub.getHubListEntry(hubPageParams, context)
 				}))
 			}
 		};

@@ -13,7 +13,11 @@ export type PseuplexHubPage = {
 
 export type PseuplexHubPageParams = plexTypes.PlexHubPageParams & {
 	listStartToken?: string | number | null | undefined;
-	plexAuthContext?: plexTypes.PlexAuthContext;
+};
+
+export type PseuplexHubContext = {
+	plexServerURL: string;
+	plexAuthContext: plexTypes.PlexAuthContext;
 };
 
 export abstract class PseuplexHub {
@@ -21,10 +25,10 @@ export abstract class PseuplexHub {
 		return '/library/metadata/';
 	}
 
-	abstract get(params: PseuplexHubPageParams): Promise<PseuplexHubPage>;
+	abstract get(params: PseuplexHubPageParams, context: PseuplexHubContext): Promise<PseuplexHubPage>;
 	
-	async getHub(params: PseuplexHubPageParams): Promise<plexTypes.PlexHubPage> {
-		const page = await this.get(params);
+	async getHub(params: PseuplexHubPageParams, context: PseuplexHubContext): Promise<plexTypes.PlexHubPage> {
+		const page = await this.get(params, context);
 		return {
 			MediaContainer: {
 				size: (page.items?.length ?? 0),
@@ -47,8 +51,8 @@ export abstract class PseuplexHub {
 		};
 	}
 	
-	async getHubListEntry(params: PseuplexHubPageParams): Promise<plexTypes.PlexHubWithItems> {
-		const page = await this.get(params);
+	async getHubListEntry(params: PseuplexHubPageParams, context: PseuplexHubContext): Promise<plexTypes.PlexHubWithItems> {
+		const page = await this.get(params, context);
 		let metadataBasePath = this.metadataBasePath;
 		if(metadataBasePath && !metadataBasePath.endsWith('/')) {
 			metadataBasePath += '/';

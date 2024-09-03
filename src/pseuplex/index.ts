@@ -20,14 +20,15 @@ import {
 	PseuplexMetadataParams,
 	PseuplexMetadataProvider
 } from './metadata';
+import { PseuplexHub } from './hub';
 import {
 	LetterboxdMetadataProvider,
-	LetterboxdActivityFeedHub,
 	createLetterboxdUserFollowingFeedHub
 } from './letterboxd';
 import {
 	httpError
 } from '../utils';
+
 
 const pseuplex = {
 	basePath: '/pseuplex',
@@ -44,7 +45,7 @@ const pseuplex = {
 		hubs: {
 			userFollowingActivity: {
 				path: '/pseuplex/letterboxd/hubs/following',
-				cache: new CachedFetcher<LetterboxdActivityFeedHub>(async (letterboxdUsername: string) => {
+				cache: new CachedFetcher<PseuplexHub>(async (letterboxdUsername: string) => {
 					// TODO validate that the profile exists
 					return createLetterboxdUserFollowingFeedHub(letterboxdUsername, {
 						hubPath: `${pseuplex.letterboxd.hubs.userFollowingActivity.path}?letterboxdUsername=${letterboxdUsername}`,
@@ -54,7 +55,7 @@ const pseuplex = {
 						letterboxdMetadataProvider: pseuplex.letterboxd.metadata
 					});
 				}),
-				get: (letterboxdUsername: string): Promise<LetterboxdActivityFeedHub> => {
+				get: (letterboxdUsername: string): Promise<PseuplexHub> => {
 					return pseuplex.letterboxd.hubs.userFollowingActivity.cache.getOrFetch(letterboxdUsername);
 				}
 			}

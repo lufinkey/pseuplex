@@ -15,7 +15,7 @@ export type LoadableListChunk<ItemType,ItemTokenType> = {
 	hasMore: boolean;
 };
 
-export type LoadableListChunkLoader<ItemType,ItemTokenType,PageTokenType> = (nextPageToken: PageTokenType | null) => Promise<LoadableListFetchedChunk<ItemType,ItemTokenType,PageTokenType>>;
+export type LoadableListChunkLoader<ItemType,ItemTokenType,PageTokenType> = (pageToken: PageTokenType | null) => Promise<LoadableListFetchedChunk<ItemType,ItemTokenType,PageTokenType>>;
 export type TokenComparer<TokenType> = (token1: TokenType, token2: TokenType) => number;
 
 
