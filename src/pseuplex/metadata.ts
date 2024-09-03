@@ -15,6 +15,7 @@ import {
 } from './matching';
 import {
 	parsePartialMetadataID,
+	PseuplexPartialMetadataIDString,
 	stringifyMetadataID
 } from './metadataidentifier';
 import {
@@ -66,7 +67,7 @@ export abstract class PseuplexMetadataProviderBase<TMetadataItem> implements Pse
 	}
 
 	abstract get source(): PseuplexMetadataSource;
-	abstract fetchMetadataItem(id: string): Promise<TMetadataItem>;
+	abstract fetchMetadataItem(id: PseuplexPartialMetadataIDString): Promise<TMetadataItem>;
 	abstract transformMetadataItem(metadataItem: TMetadataItem, options: PseuplexMetadataTransformOptions): PseuplexMetadataItem;
 	abstract idFromMetadataItem(metadataItem: TMetadataItem): string;
 	abstract getPlexMatchParams(metadataItem: TMetadataItem): PlexMediaItemMatchParams;
@@ -86,10 +87,10 @@ export abstract class PseuplexMetadataProviderBase<TMetadataItem> implements Pse
 		return this.idFromMetadataItem(result);
 	}
 
-	async get(ids: string[], options: PseuplexMetadataParams): Promise<PseuplexMetadataPage> {
-		let plexGuids: {[id: string]: Promise<string> | string | null} = {};
-		let plexMatches: {[id: string]: (Promise<plexTypes.PlexMetadataItem> | plexTypes.PlexMetadataItem | null)} = {};
-		let providerItems: {[id: string]: TMetadataItem | Promise<TMetadataItem>} = {};
+	async get(ids: PseuplexPartialMetadataIDString[], options: PseuplexMetadataParams): Promise<PseuplexMetadataPage> {
+		let plexGuids: {[id: PseuplexPartialMetadataIDString]: Promise<string> | string | null} = {};
+		let plexMatches: {[id: PseuplexPartialMetadataIDString]: (Promise<plexTypes.PlexMetadataItem> | plexTypes.PlexMetadataItem | null)} = {};
+		let providerItems: {[id: PseuplexPartialMetadataIDString]: TMetadataItem | Promise<TMetadataItem>} = {};
 		const transformOpts: PseuplexMetadataTransformOptions = {
 			qualifiedMetadataId: options.qualifiedMetadataIds ?? false,
 			metadataBasePath: options.metadataBasePath ?? this.basePath

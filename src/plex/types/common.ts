@@ -1,6 +1,7 @@
 
 export enum PlexPluginIdentifier {
-	PlexAppLibrary = 'com.plexapp.plugins.library'
+	PlexAppLibrary = 'com.plexapp.plugins.library',
+	PlexTVDiscover = 'tv.plex.provider.discover'
 }
 
 export type PlexXMLBoolean = '1' | '0' | 1 | 0 | boolean;

@@ -135,7 +135,6 @@ const pseuplex = {
 		return {
 			MediaContainer: {
 				size: metadataItems.length,
-				totalSize: metadataItems.length,
 				allowSync: false,
 				identifier: plexTypes.PlexPluginIdentifier.PlexAppLibrary,
 				Metadata: metadataItems

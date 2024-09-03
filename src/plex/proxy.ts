@@ -7,29 +7,29 @@ import httpProxy from 'http-proxy';
 import * as constants from '../constants';
 import { Config } from '../config';
 import { CommandArguments } from '../cmdargs';
+import { urlLogString } from '../logging';
 import {
 	parseHttpContentType,
 	serializeResponseContent
 } from './serialization';
 
-const urlLogString = (args: CommandArguments, urlString: string) => {
-	if(args.logFullURLs) {
-		return urlString;
-	}
-	const queryIndex = urlString.indexOf('?');
-	if(queryIndex != -1) {
-		return urlString.substring(0, queryIndex);
-	}
-	return urlString;
-};
-
 export const plexThinProxy = (cfg: Config, args: CommandArguments, opts: expressHttpProxy.ProxyOptions = {}) => {
 	const options = {...opts};
-	if(!options.proxyReqPathResolver) {
-		options.proxyReqPathResolver = (req) => {
-			return req.originalUrl;
-		};
-	}
+	const innerProxyReqPathResolver = options.proxyReqPathResolver;
+	options.proxyReqPathResolver = async (req) => {
+		let url: string;
+		if(innerProxyReqPathResolver) {
+			url = await innerProxyReqPathResolver(req);
+		} else {
+			url = req.originalUrl;
+		}
+		// log proxy request
+		if(args.logProxyRequests) {
+			// TODO use remapped method
+			console.log(`\nProxy ${req.method} ${urlLogString(args, url)}`);
+		}
+		return url;
+	};
 	return expressHttpProxy(`${cfg.plex.host.indexOf('://') != -1 ? '' : 'http://'}${cfg.plex.host}:${cfg.plex.port}`, options);
 };
 
@@ -57,10 +57,6 @@ export const plexApiProxy = (cfg: Config, args: CommandArguments, opts: {
 	return plexProxy(cfg, args, {
 		parseReqBody: opts.requestBodyModifier ? true : undefined,
 		proxyReqOptDecorator: async (proxyReqOpts, userReq) => {
-			// log request if needed
-			if(args.logUserRequests) {
-				console.log(`\nUser ${userReq.method} ${urlLogString(args, userReq.originalUrl)}`);
-			}
 			// transform xml request to json
 			const acceptType = parseHttpContentType(userReq.headers['accept']).contentType;
 			let isApiRequest = false;
@@ -85,10 +81,6 @@ export const plexApiProxy = (cfg: Config, args: CommandArguments, opts: {
 				if(opts.requestOptionsModifier) {
 					proxyReqOpts = await opts.requestOptionsModifier(proxyReqOpts, userReq);
 				}
-			}
-			// log proxy request
-			if(args.logProxyRequests) {
-				console.log(`\nProxy ${proxyReqOpts.method} ${urlLogString(args, userReq.originalUrl)}`);
 			}
 			return proxyReqOpts;
 		},

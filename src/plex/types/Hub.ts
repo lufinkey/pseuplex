@@ -78,7 +78,7 @@ export const parsePlexHubPageParams = (req: express.Request, options: {fromListP
 
 export type PlexHubPage = {
 	MediaContainer: PlexMediaContainer & {
-		Meta: PlexMeta;
+		Meta?: PlexMeta;
 		Metadata: PlexMetadataItem[]
 	}
 };
@@ -108,6 +108,15 @@ export const parsePlexHubListPageParams = (req: express.Request): PlexHubListPag
 		includeExternalMetadata: booleanParam(query['includeExternalMetadata']),
 		excludeFields: stringArrayParam(query['excludeFields'])
 	};
+};
+
+export type PlexHubsPage = {
+	MediaContainer: PlexMediaContainer & {
+		librarySectionID?: string | number;
+		librarySectionTitle?: string;
+		librarySectionUUID?: string;
+		Hub?: PlexHubWithItems[]
+	}
 };
 
 export type PlexLibraryHubsPage = {

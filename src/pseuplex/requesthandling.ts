@@ -19,7 +19,7 @@ import {
 	stringifyPartialMetadataID
 } from './metadataidentifier';
 
-export const pseuplexMetadataIdRequestMiddleware = <TResult>(handler: (
+export const pseuplexMetadataIdsRequestMiddleware = <TResult>(handler: (
 	req: IncomingPlexAPIRequest,
 	res: express.Response,
 	metadataIds: PseuplexMetadataIDParts[],

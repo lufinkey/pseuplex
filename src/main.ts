@@ -5,7 +5,6 @@ import stream from 'stream';
 import https from 'https';
 import httpolyglot from 'httpolyglot';
 import express from 'express';
-import * as letterboxd from 'letterboxd-retriever';
 import {
 	httpError,
 	stringParam,
@@ -18,6 +17,7 @@ import {
 import { readConfigFile } from './config';
 import * as constants from './constants';
 import { parseCmdArgs } from './cmdargs';
+import { urlLogString } from './logging';
 import {
 	plexApiProxy,
 	plexHttpProxy
@@ -45,7 +45,9 @@ import {
 	stringifyMetadataID,
 	stringifyPartialMetadataID
 } from './pseuplex/metadataidentifier';
-import { pseuplexMetadataIdRequestMiddleware } from './pseuplex/requesthandling';
+import {
+	pseuplexMetadataIdsRequestMiddleware
+} from './pseuplex/requesthandling';
 
 // parse command line arguments
 const args = parseCmdArgs(process.argv.slice(2));
@@ -87,6 +89,15 @@ const plexServerAccountsStore = new PlexServerAccountsStore({
 });
 const clientWebSockets: {[key: string]: stream.Duplex[]} = {};
 const plexAuthenticator = createPlexAuthenticationMiddleware(plexServerAccountsStore);
+
+
+app.use((req, res, next) => {
+	// log request if needed
+	if(args.logUserRequests) {
+		console.log(`\nUser ${req.method} ${urlLogString(args, req.originalUrl)}`);
+	}
+	next();
+});
 
 
 // handle letterboxd requests
@@ -145,6 +156,21 @@ app.get(`${pseuplex.letterboxd.metadata.basePath}/:id`, [
 	expressErrorHandler
 ]);
 
+app.get(`${pseuplex.letterboxd.metadata.basePath}/:id/related`, [
+	plexAuthenticator,
+	plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexHubsPage> => {
+		// TODO fetch related hub
+		return {
+			MediaContainer: {
+				size: 0,
+				identifier: plexTypes.PlexPluginIdentifier.PlexAppLibrary,
+				Hub: []
+			}
+		}
+	}),
+	expressErrorHandler
+]);
+
 app.get(pseuplex.letterboxd.hubs.userFollowingActivity.path, [
 	plexAuthenticator,
 	plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexMetadataPage> => {
@@ -196,13 +222,13 @@ app.get('/hubs', plexApiProxy(cfg, args, {
 
 app.get(`/library/metadata/:metadataId`, [
 	plexAuthenticator,
-	pseuplexMetadataIdRequestMiddleware(async (req: IncomingPlexAPIRequest, res, metadataIds, params): Promise<PseuplexMetadataPage> => {
+	pseuplexMetadataIdsRequestMiddleware(async (req: IncomingPlexAPIRequest, res, metadataIds, params): Promise<PseuplexMetadataPage> => {
 		return await pseuplex.getMetadata(metadataIds, {
 			plexServerURL,
 			plexAuthContext: req.plex.authContext,
 			includeDiscoverMatches: true,
 			includeUnmatched: true,
-			transformMatchKeys: false,
+			transformMatchKeys: true,
 			metadataBasePath: '/library/metadata',
 			qualifiedMetadataIds: true,
 			plexParams: params
@@ -233,6 +259,34 @@ app.get(`/library/metadata/:metadataId`, [
 			}
 			return resData;
 		}
+	}),
+	expressErrorHandler
+]);
+
+app.get(`/library/metadata/:metadataId/related`, [
+	plexAuthenticator,
+	asyncRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<boolean> => {
+		const metadataId = req.params.metadataId;
+		if(!metadataId) {
+			// let plex handle the empty api request
+			return false;
+		}
+		const idParts = parseMetadataID(metadataId);
+		if(!idParts.source || idParts.source == PseuplexMetadataSource.Plex) {
+			// id is a plex ID, so no need to handle this request
+			return false;
+		}
+		await handlePlexAPIRequest(req, res, async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexHubsPage> => {
+			// TODO fetch related hub
+			return {
+				MediaContainer: {
+					size: 0,
+					identifier: plexTypes.PlexPluginIdentifier.PlexAppLibrary,
+					Hub: []
+				}
+			};
+		});
+		return true;
 	}),
 	expressErrorHandler
 ]);
@@ -318,6 +372,13 @@ app.get('/activities', (req, res) => {
 
 // proxy requests to plex
 const plexGeneralProxy = plexHttpProxy(cfg, args);
+app.use('/notifications', (req, res) => {
+	plexGeneralProxy.web(req, res);
+});
+app.use('/eventstream', (req, res) => {
+	plexGeneralProxy.web(req, res);
+});
+
 app.use((req, res) => {
 	plexGeneralProxy.web(req,res);
 });

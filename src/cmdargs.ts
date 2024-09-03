@@ -88,7 +88,7 @@ export const parseCmdArgs = (args: string[]): CommandArguments => {
 				
 				case CmdFlag.verbose:
 					parsedArgs.verbose = true;
-					//parsedArgs.logFullURLs = true;
+					parsedArgs.logFullURLs = true;
 					//parsedArgs.logRequestPathMappings = true;
 					parsedArgs.logProxyRequests = true;
 					parsedArgs.logProxyResponses = true;
