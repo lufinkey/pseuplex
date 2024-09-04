@@ -39,7 +39,7 @@ export class LetterboxdActivityFeedHub extends PseuplexFeedHub<letterboxd.Film,n
 				const token = Number.parseInt(item.id);
 				return {
 					id: item.film.slug,
-					token: !Number.isNaN(token) ? token : item.id as any as number,
+					token: !Number.isNaN(token) ? token : item.id as any,
 					item: item.film
 				};
 			}),
@@ -57,19 +57,10 @@ export class LetterboxdActivityFeedHub extends PseuplexFeedHub<letterboxd.Film,n
 	override async transformItem(item: letterboxd.Film, context: PseuplexHubContext): Promise<plexTypes.PlexMetadataItem> {
 		const opts = this._options;
 		const metadataItem = lbtransform.filmToPlexMetadata(item, opts.metadataTransformOptions);
-		try {
-			const metadataId = lbtransform.partialMetadataIdFromFilm(item);
-			const plexGuid = (context.plexAuthContext?.['X-Plex-Token']) ?
-				await opts.letterboxdMetadataProvider.getPlexGUIDForID(metadataId, {
-					plexAuthContext: context.plexAuthContext
-				})
-				: await opts.letterboxdMetadataProvider.idToPlexGuidCache.get(metadataId);
-			if(plexGuid) {
-				metadataItem.guid = plexGuid;
-			}
-		} catch(error) {
-			console.error(error);
-		}
-		return metadataItem;
+		const metadataId = lbtransform.partialMetadataIdFromFilm(item);
+		return opts.letterboxdMetadataProvider.attachPlexDataIfAble(metadataId, metadataItem, {
+			plexServerURL: context.plexServerURL,
+			plexAuthContext: context.plexAuthContext
+		});
 	}
 }

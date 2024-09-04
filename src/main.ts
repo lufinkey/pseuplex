@@ -182,7 +182,9 @@ app.get(pseuplex.letterboxd.hubs.userFollowingActivity.path, [
 		const hub = await pseuplex.letterboxd.hubs.userFollowingActivity.get(letterboxdUsername);
 		return await hub.getHub({
 			...params,
-			listStartToken: stringParam(req.query['listStartToken']),
+			listStartToken: stringParam(req.query['listStartToken'])
+		}, {
+			plexServerURL,
 			plexAuthContext: req.plex.authContext
 		});
 	}),
@@ -206,8 +208,8 @@ app.get('/hubs', [
 					if(perUserCfg?.letterboxdUsername) {
 						const params = plexTypes.parsePlexHubPageParams(userReq, {fromListPage:true});
 						const hub = await pseuplex.letterboxd.hubs.userFollowingActivity.get(perUserCfg.letterboxdUsername);
-						const page = await hub.getHubListEntry({
-							...params,
+						const page = await hub.getHubListEntry(params, {
+							plexServerURL,
 							plexAuthContext: userReq.plex.authContext
 						});
 						if(!resData.MediaContainer.Hub) {

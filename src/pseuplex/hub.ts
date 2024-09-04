@@ -2,6 +2,8 @@
 import qs from 'querystring';
 import * as plexTypes from '../plex/types';
 import { parseMetadataIDFromKey } from '../plex/utils';
+import { CachedFetcher } from '../fetching/CachedFetcher';
+
 
 export type PseuplexHubPage = {
 	hub: plexTypes.PlexHub;
@@ -67,5 +69,23 @@ export abstract class PseuplexHub {
 			more: page.more,
 			Metadata: page.items
 		};
+	}
+}
+
+
+
+export abstract class PseuplexHubProvider<THub extends PseuplexHub = PseuplexHub> {
+	readonly cache: CachedFetcher<THub>;
+
+	constructor() {
+		this.cache = new CachedFetcher<THub>(async (id: string) => {
+			return await this.fetch(id);
+		});
+	}
+
+	abstract fetch(id: string): (THub | Promise<THub>);
+
+	async get(id: string): Promise<THub> {
+		return this.cache.getOrFetch(id);
 	}
 }

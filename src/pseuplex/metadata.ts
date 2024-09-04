@@ -98,6 +98,24 @@ export abstract class PseuplexMetadataProviderBase<TMetadataItem> implements Pse
 			return plexGuid;
 		})());
 	}
+	async attachPlexDataIfAble(metadataId: string, metadataItem: plexTypes.PlexMetadataItem, options: {
+		plexServerURL: string;
+		plexAuthContext: plexTypes.PlexAuthContext
+	}): Promise<plexTypes.PlexMetadataItem> {
+		try {
+			const plexGuid = (options.plexAuthContext?.['X-Plex-Token']) ?
+				await this.getPlexGUIDForID(metadataId, {
+					plexAuthContext: options.plexAuthContext
+				})
+				: await this.idToPlexGuidCache.get(metadataId);
+			if(plexGuid) {
+				metadataItem.guid = plexGuid;
+			}
+		} catch(error) {
+			console.error(error);
+		}
+		return metadataItem;
+	}
 
 	abstract findMatchForPlexItem(metadataItem: plexTypes.PlexMetadataItem): Promise<TMetadataItem | null>;
 	async getIDForPlexItem(metadataItem: plexTypes.PlexMetadataItem): Promise<string | null> {

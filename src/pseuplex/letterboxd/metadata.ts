@@ -12,33 +12,6 @@ import {
 	PseuplexMetadataTransformOptions
 } from '../metadata';
 import * as lbTransform from './transform';
-import * as lbMetadata from './metadata';
-
-
-export const getLetterboxdPlexMediaItemMatchParams = (filmInfo: letterboxd.FilmInfo): PlexMediaItemMatchParams | null => {
-	let types: plexDiscoverAPI.SearchType[];
-	const tmdbInfo = filmInfo.pageData.tmdb;
-	if(tmdbInfo && tmdbInfo.type) {
-		if(tmdbInfo.type == 'movie') {
-			types = [plexDiscoverAPI.SearchType.Movies];
-		} else if(tmdbInfo.type == 'tv') {
-			types = [plexDiscoverAPI.SearchType.TV];
-		}
-	}
-	const guids = lbTransform.filmInfoGuids(filmInfo);
-	if(guids.length == 0) {
-		return null;
-	}
-	if(!types) {
-		types = [plexDiscoverAPI.SearchType.Movies,plexDiscoverAPI.SearchType.TV];
-	}
-	return {
-		title: filmInfo.pageData.name,
-		year: filmInfo.pageData.year,
-		types: types,
-		guids: guids
-	};
-};
 
 
 export type LetterboxdMetadataItem = letterboxd.FilmInfo;
@@ -67,7 +40,7 @@ export class LetterboxdMetadataProvider extends PseuplexMetadataProviderBase<Let
 	}
 
 	override getPlexMatchParams(metadataItem: LetterboxdMetadataItem): PlexMediaItemMatchParams {
-		return lbMetadata.getLetterboxdPlexMediaItemMatchParams(metadataItem);
+		return getLetterboxdPlexMediaItemMatchParams(metadataItem);
 	}
 
 	override async findMatchForPlexItem(metadataItem: plexTypes.PlexMetadataItem): Promise<letterboxd.FilmInfo | null> {
@@ -122,6 +95,32 @@ export class LetterboxdMetadataProvider extends PseuplexMetadataProviderBase<Let
 	}
 }
 
+
+
+export const getLetterboxdPlexMediaItemMatchParams = (filmInfo: letterboxd.FilmInfo): PlexMediaItemMatchParams | null => {
+	let types: plexDiscoverAPI.SearchType[];
+	const tmdbInfo = filmInfo.pageData.tmdb;
+	if(tmdbInfo && tmdbInfo.type) {
+		if(tmdbInfo.type == 'movie') {
+			types = [plexDiscoverAPI.SearchType.Movies];
+		} else if(tmdbInfo.type == 'tv') {
+			types = [plexDiscoverAPI.SearchType.TV];
+		}
+	}
+	const guids = lbTransform.filmInfoGuids(filmInfo);
+	if(guids.length == 0) {
+		return null;
+	}
+	if(!types) {
+		types = [plexDiscoverAPI.SearchType.Movies,plexDiscoverAPI.SearchType.TV];
+	}
+	return {
+		title: filmInfo.pageData.name,
+		year: filmInfo.pageData.year,
+		types: types,
+		guids: guids
+	};
+};
 
 export const attachLetterboxdReviewsToPlexMetadata = async (metadataItem: plexTypes.PlexMetadataItem, options: {
 	letterboxdMetadataProvider: LetterboxdMetadataProvider,

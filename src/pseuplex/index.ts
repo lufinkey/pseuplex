@@ -10,17 +10,22 @@ import {
 	PseuplexMetadataItem
 } from './types';
 import {
+	PseuplexPartialMetadataIDString,
+	stringifyPartialMetadataID,
 	parseMetadataID,
 	PseuplexMetadataIDParts,
 	PseuplexMetadataIDString,
-	stringifyMetadataID,
-	stringifyPartialMetadataID
+	stringifyMetadataID
 } from './metadataidentifier';
 import {
 	PseuplexMetadataParams,
 	PseuplexMetadataProvider
 } from './metadata';
-import { PseuplexHub } from './hub';
+import {
+	PseuplexHub,
+	PseuplexHubProvider
+} from './hub';
+import {  } from './hub';
 import {
 	LetterboxdMetadataProvider,
 	createLetterboxdUserFollowingFeedHub
@@ -43,22 +48,19 @@ const pseuplex = {
 		}),
 		
 		hubs: {
-			userFollowingActivity: {
-				path: '/pseuplex/letterboxd/hubs/following',
-				cache: new CachedFetcher<PseuplexHub>(async (letterboxdUsername: string) => {
+			userFollowingActivity: new class extends PseuplexHubProvider {
+				path = '/pseuplex/letterboxd/hubs/following';
+				override fetch(letterboxdUsername: string): PseuplexHub | Promise<PseuplexHub> {
 					// TODO validate that the profile exists
 					return createLetterboxdUserFollowingFeedHub(letterboxdUsername, {
-						hubPath: `${pseuplex.letterboxd.hubs.userFollowingActivity.path}?letterboxdUsername=${letterboxdUsername}`,
+						hubPath: `${this.path}?letterboxdUsername=${letterboxdUsername}`,
 						style: plexTypes.PlexHubStyle.Shelf,
 						promoted: true,
 						uniqueItemsOnly: true,
 						letterboxdMetadataProvider: pseuplex.letterboxd.metadata
 					});
-				}),
-				get: (letterboxdUsername: string): Promise<PseuplexHub> => {
-					return pseuplex.letterboxd.hubs.userFollowingActivity.cache.getOrFetch(letterboxdUsername);
 				}
-			}
+			}()
 		}
 	},
 
@@ -158,14 +160,20 @@ const pseuplex = {
 				idsEndIndex = uriParts.path.length;
 			}
 			const slugs = uriParts.path.substring(idsStartIndex, idsEndIndex).split(',');
-			const metadatas = (await pseuplex.letterboxd.metadata.get(slugs, {
+			let metadatas = (await pseuplex.letterboxd.metadata.get(slugs, {
 				plexServerURL: options.plexServerURL,
 				plexAuthContext: options.plexAuthContext,
 				includeDiscoverMatches: false,
 				includeUnmatched: false,
 				transformMatchKeys: false
 			})).MediaContainer.Metadata;
-			if(!metadatas || metadatas.length <= 0) {
+			if(!metadatas) {
+				return uri;
+			}
+			if(!(metadatas instanceof Array)) {
+				metadatas = [metadatas];
+			}
+			if(metadatas.length <= 0) {
 				return uri;
 			} else if(metadatas.length == 1) {
 				uriParts.path = `${metadatas[0].key}${uriParts.path.substring(idsEndIndex)}`;
