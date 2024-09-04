@@ -68,13 +68,13 @@ export abstract class PseuplexFeedHub<
 			chunk = await this._itemList.getOrFetchStartItems(start, {unique:opts.uniqueItemsOnly});
 			listStartToken = chunk.items[0].token;
 		}
-		let hubKey = opts.hubPath;
+		let key = opts.hubPath;
 		if(listStartToken) {
-			hubKey = addQueryArgumentToURLPath(opts.hubPath, `listStartToken=${listStartToken}`);
+			key = addQueryArgumentToURLPath(opts.hubPath, `listStartToken=${listStartToken}`);
 		}
 		return {
 			hub: {
-				key: hubKey,
+				key: key,
 				title: opts.title,
 				type: opts.type,
 				hubIdentifier: `${opts.hubIdentifier}${(params.contentDirectoryID != null && !(params.contentDirectoryID instanceof Array)) ? `.${params.contentDirectoryID}` : ''}`,

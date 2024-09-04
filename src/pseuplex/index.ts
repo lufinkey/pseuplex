@@ -28,7 +28,8 @@ import {
 import {  } from './hub';
 import {
 	LetterboxdMetadataProvider,
-	createLetterboxdUserFollowingFeedHub
+	createLetterboxdUserFollowingFeedHub,
+	createSimilarItemsHub
 } from './letterboxd';
 import {
 	httpError
@@ -60,7 +61,20 @@ const pseuplex = {
 						letterboxdMetadataProvider: pseuplex.letterboxd.metadata
 					});
 				}
-			}()
+			}(),
+
+			similar: {
+				relativePath: '/similar',
+				async get(metadataId: PseuplexPartialMetadataIDString): Promise<PseuplexHub> {
+					return createSimilarItemsHub(metadataId, {
+						relativePath: pseuplex.letterboxd.hubs.similar.relativePath,
+						title: "Similar Films",
+						style: plexTypes.PlexHubStyle.Shelf,
+						promoted: true,
+						letterboxdMetadataProvider: pseuplex.letterboxd.metadata
+					});
+				}
+			}
 		}
 	},
 
@@ -71,7 +85,7 @@ const pseuplex = {
 		}
 		return null;
 	},
-
+	
 	getMetadata: async (metadataIds: (PseuplexMetadataIDParts | PseuplexMetadataIDString)[], params: PseuplexMetadataParams): Promise<PseuplexMetadataPage> => {
 		let caughtError: Error | undefined = undefined;
 		const providerParams: PseuplexMetadataParams = {

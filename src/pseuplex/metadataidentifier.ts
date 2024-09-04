@@ -151,3 +151,7 @@ export const stringifyPartialMetadataID = (idParts: PseuplexPartialMetadataIDPar
 	}
 	return `${qs.escape(idParts.directory)}:${qs.escape(idParts.id)}`;
 };
+
+export const qualifyPartialMetadataID = (metadataId: PseuplexPartialMetadataIDString, source: PseuplexMetadataSource) => {
+	return `${source}:${metadataId}`;
+};

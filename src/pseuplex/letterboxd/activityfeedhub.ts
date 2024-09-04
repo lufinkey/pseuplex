@@ -58,7 +58,7 @@ export class LetterboxdActivityFeedHub extends PseuplexFeedHub<letterboxd.Film,n
 		const opts = this._options;
 		const metadataItem = lbtransform.filmToPlexMetadata(item, opts.metadataTransformOptions);
 		const metadataId = lbtransform.partialMetadataIdFromFilm(item);
-		return opts.letterboxdMetadataProvider.attachPlexDataIfAble(metadataId, metadataItem, {
+		return await opts.letterboxdMetadataProvider.attachPlexDataIfAble(metadataId, metadataItem, {
 			plexServerURL: context.plexServerURL,
 			plexAuthContext: context.plexAuthContext
 		});

@@ -5,6 +5,7 @@ import {
 	httpError,
 	parseQueryParams
 } from '../utils';
+import * as plexTypes from '../plex/types';
 import {
 	handlePlexAPIRequest,
 	IncomingPlexAPIRequest
@@ -18,6 +19,30 @@ import {
 	PseuplexMetadataIDParts,
 	stringifyPartialMetadataID
 } from './metadataidentifier';
+
+export const pseuplexMetadataIdRequestMiddleware = <TResult>(handler: (
+	req: IncomingPlexAPIRequest,
+	res: express.Response,
+	metadataId: PseuplexMetadataIDParts,
+	params: {[key: string]: string}) => Promise<TResult>) => {
+	return asyncRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<boolean> => {
+		const metadataId = req.params.metadataId;
+		if(!metadataId) {
+			// let plex handle the empty api request
+			return false;
+		}
+		const metadataIdParts = parseMetadataID(metadataId);
+		if(!metadataIdParts.source || metadataIdParts.source == PseuplexMetadataSource.Plex) {
+			// id is a plex ID, so no need to handle this request
+			return false;
+		}
+		await handlePlexAPIRequest(req, res, async (req: IncomingPlexAPIRequest, res): Promise<TResult> => {
+			const params = parseQueryParams(req, (key) => !(key in req.plex.authContext));
+			return await handler(req, res, metadataIdParts, params);
+		});
+		return true;
+	});
+};
 
 export const pseuplexMetadataIdsRequestMiddleware = <TResult>(handler: (
 	req: IncomingPlexAPIRequest,

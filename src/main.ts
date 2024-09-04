@@ -46,6 +46,7 @@ import {
 	stringifyPartialMetadataID
 } from './pseuplex/metadataidentifier';
 import {
+	pseuplexMetadataIdRequestMiddleware,
 	pseuplexMetadataIdsRequestMiddleware
 } from './pseuplex/requesthandling';
 
@@ -152,23 +153,43 @@ app.get(`${pseuplex.letterboxd.metadata.basePath}/:id`, [
 			}
 		}
 		return page;
-	}),
-	expressErrorHandler
+	})
 ]);
 
 app.get(`${pseuplex.letterboxd.metadata.basePath}/:id/related`, [
 	plexAuthenticator,
 	plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexHubsPage> => {
-		// TODO fetch related hub
+		const id = req.params.id;
+		const hubs: plexTypes.PlexHubWithItems[] = [];
+		const params = plexTypes.parsePlexHubPageParams(req, {fromListPage:true});
+		// add similar items hub
+		const hub = await pseuplex.letterboxd.hubs.similar.get(id);
+		const hubPage = await hub.getHubListEntry(params, {
+			plexServerURL,
+			plexAuthContext: req.plex.authContext
+		});
+		hubs.push(hubPage);
 		return {
 			MediaContainer: {
-				size: 0,
+				size: hubs.length,
 				identifier: plexTypes.PlexPluginIdentifier.PlexAppLibrary,
-				Hub: []
+				Hub: hubs
 			}
-		}
-	}),
-	expressErrorHandler
+		};
+	})
+]);
+
+app.get(`${pseuplex.letterboxd.metadata.basePath}/:id/similar`, [
+	plexAuthenticator,
+	plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexHubsPage> => {
+		const id = req.params.id;
+		const params = plexTypes.parsePlexHubPageParams(req, {fromListPage:false});
+		const hub = await pseuplex.letterboxd.hubs.similar.get(id);
+		return await hub.getHub(params, {
+			plexServerURL,
+			plexAuthContext: req.plex.authContext
+		});
+	})
 ]);
 
 app.get(pseuplex.letterboxd.hubs.userFollowingActivity.path, [
@@ -187,8 +208,7 @@ app.get(pseuplex.letterboxd.hubs.userFollowingActivity.path, [
 			plexServerURL,
 			plexAuthContext: req.plex.authContext
 		});
-	}),
-	expressErrorHandler
+	})
 ]);
 
 
@@ -268,36 +288,53 @@ app.get(`/library/metadata/:metadataId`, [
 			}
 			return resData;
 		}
-	}),
-	expressErrorHandler
+	})
 ]);
 
 app.get(`/library/metadata/:metadataId/related`, [
 	plexAuthenticator,
-	asyncRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<boolean> => {
-		const metadataId = req.params.metadataId;
-		if(!metadataId) {
-			// let plex handle the empty api request
-			return false;
+	pseuplexMetadataIdRequestMiddleware(async (req: IncomingPlexAPIRequest, res, metadataId, params): Promise<plexTypes.PlexHubsPage> => {
+		const hubs: plexTypes.PlexHubWithItems[] = [];
+		const hubPageParams = plexTypes.parsePlexHubPageParams(req, {fromListPage:true});
+		switch(metadataId.source) {
+			case PseuplexMetadataSource.Letterboxd: {
+				// add similar items hub
+				const id = stringifyPartialMetadataID(metadataId);
+				const hub = await pseuplex.letterboxd.hubs.similar.get(id);
+				const hubPage = await hub.getHubListEntry(hubPageParams, {
+					plexServerURL,
+					plexAuthContext: req.plex.authContext
+				});
+				hubs.push(hubPage);
+			} break;
 		}
-		const idParts = parseMetadataID(metadataId);
-		if(!idParts.source || idParts.source == PseuplexMetadataSource.Plex) {
-			// id is a plex ID, so no need to handle this request
-			return false;
+		return {
+			MediaContainer: {
+				size: 0,
+				identifier: plexTypes.PlexPluginIdentifier.PlexAppLibrary,
+				Hub: hubs
+			}
+		};
+	})
+]);
+
+app.get(`/library/metadata/:metadataId/similar`, [
+	plexAuthenticator,
+	pseuplexMetadataIdRequestMiddleware(async (req: IncomingPlexAPIRequest, res, metadataId, params): Promise<plexTypes.PlexHubsPage> => {
+		const hubPageParams = plexTypes.parsePlexHubPageParams(req, {fromListPage:false});
+		switch(metadataId.source) {
+			case PseuplexMetadataSource.Letterboxd: {
+				// add similar items hub
+				const id = stringifyPartialMetadataID(metadataId);
+				const hub = await pseuplex.letterboxd.hubs.similar.get(id);
+				return await hub.getHub(hubPageParams, {
+					plexServerURL,
+					plexAuthContext: req.plex.authContext
+				});
+			}
 		}
-		await handlePlexAPIRequest(req, res, async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexHubsPage> => {
-			// TODO fetch related hub
-			return {
-				MediaContainer: {
-					size: 0,
-					identifier: plexTypes.PlexPluginIdentifier.PlexAppLibrary,
-					Hub: []
-				}
-			};
-		});
-		return true;
-	}),
-	expressErrorHandler
+		throw httpError(404, "Not found");
+	})
 ]);
 
 app.post('/playQueues', [
@@ -335,8 +372,7 @@ app.post('/playQueues', [
 			console.log(`body ${bodyContent} (type ${typeof bodyContent})`);
 			return bodyContent;
 		}
-	}),
-	expressErrorHandler
+	})
 ]);
 
 /*app.get('/:/prefs', (req, res) => {
@@ -396,6 +432,7 @@ app.use((req, res) => {
 		return resData;
 	}
 }));*/
+app.use(expressErrorHandler);
 
 // create http+https server
 const server: https.Server = httpolyglot.createServer({
