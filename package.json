@@ -5,7 +5,7 @@
 	"main": "/dist/main.js",
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/lufinkey/bandcamp-retriever.git"
+		"url": "https://github.com/lufinkey/pseuplex.git"
 	},
 	"scripts": {
 		"build": "tsc",
@@ -16,8 +16,6 @@
 	"author": "",
 	"license": "Zlib",
 	"dependencies": {
-		"aguid": "^2.0.0",
-		"cheerio": "^1.0.0-rc.12",
 		"express": "^4.19.2",
 		"express-http-proxy": "^2.0.0",
 		"http-proxy": "^1.18.1",
