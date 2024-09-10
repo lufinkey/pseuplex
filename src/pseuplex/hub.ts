@@ -37,7 +37,7 @@ export abstract class PseuplexHub {
 				totalSize: page.totalCount,
 				offset: page.offset,
 				allowSync: false, // TODO figure out what this does
-				//identifier: 'com.plexapp.plugins.library', // TODO figure out what this does
+				identifier: plexTypes.PlexPluginIdentifier.PlexAppLibrary, // TODO figure out what this does
 				Meta: {
 					Type: [
 						{

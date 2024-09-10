@@ -71,7 +71,8 @@ const pseuplex = {
 						title: "Similar Films",
 						style: plexTypes.PlexHubStyle.Shelf,
 						promoted: true,
-						letterboxdMetadataProvider: pseuplex.letterboxd.metadata
+						letterboxdMetadataProvider: pseuplex.letterboxd.metadata,
+						defaultCount: 12
 					});
 				}
 			}

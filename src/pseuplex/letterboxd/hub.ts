@@ -23,6 +23,12 @@ export type LetterboxdHubOptions = {
 	letterboxdMetadataProvider: LetterboxdMetadataProvider
 };
 
+export type LetterboxdHubPage = {
+	items:letterboxd.Film[],
+	hasMore: boolean,
+	totalItemCount?: number
+}
+
 export abstract class LetterboxdHub<TOptions extends LetterboxdHubOptions = LetterboxdHubOptions> extends PseuplexHub {
 	_options: TOptions;
 	
@@ -35,15 +41,11 @@ export abstract class LetterboxdHub<TOptions extends LetterboxdHubOptions = Lett
 		return this._options.metadataTransformOptions.metadataBasePath;
 	}
 
-	abstract fetchPage(params: PseuplexHubPageParams, context: PseuplexHubContext): Promise<{
-		items:letterboxd.Film[],
-		hasMore: boolean,
-		totalItemCount?: number
-	}>;
+	abstract fetchPage(params: PseuplexHubPageParams, context: PseuplexHubContext): Promise<LetterboxdHubPage>;
 
 	override async get(params: PseuplexHubPageParams, context: PseuplexHubContext): Promise<PseuplexHubPage> {
 		const opts = this._options;
-		const page = await this.fetchPage(params, context);
+		const page = (params.count == null || params.count > 0) ? await this.fetchPage(params, context) : null;
 		return {
 			hub: {
 				key: opts.hubPath,
@@ -54,17 +56,17 @@ export abstract class LetterboxdHub<TOptions extends LetterboxdHubOptions = Lett
 				style: opts.style,
 				promoted: opts.promoted
 			},
-			items: await Promise.all(page.items.map(async (item) => {
+			items: page != null ? await Promise.all(page.items.map(async (item) => {
 				const metadataId = lbtransform.partialMetadataIdFromFilm(item);
 				const metadataItem = lbtransform.filmToPlexMetadata(item, opts.metadataTransformOptions);
 				return await opts.letterboxdMetadataProvider.attachPlexDataIfAble(metadataId, metadataItem, {
 					plexServerURL: context.plexServerURL,
 					plexAuthContext: context.plexAuthContext
 				});
-			})),
+			})) : [],
 			offset: Math.max(params.start ?? 0, 0),
-			more: page.hasMore,
-			totalCount: page.totalItemCount
+			more: page?.hasMore ?? true,
+			totalCount: page?.totalItemCount ?? undefined
 		};
 	}
 };
