@@ -36,6 +36,7 @@ import {
 	createPlexAuthenticationMiddleware,
 	handlePlexAPIRequest
 } from './plex/requesthandling';
+import { parseMetadataIDFromKey } from './plex/utils';
 import pseuplex from './pseuplex';
 import {
 	PseuplexMetadataSource,
@@ -54,7 +55,6 @@ import {
 	pseuplexMetadataIdRequestMiddleware,
 	pseuplexMetadataIdsRequestMiddleware
 } from './pseuplex/requesthandling';
-import { parseMetadataIDFromKey } from './plex/utils';
 
 // parse command line arguments
 const args = parseCmdArgs(process.argv.slice(2));

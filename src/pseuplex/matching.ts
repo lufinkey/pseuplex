@@ -40,8 +40,9 @@ export const findMatchingPlexMediaItem = async (options: PlexMediaItemMatchParam
 		authContext: options.authContext,
 		params: options.params
 	}, (searchResult) => {
-		return ((searchResult.Metadata.title == options.title || searchResult.Metadata.originalTitle == options.title)
-			&& (searchResult.Metadata.year == options.year));
+		/*return ((searchResult.Metadata.title == options.title || searchResult.Metadata.originalTitle == options.title)
+			&& (searchResult.Metadata.year == options.year));*/
+		return true;
 	}, (metadata) => {
 		if(metadata.Guid && metadata.Guid.length > 0 && options.guids.length > 0) {
 			for(const guid of metadata.Guid) {
