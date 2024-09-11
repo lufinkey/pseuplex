@@ -26,12 +26,7 @@ import {
 	PseuplexHub,
 	PseuplexHubProvider
 } from './hub';
-import {  } from './hub';
-import {
-	LetterboxdMetadataProvider,
-	createLetterboxdUserFollowingFeedHub,
-	createSimilarItemsHub
-} from './letterboxd';
+import * as pseuLetterboxd from './letterboxd';
 import {
 	httpError
 } from '../utils';
@@ -51,7 +46,7 @@ const pseuplex = {
 		sectionGuid: "910db620-6c87-475c-9c33-0308d50f01b0",
 		sectionTitle: "Letterboxd Films",
 		
-		metadata: new LetterboxdMetadataProvider({
+		metadata: new pseuLetterboxd.LetterboxdMetadataProvider({
 			basePath: '/pseuplex/letterboxd/metadata'
 		}),
 		
@@ -60,7 +55,7 @@ const pseuplex = {
 				path = '/pseuplex/letterboxd/hubs/following';
 				override fetch(letterboxdUsername: string): PseuplexHub | Promise<PseuplexHub> {
 					// TODO validate that the profile exists
-					return createLetterboxdUserFollowingFeedHub(letterboxdUsername, {
+					return pseuLetterboxd.createUserFollowingFeedHub(letterboxdUsername, {
 						hubPath: `${this.path}?letterboxdUsername=${letterboxdUsername}`,
 						style: plexTypes.PlexHubStyle.Shelf,
 						promoted: true,
@@ -73,7 +68,7 @@ const pseuplex = {
 			similar: {
 				relativePath: '/similar',
 				async get(metadataId: PseuplexPartialMetadataIDString): Promise<PseuplexHub> {
-					return createSimilarItemsHub(metadataId, {
+					return pseuLetterboxd.createSimilarItemsHub(metadataId, {
 						relativePath: pseuplex.letterboxd.hubs.similar.relativePath,
 						title: "Similar Films on Letterboxd",
 						style: plexTypes.PlexHubStyle.Shelf,

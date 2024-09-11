@@ -24,7 +24,7 @@ import { LetterboxdActivityFeedHub } from './activityfeedhub';
 import { PseuplexMetadataSource } from '../types';
 
 
-export const createLetterboxdUserFollowingFeedHub = (letterboxdUsername: string, options: {
+export const createUserFollowingFeedHub = (letterboxdUsername: string, options: {
 	hubPath: string,
 	style: plexTypes.PlexHubStyle,
 	promoted: boolean,

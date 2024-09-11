@@ -58,18 +58,21 @@ export abstract class PseuplexFeedHub<
 		let chunk: LoadableListChunk<TItem,TItemToken>;
 		let start: number;
 		let { listStartToken } = params;
-		if(params.listStartToken != null) {
-			listStartToken = Number.parseInt(params.listStartToken as any);
-			listStartToken = !Number.isNaN(listStartToken) ? listStartToken : params.listStartToken;
+		if(params.listStartToken != null || (params.start != null && params.start > 0)) {
+			if(listStartToken != null) {
+				listStartToken = Number.parseInt(listStartToken as any);
+				listStartToken = !Number.isNaN(listStartToken) ? listStartToken : params.listStartToken;
+			}
 			start = params.start ?? 0;
 			chunk = await this._itemList.getOrFetchItems(listStartToken as any, start, params.count ?? opts.defaultItemCount, {unique:opts.uniqueItemsOnly});
 		} else {
-			start = params.count ?? opts.defaultItemCount;
-			chunk = await this._itemList.getOrFetchStartItems(start, {unique:opts.uniqueItemsOnly});
+			const maxItemCount = params.count ?? opts.defaultItemCount;
+			start = 0;
+			chunk = await this._itemList.getOrFetchStartItems(maxItemCount, {unique:opts.uniqueItemsOnly});
 			listStartToken = chunk.items[0].token;
 		}
 		let key = opts.hubPath;
-		if(listStartToken) {
+		if(listStartToken != null) {
 			key = addQueryArgumentToURLPath(opts.hubPath, `listStartToken=${listStartToken}`);
 		}
 		return {
