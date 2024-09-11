@@ -19,7 +19,8 @@ import {
 } from './metadataidentifier';
 import {
 	PseuplexMetadataParams,
-	PseuplexMetadataProvider
+	PseuplexMetadataProvider,
+	PseuplexMetadataProviderParams
 } from './metadata';
 import {
 	PseuplexHub,
@@ -34,6 +35,12 @@ import {
 import {
 	httpError
 } from '../utils';
+
+
+export type PseuplexGeneralMetadataParams = PseuplexMetadataParams & {
+	transformProviderMetadataItem?: (metadataItem: PseuplexMetadataItem, id: PseuplexPartialMetadataIDString, provider: PseuplexMetadataProvider) => PseuplexMetadataItem | Promise<PseuplexMetadataItem>;
+	transformPlexMetadataItem?: (metadataItem: PseuplexMetadataItem, plexId: string) => PseuplexMetadataItem | Promise<PseuplexMetadataItem>;
+};
 
 
 const pseuplex = {
@@ -87,17 +94,22 @@ const pseuplex = {
 		return null;
 	},
 	
-	getMetadata: async (metadataIds: (PseuplexMetadataIDParts | PseuplexMetadataIDString)[], params: PseuplexMetadataParams): Promise<PseuplexMetadataPage> => {
+	getMetadata: async (metadataIds: (PseuplexMetadataIDParts | PseuplexMetadataIDString)[], params: PseuplexGeneralMetadataParams): Promise<PseuplexMetadataPage> => {
 		let caughtError: Error | undefined = undefined;
-		const providerParams: PseuplexMetadataParams = {
+		// create provider params
+		const providerParams: PseuplexMetadataProviderParams = {
 			...params
 		};
+		delete (providerParams as PseuplexGeneralMetadataParams).transformProviderMetadataItem;
+		delete (providerParams as PseuplexGeneralMetadataParams).transformPlexMetadataItem;
+		providerParams.transformMetadataItem = params.transformProviderMetadataItem;
 		if(!providerParams.metadataBasePath) {
 			providerParams.metadataBasePath = '/library/metadata';
 			if(providerParams.qualifiedMetadataIds == null) {
 				providerParams.qualifiedMetadataIds = true;
 			}
 		}
+		// get metadata for each id
 		const metadataItems = (await Promise.all(metadataIds.map(async (metadataId) => {
 			if(typeof metadataId === 'string') {
 				metadataId = parseMetadataID(metadataId);
@@ -115,17 +127,24 @@ const pseuplex = {
 				} else if(source == PseuplexMetadataSource.Plex) {
 					// fetch from plex
 					const fullMetadataId = stringifyMetadataID(metadataId);
-					return [].concat((await plexServerAPI.getLibraryMetadata([fullMetadataId], {
+					const metadatas = (await plexServerAPI.getLibraryMetadata([fullMetadataId], {
 						params: params.plexParams,
 						serverURL: params.plexServerURL,
 						authContext: params.plexAuthContext
-					})).MediaContainer.Metadata).map((metadata: PseuplexMetadataItem) => {
-						metadata.Pseuplex = {
-							metadataId: fullMetadataId,
-							isOnServer: true
-						}
-						return metadata;
-					});
+					})).MediaContainer.Metadata;
+					// transform metadata
+					let metadataItem = ((metadatas instanceof Array) ? metadatas[0] : metadatas) as PseuplexMetadataItem;
+					if(!metadataItem) {
+						return [];
+					}
+					metadataItem.Pseuplex = {
+						metadataId: fullMetadataId,
+						isOnServer: true
+					}
+					if(params.transformPlexMetadataItem) {
+						metadataItem = await params.transformPlexMetadataItem(metadataItem, fullMetadataId);
+					}
+					return metadataItem;
 				} else {
 					// TODO handle other source type
 					return [];

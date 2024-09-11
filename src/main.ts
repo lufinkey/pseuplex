@@ -130,6 +130,9 @@ app.get(`${pseuplex.letterboxd.metadata.basePath}/:id`, [
 			throw httpError(400, "No slug was provided");
 		}
 		const ids = itemIdsStr.split(',');
+		const userInfo = req.plex.userInfo;
+		const userPrefs = cfg.perUser[userInfo.email];
+		// get metadatas
 		const page = await pseuplex.letterboxd.metadata.get(ids, {
 			plexServerURL,
 			plexAuthContext: reqAuthContext,
@@ -138,13 +141,33 @@ app.get(`${pseuplex.letterboxd.metadata.basePath}/:id`, [
 			transformMatchKeys: true,
 			metadataBasePath: pseuplex.letterboxd.metadata.basePath,
 			qualifiedMetadataIds: false,
-			plexParams: params
+			plexParams: params,
+			transformMetadataItem: async (metadataItem, id) => {
+				// attach extra data if needed
+				try {
+					// attach letterboxd friends reviews if needed
+					if(userPrefs && userPrefs.letterboxdUsername) {
+						if(params.includeReviews == true) {
+							// attach letterboxd friends reviews
+							await pseuLetterboxd.attachLetterboxdFriendsReviewsToPlexMetadata(metadataItem, {
+								letterboxdMetadataId: id,
+								letterboxdMetadataProvider: pseuplex.letterboxd.metadata,
+								letterboxdUsername: userPrefs.letterboxdUsername
+							});
+						}
+					}
+				} catch(error) {
+					console.error(error);
+				}
+				return metadataItem;
+			}
 		});
 		if(page?.MediaContainer?.Metadata) {
 			let metadataItems = page.MediaContainer.Metadata;
 			if(!(metadataItems instanceof Array)) {
 				metadataItems = [metadataItems];
 			}
+			// send unavailable notification(s) if needed
 			if(metadataItems.length > 0
 				&& (params.checkFiles == 1 || params.asyncCheckFiles == 1
 					|| params.refreshLocalMediaAgent == 1 || params.asyncRefreshLocalMediaAgent == 1
@@ -264,7 +287,7 @@ app.get('/hubs', [
 
 app.get(`/library/metadata/:metadataId`, [
 	plexAuthenticator,
-	pseuplexMetadataIdsRequestMiddleware(async (req: IncomingPlexAPIRequest, res, metadataIds, params): Promise<PseuplexMetadataPage> => {
+	pseuplexMetadataIdsRequestMiddleware(async (req: IncomingPlexAPIRequest, res, metadataIds, params: plexTypes.PlexMetadataPageParams): Promise<PseuplexMetadataPage> => {
 		return await pseuplex.getMetadata(metadataIds, {
 			plexServerURL,
 			plexAuthContext: req.plex.authContext,
@@ -280,30 +303,31 @@ app.get(`/library/metadata/:metadataId`, [
 		responseModifier: async (proxyRes, resData: plexTypes.PlexMetadataPage, userReq: IncomingPlexAPIRequest, userRes) => {
 			let metadata = resData.MediaContainer.Metadata;
 			if(metadata) {
-				// get request user prefs
+				// get request info
 				const userInfo = userReq.plex.userInfo;
 				const userPrefs = cfg.perUser[userInfo.email];
+				const params: plexTypes.PlexMetadataPageParams = parseQueryParams(userReq, (key) => !(key in userReq.plex.authContext));
 				// map ids to guids
 				await forArrayOrSingleAsyncParallel(metadata, async (metadataItem) => {
 					try {
-						if(!metadataItem.guid) {
-							return;
+						// cache id => guid mapping
+						if(metadataItem.guid) {
+							const itemId = parseMetadataIDFromKey(metadataItem.key, '/library/metadata/')?.id;
+							if(itemId) {
+								plexServerIdToGuidCache.setSync(itemId, metadataItem.guid);
+							}
 						}
-						const itemId = parseMetadataIDFromKey(metadataItem.key, '/library/metadata/')?.id;
-						if(!itemId) {
-							return;
-						}
-						plexServerIdToGuidCache.setSync(itemId, metadataItem.guid);
-						// TODO match against letterboxd id
+						// attach letterboxd data if needed
 						if(userPrefs && userPrefs.letterboxdUsername) {
-							// TODO check if includeReviews is set in the params
-							// attach letterboxd reviews
-							await pseuLetterboxd.attachLetterboxdReviewsToPlexMetadata(metadataItem, {
-								letterboxdMetadataProvider: pseuplex.letterboxd.metadata,
-								letterboxdUsername: userPrefs.letterboxdUsername
-							});
+							if(params.includeReviews == true) {
+								// attach letterboxd friends reviews
+								await pseuLetterboxd.attachLetterboxdFriendsReviewsToPlexMetadata(metadataItem, {
+									letterboxdMetadataProvider: pseuplex.letterboxd.metadata,
+									letterboxdUsername: userPrefs.letterboxdUsername
+								});
+							}
 						} else {
-							// get and cache letterboxd id
+							// pre-fetch and cache letterboxd id
 							await pseuplex.letterboxd.metadata.getIDForPlexItem(metadataItem);
 						}
 					} catch(error) {
@@ -345,6 +369,7 @@ app.get(`/library/metadata/:metadataId/related`, [
 			}
 		}
 		// get hub(s) from other providers
+		// TODO combine same hubs from same provider
 		await Promise.all(metadataIds.map(async (metadataId) => {
 			switch(metadataId.source) {
 				case PseuplexMetadataSource.Letterboxd: {

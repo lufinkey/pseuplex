@@ -31,7 +31,11 @@ export type PseuplexMetadataParams = {
 	transformMatchKeys?: boolean;
 	metadataBasePath?: string;
 	qualifiedMetadataIds?: boolean;
-	plexParams?: plexTypes.PlexMetadataPageParams
+	plexParams?: plexTypes.PlexMetadataPageParams;
+};
+
+export type PseuplexMetadataProviderParams = PseuplexMetadataParams & {
+	transformMetadataItem?: (metadataItem: PseuplexMetadataItem, id: PseuplexPartialMetadataIDString, provider: PseuplexMetadataProvider) => PseuplexMetadataItem | Promise<PseuplexMetadataItem>;
 };
 
 export interface PseuplexMetadataProvider {
@@ -98,7 +102,7 @@ export abstract class PseuplexMetadataProviderBase<TMetadataItem> implements Pse
 			return plexGuid;
 		})());
 	}
-	async attachPlexDataIfAble(metadataId: string, metadataItem: plexTypes.PlexMetadataItem, options: {
+	async attachPlexDataIfAble(metadataId: PseuplexPartialMetadataIDString, metadataItem: plexTypes.PlexMetadataItem, options: {
 		plexServerURL: string;
 		plexAuthContext: plexTypes.PlexAuthContext
 	}): Promise<plexTypes.PlexMetadataItem> {
@@ -164,7 +168,7 @@ export abstract class PseuplexMetadataProviderBase<TMetadataItem> implements Pse
 		return this.idFromMetadataItem(result);
 	}
 
-	async get(ids: PseuplexPartialMetadataIDString[], options: PseuplexMetadataParams): Promise<PseuplexMetadataPage> {
+	async get(ids: PseuplexPartialMetadataIDString[], options: PseuplexMetadataProviderParams): Promise<PseuplexMetadataPage> {
 		let plexGuids: {[id: PseuplexPartialMetadataIDString]: Promise<string> | string | null} = {};
 		let plexMatches: {[id: PseuplexPartialMetadataIDString]: (Promise<plexTypes.PlexMetadataItem> | plexTypes.PlexMetadataItem | null)} = {};
 		let providerItems: {[id: PseuplexPartialMetadataIDString]: TMetadataItem | Promise<TMetadataItem>} = {};
@@ -288,6 +292,7 @@ export abstract class PseuplexMetadataProviderBase<TMetadataItem> implements Pse
 			const guid = await plexGuids[id];
 			let metadataItem = guid ? plexMetadataMap[guid] : null;
 			if(metadataItem) {
+				// get item from plex
 				const idParts = parsePartialMetadataID(id);
 				metadataItem.Pseuplex.metadataId = stringifyMetadataID({
 					...idParts,
@@ -309,6 +314,7 @@ export abstract class PseuplexMetadataProviderBase<TMetadataItem> implements Pse
 					metadataItem.key = `${transformOpts.metadataBasePath}/${metadataId}`;
 				}
 			} else if(options.includeUnmatched ?? true) {
+				// get item from provider
 				let providerMetadataItemTask = providerItems[id];
 				if(!providerMetadataItemTask) {
 					providerMetadataItemTask = this.fetchMetadataItem(id);
@@ -318,6 +324,9 @@ export abstract class PseuplexMetadataProviderBase<TMetadataItem> implements Pse
 				metadataItem = this.transformMetadataItem(providerMetadataItem, transformOpts);
 			} else {
 				return null;
+			}
+			if(options.transformMetadataItem) {
+				metadataItem = await options.transformMetadataItem(metadataItem, id, this);
 			}
 			return metadataItem;
 		}))).filter((metadata) => metadata);

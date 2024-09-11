@@ -12,6 +12,7 @@ import {
 	PseuplexMetadataTransformOptions
 } from '../metadata';
 import * as lbTransform from './transform';
+import { PseuplexPartialMetadataIDString } from '../metadataidentifier';
 
 
 export type LetterboxdMetadataItem = letterboxd.FilmInfo;
@@ -23,7 +24,7 @@ export class LetterboxdMetadataProvider extends PseuplexMetadataProviderBase<Let
 		return PseuplexMetadataSource.Letterboxd;
 	}
 
-	override async fetchMetadataItem(id: string): Promise<LetterboxdMetadataItem> {
+	override async fetchMetadataItem(id: PseuplexPartialMetadataIDString): Promise<LetterboxdMetadataItem> {
 		console.log(`Fetching letterboxd info for ${id}`);
 		const getFilmOpts = lbTransform.getFilmOptsFromPartialMetadataId(id);
 		const filmInfo = await letterboxd.getFilmInfo(getFilmOpts);
@@ -122,14 +123,15 @@ export const getLetterboxdPlexMediaItemMatchParams = (filmInfo: letterboxd.FilmI
 	};
 };
 
-export const attachLetterboxdReviewsToPlexMetadata = async (metadataItem: plexTypes.PlexMetadataItem, options: {
+export const attachLetterboxdFriendsReviewsToPlexMetadata = async (metadataItem: plexTypes.PlexMetadataItem, options: {
+	letterboxdMetadataId?: PseuplexPartialMetadataIDString,
 	letterboxdMetadataProvider: LetterboxdMetadataProvider,
 	letterboxdUsername: string
 }): Promise<void> => {
 	try {
-		const letterboxdId = await options.letterboxdMetadataProvider.getIDForPlexItem(metadataItem);
-		if(letterboxdId) {
-			const getFilmOpts = lbTransform.getFilmOptsFromPartialMetadataId(letterboxdId);
+		const letterboxdMetadataId = options.letterboxdMetadataId ? options.letterboxdMetadataId : await options.letterboxdMetadataProvider.getIDForPlexItem(metadataItem);
+		if(letterboxdMetadataId) {
+			const getFilmOpts = lbTransform.getFilmOptsFromPartialMetadataId(letterboxdMetadataId);
 			const friendViewings = await letterboxd.getFriendsReviews({
 				...getFilmOpts,
 				username: options.letterboxdUsername

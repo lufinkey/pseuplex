@@ -234,6 +234,18 @@ export const forArrayOrSingle = <T>(item: T | T[], callback: (item: T) => void) 
 	}
 };
 
+export const transformArrayOrSingle = <T,U>(item: T | T[] | undefined, callback: (item: T) => U): (U | U[]) => {
+	if(item) {
+		if(item instanceof Array) {
+			return item.map(callback);
+		} else {
+			return callback(item);
+		}
+	} else {
+		return item as any;
+	}
+};
+
 export const forArrayOrSingleAsyncParallel = async <T>(item: T | T[], callback: (item: T) => Promise<void>): Promise<void> => {
 	if(item) {
 		if(item instanceof Array) {
