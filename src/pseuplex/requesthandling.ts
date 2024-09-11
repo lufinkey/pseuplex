@@ -20,16 +20,31 @@ import {
 	stringifyPartialMetadataID
 } from './metadataidentifier';
 
+export const parseMetadataIdsFromPathParam = (metadataIdsString: string): PseuplexMetadataIDParts[] => {
+	if(!metadataIdsString) {
+		return [];
+	}
+	return metadataIdsString.split(',').map((metadataId) => {
+		if(metadataId.indexOf(':') == -1 && metadataId.indexOf('%') != -1) {
+			metadataId = qs.unescape(metadataId);
+		}
+		return parseMetadataID(metadataId);
+	});
+};
+
 export const pseuplexMetadataIdRequestMiddleware = <TResult>(handler: (
 	req: IncomingPlexAPIRequest,
 	res: express.Response,
 	metadataId: PseuplexMetadataIDParts,
 	params: {[key: string]: string}) => Promise<TResult>) => {
 	return asyncRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<boolean> => {
-		const metadataId = req.params.metadataId;
+		let metadataId = req.params.metadataId;
 		if(!metadataId) {
 			// let plex handle the empty api request
 			return false;
+		}
+		if(metadataId.indexOf(':') == -1 && metadataId.indexOf('%') != -1) {
+			metadataId = qs.unescape(metadataId);
 		}
 		const metadataIdParts = parseMetadataID(metadataId);
 		if(!metadataIdParts.source || metadataIdParts.source == PseuplexMetadataSource.Plex) {
@@ -55,12 +70,7 @@ export const pseuplexMetadataIdsRequestMiddleware = <TResult>(handler: (
 		if(!metadataIdsString) {
 			throw httpError(400, "No ID provided");
 		}
-		let metadataIds = metadataIdsString.split(',').map((metadataId) => {
-			if(metadataId.indexOf(':') == -1 && metadataId.indexOf('%') != -1) {
-				metadataId = qs.unescape(metadataId);
-			}
-			return parseMetadataID(metadataId);
-		});
+		const metadataIds = parseMetadataIdsFromPathParam(metadataIdsString);
 		// map IDs to their providers
 		const metadataProviderIds: {[source in PseuplexMetadataSource]?: Set<string>} = {};
 		let anyNonPlexIds: boolean = false;

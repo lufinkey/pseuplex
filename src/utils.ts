@@ -222,6 +222,40 @@ export const fixStringLeaks = (obj: object) => {
 	}
 };
 
+export const forArrayOrSingle = <T>(item: T | T[], callback: (item: T) => void) => {
+	if(item) {
+		if(item instanceof Array) {
+			for(const element of item) {
+				callback(element);
+			}
+		} else {
+			callback(item);
+		}
+	}
+};
+
+export const forArrayOrSingleAsyncParallel = async <T>(item: T | T[], callback: (item: T) => Promise<void>): Promise<void> => {
+	if(item) {
+		if(item instanceof Array) {
+			await Promise.all(item.map(callback));
+		} else {
+			await callback(item);
+		}
+	}
+};
+
+export const transformArrayOrSingleAsyncParallel = async <T,U>(item: T | T[] | undefined, callback: (item: T) => Promise<U>): Promise<U | U[] | undefined> => {
+	if(item) {
+		if(item instanceof Array) {
+			return await Promise.all(item.map(callback));
+		} else {
+			return await callback(item);
+		}
+	} else {
+		return item as any;
+	}
+};
+
 export const asyncRequestHandler = <TRequest extends express.Request = express.Request>(
 	handler: (req: TRequest, res: express.Response) => Promise<boolean>) => {
 	return async (req, res, next) => {

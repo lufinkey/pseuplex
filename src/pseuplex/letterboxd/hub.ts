@@ -27,7 +27,7 @@ export type LetterboxdHubPage = {
 	items:letterboxd.Film[],
 	hasMore: boolean,
 	totalItemCount?: number
-}
+};
 
 export abstract class LetterboxdHub<TOptions extends LetterboxdHubOptions = LetterboxdHubOptions> extends PseuplexHub {
 	_options: TOptions;
@@ -69,4 +69,4 @@ export abstract class LetterboxdHub<TOptions extends LetterboxdHubOptions = Lett
 			totalCount: page?.totalItemCount ?? undefined
 		};
 	}
-};
+}

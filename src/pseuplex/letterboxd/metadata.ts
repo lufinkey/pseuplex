@@ -80,8 +80,8 @@ export class LetterboxdMetadataProvider extends PseuplexMetadataProviderBase<Let
 		// get metadata
 		console.log(`Fetching letterboxd film from ${JSON.stringify(getFilmOpts)}`);
 		const filmInfoTask = letterboxd.getFilmInfo(getFilmOpts)
-			.catch((error) => {
-				if(error.statusCode) {
+			.catch((error: letterboxd.LetterboxdError) => {
+				if(error.statusCode == 404 || error.message.search(/[nN]ot [fF]ound/) != -1) {
 					return null;
 				}
 				throw error;
@@ -125,7 +125,7 @@ export const getLetterboxdPlexMediaItemMatchParams = (filmInfo: letterboxd.FilmI
 export const attachLetterboxdReviewsToPlexMetadata = async (metadataItem: plexTypes.PlexMetadataItem, options: {
 	letterboxdMetadataProvider: LetterboxdMetadataProvider,
 	letterboxdUsername: string
-}): Promise<plexTypes.PlexMetadataItem> => {
+}): Promise<void> => {
 	try {
 		const letterboxdId = await options.letterboxdMetadataProvider.getIDForPlexItem(metadataItem);
 		if(letterboxdId) {
@@ -146,5 +146,4 @@ export const attachLetterboxdReviewsToPlexMetadata = async (metadataItem: plexTy
 	} catch(error) {
 		console.error(error);
 	}
-	return metadataItem;
 };

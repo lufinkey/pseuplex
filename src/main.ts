@@ -12,7 +12,10 @@ import {
 	stringifyURLPath,
 	expressErrorHandler,
 	asyncRequestHandler,
-	parseQueryParams
+	parseQueryParams,
+	forArrayOrSingleAsyncParallel,
+	transformArrayOrSingleAsyncParallel,
+	forArrayOrSingle
 } from './utils';
 import { readConfigFile } from './config';
 import * as constants from './constants';
@@ -26,6 +29,7 @@ import * as plexTypes from './plex/types';
 import * as plexServerAPI from './plex/api';
 import { PlexServerPropertiesStore } from './plex/serverproperties';
 import { PlexServerAccountsStore } from './plex/accounts';
+import { createPlexServerIdToGuidCache } from './plex/metadata';
 import {
 	plexAPIRequestHandler,
 	IncomingPlexAPIRequest,
@@ -46,9 +50,11 @@ import {
 	stringifyPartialMetadataID
 } from './pseuplex/metadataidentifier';
 import {
+	parseMetadataIdsFromPathParam,
 	pseuplexMetadataIdRequestMiddleware,
 	pseuplexMetadataIdsRequestMiddleware
 } from './pseuplex/requesthandling';
+import { parseMetadataIDFromKey } from './plex/utils';
 
 // parse command line arguments
 const args = parseCmdArgs(process.argv.slice(2));
@@ -87,6 +93,13 @@ const plexServerPropertiesStore = new PlexServerPropertiesStore({
 const plexServerAccountsStore = new PlexServerAccountsStore({
 	plexServerProperties: plexServerPropertiesStore,
 	sharedServersMinLifetime: 60 * 5
+});
+const plexServerIdToGuidCache = createPlexServerIdToGuidCache({
+	plexServerURL,
+	plexAuthContext,
+	onFetchMetadataItem: (id, metadataItem) => {
+		// TODO fetch associated letterboxd id if needed
+	}
 });
 const clientWebSockets: {[key: string]: stream.Duplex[]} = {};
 const plexAuthenticator = createPlexAuthenticationMiddleware(plexServerAccountsStore);
@@ -164,11 +177,11 @@ app.get(`${pseuplex.letterboxd.metadata.basePath}/:id/related`, [
 		const params = plexTypes.parsePlexHubPageParams(req, {fromListPage:true});
 		// add similar items hub
 		const hub = await pseuplex.letterboxd.hubs.similar.get(id);
-		const hubPage = await hub.getHubListEntry(params, {
+		const hubEntry = await hub.getHubListEntry(params, {
 			plexServerURL,
 			plexAuthContext: req.plex.authContext
 		});
-		hubs.push(hubPage);
+		hubs.push(hubEntry);
 		return {
 			MediaContainer: {
 				size: hubs.length,
@@ -267,24 +280,36 @@ app.get(`/library/metadata/:metadataId`, [
 		responseModifier: async (proxyRes, resData: plexTypes.PlexMetadataPage, userReq: IncomingPlexAPIRequest, userRes) => {
 			let metadata = resData.MediaContainer.Metadata;
 			if(metadata) {
+				// get request user prefs
 				const userInfo = userReq.plex.userInfo;
 				const userPrefs = cfg.perUser[userInfo.email];
-				if(userPrefs && userPrefs.letterboxdUsername) {
-					if(metadata instanceof Array) {
-						if(metadata.length == 1) {
-							metadata[0] = await pseuLetterboxd.attachLetterboxdReviewsToPlexMetadata(metadata[0], {
+				// map ids to guids
+				await forArrayOrSingleAsyncParallel(metadata, async (metadataItem) => {
+					try {
+						if(!metadataItem.guid) {
+							return;
+						}
+						const itemId = parseMetadataIDFromKey(metadataItem.key, '/library/metadata/')?.id;
+						if(!itemId) {
+							return;
+						}
+						plexServerIdToGuidCache.setSync(itemId, metadataItem.guid);
+						// TODO match against letterboxd id
+						if(userPrefs && userPrefs.letterboxdUsername) {
+							// TODO check if includeReviews is set in the params
+							// attach letterboxd reviews
+							await pseuLetterboxd.attachLetterboxdReviewsToPlexMetadata(metadataItem, {
 								letterboxdMetadataProvider: pseuplex.letterboxd.metadata,
 								letterboxdUsername: userPrefs.letterboxdUsername
 							});
+						} else {
+							// get and cache letterboxd id
+							await pseuplex.letterboxd.metadata.getIDForPlexItem(metadataItem);
 						}
-					} else {
-						metadata = await pseuLetterboxd.attachLetterboxdReviewsToPlexMetadata(metadata, {
-							letterboxdMetadataProvider: pseuplex.letterboxd.metadata,
-							letterboxdUsername: userPrefs.letterboxdUsername
-						});
+					} catch(error) {
+						console.error(error);
 					}
-					resData.MediaContainer.Metadata = metadata;
-				}
+				});
 			}
 			return resData;
 		}
@@ -293,47 +318,116 @@ app.get(`/library/metadata/:metadataId`, [
 
 app.get(`/library/metadata/:metadataId/related`, [
 	plexAuthenticator,
-	pseuplexMetadataIdRequestMiddleware(async (req: IncomingPlexAPIRequest, res, metadataId, params): Promise<plexTypes.PlexHubsPage> => {
-		const hubs: plexTypes.PlexHubWithItems[] = [];
+	pseuplexMetadataIdsRequestMiddleware(async (req: IncomingPlexAPIRequest, res, metadataIds, params): Promise<plexTypes.PlexHubsPage> => {
+		let hubs: plexTypes.PlexHubWithItems[] = [];
 		const hubPageParams = plexTypes.parsePlexHubPageParams(req, {fromListPage:true});
-		switch(metadataId.source) {
-			case PseuplexMetadataSource.Letterboxd: {
-				// add similar items hub
-				const id = stringifyPartialMetadataID(metadataId);
-				const hub = await pseuplex.letterboxd.hubs.similar.get(id);
-				const hubPage = await hub.getHubListEntry(hubPageParams, {
-					plexServerURL,
-					plexAuthContext: req.plex.authContext
-				});
-				hubs.push(hubPage);
-			} break;
+		// get hub(s) from plex
+		const plexIds = await metadataIds.filter((metadataId) => metadataId.source == PseuplexMetadataSource.Plex);
+		let caughtError: Error = undefined;
+		if(plexIds.length > 0) {
+			try {
+				const plexHubsPage: plexTypes.PlexHubsPage = (await plexServerAPI.fetch({
+					method: 'GET',
+					endpoint: `/library/metadata/${plexIds.map((idParts) => {
+						const idString = stringifyMetadataID(idParts);
+						return qs.escape(idString);
+					})}/related`,
+					params: params,
+					serverURL: plexServerURL,
+					authContext: req.plex.authContext
+				}));
+				if(plexHubsPage?.MediaContainer?.Hub) {
+					hubs = hubs.concat(plexHubsPage.MediaContainer.Hub);
+				}
+			} catch(error) {
+				console.error(error);
+				caughtError = error;
+			}
 		}
+		// get hub(s) from other providers
+		await Promise.all(metadataIds.map(async (metadataId) => {
+			switch(metadataId.source) {
+				case PseuplexMetadataSource.Letterboxd: {
+					// add similar letterboxd items hub
+					const id = stringifyPartialMetadataID(metadataId);
+					const hub = await pseuplex.letterboxd.hubs.similar.get(id);
+					const hubPage = await hub.getHubListEntry(hubPageParams, {
+						plexServerURL,
+						plexAuthContext: req.plex.authContext
+					});
+					hubs.push(hubPage);
+				} break;
+			}
+		}));
+		// throw error if no hubs
+		if(hubs.length == 0 && caughtError) {
+			throw caughtError;
+		}
+		// build results page
 		return {
 			MediaContainer: {
-				size: 0,
+				size: hubs.length,
 				identifier: plexTypes.PlexPluginIdentifier.PlexAppLibrary,
 				Hub: hubs
 			}
 		};
-	})
-]);
-
-app.get(`/library/metadata/:metadataId/similar`, [
-	plexAuthenticator,
-	pseuplexMetadataIdRequestMiddleware(async (req: IncomingPlexAPIRequest, res, metadataId, params): Promise<plexTypes.PlexHubsPage> => {
-		const hubPageParams = plexTypes.parsePlexHubPageParams(req, {fromListPage:false});
-		switch(metadataId.source) {
-			case PseuplexMetadataSource.Letterboxd: {
-				// add similar items hub
-				const id = stringifyPartialMetadataID(metadataId);
-				const hub = await pseuplex.letterboxd.hubs.similar.get(id);
-				return await hub.getHub(hubPageParams, {
-					plexServerURL,
-					plexAuthContext: req.plex.authContext
-				});
+	}),
+	plexApiProxy(cfg, args, {
+		responseModifier: async (proxyRes, resData: plexTypes.PlexHubsPage, userReq: IncomingPlexAPIRequest, userRes) => {
+			const hubPageParams = plexTypes.parsePlexHubPageParams(userReq, {fromListPage:true});
+			// add similar letterboxd movies hub
+			try {
+				let hubEntries = resData.MediaContainer.Hub;
+				if(!hubEntries) {
+					hubEntries = [];
+					resData.MediaContainer.Hub = hubEntries;
+				}
+				// all metadata ids are plex ids
+				const metadataIds = parseMetadataIdsFromPathParam(userReq.params.metadataId);
+				// get hubs for metadata ids
+				const hubs = await Promise.all(metadataIds.map(async (metadataId) => {
+					// get plex guid from metadata id
+					const metadataIdString = stringifyMetadataID(metadataId);
+					let plexGuid: string;
+					if(metadataId.isURL) {
+						plexGuid = metadataIdString;
+					} else {
+						plexGuid = await plexServerIdToGuidCache.getOrFetch(metadataIdString);
+					}
+					if(!plexGuid) {
+						return null;
+					}
+					// get letterboxd id for plex guid
+					const letterboxdId = await pseuplex.letterboxd.metadata.getIDForPlexGUID(plexGuid, {
+						plexServerURL,
+						plexAuthContext
+					});
+					if(!letterboxdId) {
+						return null;
+					}
+					// get letterboxd similar movies hub
+					return await pseuplex.letterboxd.hubs.similar.get(letterboxdId);
+				}));
+				// append hubs
+				for(const hub of hubs) {
+					if(!hub) {
+						continue;
+					}
+					try {
+						const hubEntry = await hub.getHubListEntry(hubPageParams, {
+							plexServerURL,
+							plexAuthContext: userReq.plex.authContext
+						});
+						hubEntries.push(hubEntry);
+					} catch(error) {
+						console.error(error);
+					}
+				}
+			} catch(error) {
+				console.error(error);
 			}
+			return resData;
 		}
-		throw httpError(404, "Not found");
 	})
 ]);
 
@@ -348,8 +442,8 @@ app.post('/playQueues', [
 				return req.originalUrl;
 			}
 			// check for play queue uri
-			let uri = queryItems['uri'];
-			if(!uri) {
+			let uriProp = queryItems['uri'];
+			if(!uriProp) {
 				return req.originalUrl;
 			}
 			// resolve play queue uri
@@ -358,14 +452,10 @@ app.post('/playQueues', [
 				plexServerURL,
 				plexAuthContext: req.plex.authContext
 			};
-			if(uri instanceof Array) {
-				uri = await Promise.all(uri.map(async (uriElement) => {
-					return await pseuplex.resolvePlayQueueURI(uriElement, resolveOptions);
-				}));
-			} else {
-				uri = await pseuplex.resolvePlayQueueURI(uri, resolveOptions);
-			}
-			queryItems['uri'] = uri;
+			uriProp = await transformArrayOrSingleAsyncParallel(uriProp, async (uri) => {
+				return await pseuplex.resolvePlayQueueURI(uri, resolveOptions);
+			});
+			queryItems['uri'] = uriProp;
 			return stringifyURLPath(urlPathParts);
 		},
 		requestBodyModifier: (bodyContent, req) => {

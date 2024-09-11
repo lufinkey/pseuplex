@@ -69,7 +69,7 @@ export abstract class PseuplexMetadataProviderBase<TMetadataItem> implements Pse
 	abstract get source(): PseuplexMetadataSource;
 	abstract fetchMetadataItem(id: PseuplexPartialMetadataIDString): Promise<TMetadataItem>;
 	abstract transformMetadataItem(metadataItem: TMetadataItem, options: PseuplexMetadataTransformOptions): PseuplexMetadataItem;
-	abstract idFromMetadataItem(metadataItem: TMetadataItem): string;
+	abstract idFromMetadataItem(metadataItem: TMetadataItem): PseuplexPartialMetadataIDString;
 	
 	abstract getPlexMatchParams(metadataItem: TMetadataItem): PlexMediaItemMatchParams;
 	async getPlexGUIDForID(id: PseuplexPartialMetadataIDString, options: {
@@ -118,14 +118,45 @@ export abstract class PseuplexMetadataProviderBase<TMetadataItem> implements Pse
 	}
 
 	abstract findMatchForPlexItem(metadataItem: plexTypes.PlexMetadataItem): Promise<TMetadataItem | null>;
-	async getIDForPlexItem(metadataItem: plexTypes.PlexMetadataItem): Promise<string | null> {
+	async getIDForPlexItem(metadataItem: plexTypes.PlexMetadataItem): Promise<PseuplexPartialMetadataIDString | null> {
+		// try to get ID from cache
 		const plexGuid = metadataItem.guid;
 		if(plexGuid) {
 			const id = await this.plexGuidToIDCache.get(plexGuid);
 			if(id) {
 				return id;
+			} else if(id === null) {
+				return null;
 			}
 		}
+		// find match
+		const result = await this.findMatchForPlexItem(metadataItem);
+		if(!result) {
+			return null;
+		}
+		return this.idFromMetadataItem(result);
+	}
+	async getIDForPlexGUID(plexGuid: string, options: {
+		plexServerURL: string,
+		plexAuthContext: plexTypes.PlexAuthContext
+	}): Promise<PseuplexPartialMetadataIDString> {
+		// try to get id from cache
+		const id = await this.plexGuidToIDCache.get(plexGuid);
+		if(id) {
+			return id;
+		} else if(id === null) {
+			return null;
+		}
+		// get metadata item
+		const metadatas = (await plexServerAPI.getLibraryMetadata(plexGuid, {
+			serverURL: options.plexServerURL,
+			authContext: options.plexAuthContext
+		}))?.MediaContainer?.Metadata;
+		const metadataItem = (metadatas instanceof Array) ? metadatas[0] : metadatas;
+		if(!metadataItem) {
+			throw new Error("Metadata not found");
+		}
+		// find match
 		const result = await this.findMatchForPlexItem(metadataItem);
 		if(!result) {
 			return null;

@@ -68,7 +68,7 @@ const pseuplex = {
 				async get(metadataId: PseuplexPartialMetadataIDString): Promise<PseuplexHub> {
 					return createSimilarItemsHub(metadataId, {
 						relativePath: pseuplex.letterboxd.hubs.similar.relativePath,
-						title: "Similar Films",
+						title: "Similar Films on Letterboxd",
 						style: plexTypes.PlexHubStyle.Shelf,
 						promoted: true,
 						letterboxdMetadataProvider: pseuplex.letterboxd.metadata,
