@@ -58,7 +58,7 @@ export abstract class PseuplexFeedHub<
 		let chunk: LoadableListChunk<TItem,TItemToken>;
 		let start: number;
 		let { listStartToken } = params;
-		if(params.listStartToken != null || (params.start != null && params.start > 0)) {
+		if(listStartToken != null || (params.start != null && params.start > 0)) {
 			if(listStartToken != null) {
 				listStartToken = Number.parseInt(listStartToken as any);
 				listStartToken = !Number.isNaN(listStartToken) ? listStartToken : params.listStartToken;
