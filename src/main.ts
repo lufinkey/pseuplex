@@ -97,8 +97,13 @@ const plexServerAccountsStore = new PlexServerAccountsStore({
 const plexServerIdToGuidCache = createPlexServerIdToGuidCache({
 	plexServerURL,
 	plexAuthContext,
-	onFetchMetadataItem: (id, metadataItem) => {
-		// TODO fetch associated letterboxd id if needed
+	onFetchMetadataItem: async (id, metadataItem) => {
+		// pre-fetch associated letterboxd item
+		try {
+			await pseuplex.letterboxd.metadata.getIDForPlexItem(metadataItem);
+		} catch(error) {
+			console.error(error);
+		}
 	}
 });
 const clientWebSockets: {[key: string]: stream.Duplex[]} = {};
@@ -288,6 +293,10 @@ app.get('/hubs', [
 app.get(`/library/metadata/:metadataId`, [
 	plexAuthenticator,
 	pseuplexMetadataIdsRequestMiddleware(async (req: IncomingPlexAPIRequest, res, metadataIds, params: plexTypes.PlexMetadataPageParams): Promise<PseuplexMetadataPage> => {
+		// get request info
+		const userInfo = req.plex.userInfo;
+		const userPrefs = cfg.perUser[userInfo.email];
+		// get metadatas
 		return await pseuplex.getMetadata(metadataIds, {
 			plexServerURL,
 			plexAuthContext: req.plex.authContext,
