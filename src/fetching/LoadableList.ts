@@ -36,7 +36,7 @@ export type GetItemsOptions = {
 
 export type LoadableListFragmentOptions<ItemType,ItemTokenType,PageTokenType> = {
 	loader: LoadableListChunkLoader<ItemType,ItemTokenType,PageTokenType>;
-	tokenComparer?: TokenComparer<ItemTokenType>;
+	tokenComparer: TokenComparer<ItemTokenType>;
 };
 
 class LoadableListFragment<ItemType,ItemTokenType,PageTokenType> {
@@ -59,7 +59,7 @@ class LoadableListFragment<ItemType,ItemTokenType,PageTokenType> {
 			nextFragment = nextFragment._nextFragment;
 		}
 		// merge next fragment if needed
-		if(nextFragment != null && options.tokenComparer && (nextFragment._contents.items.length > 0 || nextFragment.isLoading || nextFragment.hasMoreItems) && chunk.nextPageToken) {
+		if(nextFragment != null && (nextFragment._contents.items.length > 0 || nextFragment.isLoading || nextFragment.hasMoreItems) && chunk.nextPageToken) {
 			const merged = checkAndAdjustChunkForFragmentMerge(chunk, nextFragment.startItemToken, options.tokenComparer);
 			this._nextFragmentMerged = merged;
 			this._nextFragment = nextFragment;
@@ -176,7 +176,7 @@ class LoadableListFragment<ItemType,ItemTokenType,PageTokenType> {
 		for(const itemNode of this._contents.items) {
 			const uniqueId = this._uniqueItemIds[uniqueIndex];
 			const isUniqueItem = (itemNode.id === uniqueId);
-			if(tokenComparer ? (tokenComparer(token, itemNode.token) <= 0) : token == itemNode.token) {
+			if(tokenComparer(token, itemNode.token) <= 0) {
 				return {
 					fragment: this,
 					index: index,
