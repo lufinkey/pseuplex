@@ -16,7 +16,7 @@
 	"author": "",
 	"license": "Zlib",
 	"dependencies": {
-		"express": "^4.19.2",
+		"express": "^5.0.0",
 		"express-http-proxy": "^2.0.0",
 		"http-proxy": "^1.18.1",
 		"httpolyglot": "^0.1.2",
