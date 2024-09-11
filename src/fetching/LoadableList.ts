@@ -417,7 +417,7 @@ export class LoadableList<ItemType,ItemTokenType,PageTokenType> {
 			startFragment.combineFragmentsIfAble();
 		}, 0);
 	}
-
+	
 	async getOrFetchStartItems(maxCount: number, options: GetItemsOptions): Promise<LoadableListChunk<ItemType,ItemTokenType>> {
 		if(this._newFragmentTask == null) {
 			// determine if the start fragment needs to be fetched again
@@ -445,20 +445,27 @@ export class LoadableList<ItemType,ItemTokenType,PageTokenType> {
 		// attempt to load atleast 1 item into the list
 		await startFragment.getOrFetchItems(0, 1, options);
 		// merge fragments after a delay
-		this._queueFragmentMerge();
+		if(this._fragment._nextFragment) {
+			this._queueFragmentMerge();
+		}
 		// return the items from the start of the list
 		return options.unique ?
 			startFragment.getUniqueItems(0, maxCount)
 			: startFragment.getItems(0, maxCount);
 	}
 	
-	async getOrFetchItems(startToken: ItemTokenType, offset: number, count: number, options: GetItemsOptions): Promise<LoadableListChunk<ItemType,ItemTokenType>> {
+	async getOrFetchItems(startToken: ItemTokenType | null, offset: number, count: number, options: GetItemsOptions): Promise<LoadableListChunk<ItemType,ItemTokenType>> {
 		// get starting fragment if needed
 		if(this._fragment == null) {
 			await this.getOrFetchStartItems(count, options);
 		}
 		// find where the start token begins in the list
-		const tokenPoint = this._fragment.findItemTokenPoint(startToken);
+		const tokenPoint = startToken != null ? this._fragment.findItemTokenPoint(startToken) : {
+			fragment: this._fragment,
+			index: 0,
+			uniqueIndex: 0,
+			isUniqueItem: true
+		};
 		if(tokenPoint == null) {
 			console.warn(`Failed to find token ${startToken}`);
 			return {
@@ -470,7 +477,9 @@ export class LoadableList<ItemType,ItemTokenType,PageTokenType> {
 		const startIndex = options.unique ? (tokenPoint.uniqueIndex+offset) : (tokenPoint.index+offset);
 		const page = await tokenPoint.fragment.getOrFetchItems(startIndex, count, options);
 		// merge fragments after a delay
-		this._queueFragmentMerge();
+		if(this._fragment._nextFragment) {
+			this._queueFragmentMerge();
+		}
 		// done
 		return page;
 	}
