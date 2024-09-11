@@ -20,7 +20,7 @@ export type TokenComparer<TokenType> = (token1: TokenType, token2: TokenType) =>
 
 
 const checkAndAdjustChunkForFragmentMerge = <ItemType,ItemTokenType,PageTokenType>(chunk: LoadableListFetchedChunk<ItemType,ItemTokenType,PageTokenType>, nextFragmentStartToken: ItemTokenType, tokenComparer: TokenComparer<ItemTokenType>) => {
-	const mergeIndex = chunk.items.findIndex((itemNode) => (tokenComparer(itemNode.token, nextFragmentStartToken) >= 0));
+	const mergeIndex = chunk.items.findIndex((itemNode) => (tokenComparer(nextFragmentStartToken, itemNode.token) <= 0));
 	if(mergeIndex != -1) {
 		chunk.items = chunk.items.slice(0, mergeIndex);
 		chunk.nextPageToken = null;
@@ -36,7 +36,7 @@ export type GetItemsOptions = {
 
 export type LoadableListFragmentOptions<ItemType,ItemTokenType,PageTokenType> = {
 	loader: LoadableListChunkLoader<ItemType,ItemTokenType,PageTokenType>;
-	tokenComparer: TokenComparer<ItemTokenType>;
+	tokenComparer?: TokenComparer<ItemTokenType>;
 };
 
 class LoadableListFragment<ItemType,ItemTokenType,PageTokenType> {
@@ -55,11 +55,11 @@ class LoadableListFragment<ItemType,ItemTokenType,PageTokenType> {
 	constructor(chunk: LoadableListFetchedChunk<ItemType,ItemTokenType,PageTokenType>, options: LoadableListFragmentOptions<ItemType,ItemTokenType,PageTokenType>, nextFragment: LoadableListFragment<ItemType,ItemTokenType,PageTokenType> | null) {
 		this._options = options;
 		// ignore empty fragments
-		while(nextFragment != null &&nextFragment._contents.items.length == 0 && !nextFragment.isLoading) {
+		while(nextFragment != null && nextFragment._contents.items.length == 0 && !nextFragment.isLoading) {
 			nextFragment = nextFragment._nextFragment;
 		}
 		// merge next fragment if needed
-		if(nextFragment != null && (nextFragment._contents.items.length > 0 || nextFragment.isLoading || nextFragment.hasMoreItems)) {
+		if(nextFragment != null && options.tokenComparer && (nextFragment._contents.items.length > 0 || nextFragment.isLoading || nextFragment.hasMoreItems) && chunk.nextPageToken) {
 			const merged = checkAndAdjustChunkForFragmentMerge(chunk, nextFragment.startItemToken, options.tokenComparer);
 			this._nextFragmentMerged = merged;
 			this._nextFragment = nextFragment;
@@ -172,10 +172,11 @@ class LoadableListFragment<ItemType,ItemTokenType,PageTokenType> {
 	} | null {
 		let uniqueIndex = 0;
 		let index = 0;
+		const tokenComparer = this._options.tokenComparer;
 		for(const itemNode of this._contents.items) {
 			const uniqueId = this._uniqueItemIds[uniqueIndex];
 			const isUniqueItem = (itemNode.id === uniqueId);
-			if(this._options.tokenComparer(token, itemNode.token) <= 0) {
+			if(tokenComparer ? (tokenComparer(token, itemNode.token) <= 0) : token == itemNode.token) {
 				return {
 					fragment: this,
 					index: index,
@@ -287,9 +288,15 @@ class LoadableListFragment<ItemType,ItemTokenType,PageTokenType> {
 					nextChunk = await this._nextChunkTask;
 					// check if chunk has merged with the next fragment
 					if(this._nextFragment != null) {
-						const merged = checkAndAdjustChunkForFragmentMerge(nextChunk, this._nextFragment.startItemToken, this._options.tokenComparer);
-						if(merged) {
-							this._nextFragmentMerged = true;
+						if(nextChunk.nextPageToken) {
+							const merged = checkAndAdjustChunkForFragmentMerge(nextChunk, this._nextFragment.startItemToken, this._options.tokenComparer);
+							if(merged) {
+								this._nextFragmentMerged = true;
+							}
+						} else {
+							// since this is the last page, just drop the next fragment
+							this._nextFragment = null;
+							this._nextFragmentMerged = false;
 						}
 					}
 					// append chunk
@@ -351,7 +358,6 @@ export type LoadableListOptions<ItemType,TokenType,PageTokenType> = {
 };
 
 export class LoadableList<ItemType,ItemTokenType,PageTokenType> {
-	
 	_options: LoadableListOptions<ItemType,ItemTokenType,PageTokenType>;
 	_newFragmentTask: Promise<LoadableListFragment<ItemType,ItemTokenType,PageTokenType>> | null = null;
 	_fragment: LoadableListFragment<ItemType,ItemTokenType,PageTokenType> | null = null;
