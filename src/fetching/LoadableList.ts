@@ -59,7 +59,7 @@ class LoadableListFragment<ItemType,ItemTokenType,PageTokenType> {
 			nextFragment = nextFragment._nextFragment;
 		}
 		// merge next fragment if needed
-		if(nextFragment != null && (nextFragment._contents.items.length > 0 || nextFragment.isLoading || nextFragment.hasMoreItems) && chunk.nextPageToken) {
+		if(nextFragment != null && (nextFragment._contents.items.length > 0 || nextFragment.isLoading || nextFragment.hasMoreItems)) {
 			const merged = checkAndAdjustChunkForFragmentMerge(chunk, nextFragment.startItemToken, options.tokenComparer);
 			this._nextFragmentMerged = merged;
 			this._nextFragment = nextFragment;
@@ -288,15 +288,9 @@ class LoadableListFragment<ItemType,ItemTokenType,PageTokenType> {
 					nextChunk = await this._nextChunkTask;
 					// check if chunk has merged with the next fragment
 					if(this._nextFragment != null) {
-						if(nextChunk.nextPageToken) {
-							const merged = checkAndAdjustChunkForFragmentMerge(nextChunk, this._nextFragment.startItemToken, this._options.tokenComparer);
-							if(merged) {
-								this._nextFragmentMerged = true;
-							}
-						} else {
-							// since this is the last page, just drop the next fragment
-							this._nextFragment = null;
-							this._nextFragmentMerged = false;
+						const merged = checkAndAdjustChunkForFragmentMerge(nextChunk, this._nextFragment.startItemToken, this._options.tokenComparer);
+						if(merged) {
+							this._nextFragmentMerged = true;
 						}
 					}
 					// append chunk
@@ -363,7 +357,7 @@ export class LoadableList<ItemType,ItemTokenType,PageTokenType> {
 	_fragment: LoadableListFragment<ItemType,ItemTokenType,PageTokenType> | null = null;
 	_lastNewFragmentFetchTime: number;
 	_fragmentMergeTimeout: NodeJS.Timeout | null = null;
-
+	
 	listStartFetchInterval: number | 'never' = 60;
 	
 	constructor(options: LoadableListOptions<ItemType,ItemTokenType,PageTokenType>) {

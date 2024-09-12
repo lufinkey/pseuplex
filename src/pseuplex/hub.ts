@@ -26,7 +26,7 @@ export abstract class PseuplexHub {
 	get metadataBasePath() {
 		return '/library/metadata/';
 	}
-
+	
 	abstract get(params: PseuplexHubPageParams, context: PseuplexHubContext): Promise<PseuplexHubPage>;
 	
 	async getHub(params: PseuplexHubPageParams, context: PseuplexHubContext): Promise<plexTypes.PlexHubPage> {
