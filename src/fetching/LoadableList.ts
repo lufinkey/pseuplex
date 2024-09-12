@@ -25,6 +25,9 @@ const checkAndAdjustChunkForFragmentMerge = <ItemType,ItemTokenType,PageTokenTyp
 		chunk.items = chunk.items.slice(0, mergeIndex);
 		chunk.nextPageToken = null;
 		return true;
+	} else if(!chunk.nextPageToken) {
+		// merge anyways if this is the last chunk
+		return true;
 	}
 	return false;
 };
