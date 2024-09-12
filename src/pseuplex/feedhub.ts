@@ -1,9 +1,11 @@
 
 import {
-	LoadableList,
-	LoadableListChunk,
-	LoadableListFetchedChunk
-} from '../fetching/LoadableList';
+	LoadableFeed
+} from '../fetching/LoadableFeed';
+import {
+	LoadableListFetchedChunk,
+	LoadableListChunk
+} from '../fetching/LoadableListFragment';
 import * as plexTypes from '../plex/types';
 import {
 	addQueryArgumentToURLPath
@@ -34,12 +36,12 @@ export abstract class PseuplexFeedHub<
 	TOptions extends PseuplexFeedHubOptions = PseuplexFeedHubOptions
 	> extends PseuplexHub {
 	_options: TOptions;
-	_itemList: LoadableList<TItem,TItemToken,TPageToken>;
+	_itemList: LoadableFeed<TItem,TItemToken,TPageToken>;
 	
 	constructor(options: TOptions) {
 		super();
 		this._options = options;
-		this._itemList = new LoadableList<TItem,TItemToken,TPageToken>({
+		this._itemList = new LoadableFeed<TItem,TItemToken,TPageToken>({
 			loader: (pageToken) => {
 				return this.fetchPage(pageToken);
 			},
