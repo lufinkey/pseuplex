@@ -55,6 +55,7 @@ import {
 	pseuplexMetadataIdRequestMiddleware,
 	pseuplexMetadataIdsRequestMiddleware
 } from './pseuplex/requesthandling';
+import * as tweaks from './tweaks';
 
 // parse command line arguments
 const args = parseCmdArgs(process.argv.slice(2));
@@ -260,30 +261,31 @@ app.get('/hubs', [
 	plexAuthenticator,
 	plexApiProxy(cfg, args, {
 		responseModifier: async (proxyRes, resData: plexTypes.PlexLibraryHubsPage, userReq: IncomingPlexAPIRequest, userRes): Promise<plexTypes.PlexLibraryHubsPage> => {
-			try {
-				const plexToken = plexTypes.parsePlexTokenFromRequest(userReq);
-				const userInfo = await plexServerAccountsStore.getTokenUserInfoOrNull(plexToken);
-				console.log(`userInfo for token ${plexToken} is ${userInfo?.email} (isServerOwner=${userInfo?.isServerOwner})`);
-				if(userInfo) {
-					const perUserCfg = userInfo ? cfg.perUser[userInfo.email] : null;
-					if(perUserCfg?.letterboxdUsername) {
-						const params = plexTypes.parsePlexHubPageParams(userReq, {fromListPage:true});
-						const hub = await pseuplex.letterboxd.hubs.userFollowingActivity.get(perUserCfg.letterboxdUsername);
-						const page = await hub.getHubListEntry(params, {
-							plexServerURL,
-							plexAuthContext: userReq.plex.authContext
-						});
-						if(!resData.MediaContainer.Hub) {
-							resData.MediaContainer.Hub = [];
-						} else if(!(resData.MediaContainer.Hub instanceof Array)) {
-							resData.MediaContainer.Hub = [resData.MediaContainer.Hub];
-						}
-						resData.MediaContainer.Hub.splice(0, 0, page);
-						resData.MediaContainer.size += 1;
-					}
-				}
-			} catch(error) {
-				console.error(error);
+			resData = await tweaks.addLetterboxdFeedHub(resData, {
+				userReq,
+				config: cfg,
+				plexServerAccountsStore,
+				plexServerURL
+			});
+			return resData;
+		}
+	})
+]);
+
+app.get('/hubs/promoted', [
+	plexAuthenticator,
+	plexApiProxy(cfg, args, {
+		responseModifier: async (proxyRes, resData: plexTypes.PlexLibraryHubsPage, userReq: IncomingPlexAPIRequest, userRes): Promise<plexTypes.PlexLibraryHubsPage> => {
+			const pinnedContentDirectoryID = userReq.query['pinnedContentDirectoryID'];
+			const contentDirectoryID = userReq.query['contentDirectoryID'];
+			const pinnedContentDirIds = (typeof pinnedContentDirectoryID == 'string') ? pinnedContentDirectoryID.split(',') : pinnedContentDirectoryID;
+			if(!pinnedContentDirIds || pinnedContentDirIds.length == 0 || !contentDirectoryID || contentDirectoryID == pinnedContentDirIds[0]) {
+				resData = await tweaks.addLetterboxdFeedHub(resData, {
+					userReq,
+					config: cfg,
+					plexServerAccountsStore,
+					plexServerURL
+				});
 			}
 			return resData;
 		}
@@ -348,6 +350,7 @@ app.get(`/library/metadata/:metadataId`, [
 		}
 	})
 ]);
+
 
 app.get(`/library/metadata/:metadataId/related`, [
 	plexAuthenticator,
@@ -524,20 +527,6 @@ app.get('/activities', (req, res) => {
 	res.appendHeader('content-type', 'application/json');
 	res.status(200).send(JSON.stringify({MediaContainer:{size:0}}));
 });*/
-
-// proxy requests to plex
-/*app.use('/library/metadata/:metadataId', plexApiProxy(cfg, args, {
-	requestModifier: (proxyReqOpts, userReq) => {
-		const urlPathObj = parseURLPath(userReq.originalUrl);
-		return proxyReqOpts;
-	},
-	proxyReqPathResolver: (req) => {
-		return req.originalUrl;
-	},
-	responseModifier: async (proxyRes, resData, userReq, userRes) => {
-		return resData;
-	}
-}));*/
 
 // proxy requests to plex
 const plexGeneralProxy = plexHttpProxy(cfg, args);
