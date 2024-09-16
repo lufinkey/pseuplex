@@ -66,7 +66,7 @@ Create a `config.json` file with the following structure, and fill in the config
 - **plex.port**: The port of your plex server (Usually 32400)
 - **plex.host**: The url of your plex server, not including the port.
 - **plex.token**: The plex API token of the server owner.
-- **ssl.keyPath**: The path to your SSL certificate key
+- **ssl.keyPath**: The path to your SSL private key
 - **ssl.certPath**: The path to your SSL certificate
 - **perUser**: A map of settings to configure for each user on your server. The entry keys are the plex email for each the user.
 	- **letterboxdUsername**: The letterboxd username for this user
