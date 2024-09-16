@@ -6,7 +6,7 @@ Inspired by [Replex](https://github.com/lostb1t/replex)
 
 This project is still very much a WIP and it is not recommended to enable this up for remote access yet.
 
-## Features
+# Features
 
 ### Similar Films on Letterboxd
 
@@ -32,7 +32,7 @@ Reviews from your letterboxd friends can be included alongside the RottenTomatoe
 
 ![Letterboxd Friends Reviews](docs/images/letterboxd_friends_reviews.png)
 
-## Setup
+# Setup
 
 ### SSL
 
