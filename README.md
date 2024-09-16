@@ -51,8 +51,8 @@ Create a `config.json` file with the following structure, and fill in the config
 		"token": "<PLEX API TOKEN>"
 	},
 	"ssl": {
-		"keyPath": "/etc/pseuplex/plex_ssl_cert.key",
-		"certPath": "/etc/pseuplex/plex_ssl_cert.crt"
+		"keyPath": "/etc/pseuplex/ssl_cert.key",
+		"certPath": "/etc/pseuplex/ssl_cert.crt"
 	},
 	"perUser": {
 		"yourplexuseremail@example.com": {
