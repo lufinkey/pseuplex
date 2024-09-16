@@ -351,7 +351,6 @@ app.get(`/library/metadata/:metadataId`, [
 	})
 ]);
 
-
 app.get(`/library/metadata/:metadataId/related`, [
 	plexAuthenticator,
 	pseuplexMetadataIdsRequestMiddleware(async (req: IncomingPlexAPIRequest, res, metadataIds, params): Promise<plexTypes.PlexHubsPage> => {
