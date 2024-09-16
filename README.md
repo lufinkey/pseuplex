@@ -6,33 +6,33 @@ Inspired by [Replex](https://github.com/lostb1t/replex)
 
 This project is still very much a WIP and it is not recommended to enable this up for remote access yet.
 
-# Features
+## Features
 
-### Similar Films on Letterboxd
+- ### Similar Films on Letterboxd
 
-Instead of only showing related movies from your server, you can show the list of similar movies from letterboxd
+	Instead of only showing related movies from your server, you can show the list of similar movies from letterboxd
 
-![Similar Films on Letterboxd](docs/images/letterboxd_similar.png)
+	![Similar Films on Letterboxd](docs/images/letterboxd_similar.png)
 
-For movies that aren't available on your server, the "unavailable" status will appear on the film page.
+	For movies that aren't available on your server, the "unavailable" status will appear on the film page.
 
-![Unavailable](docs/images/unavailable.png)
+	![Unavailable](docs/images/unavailable.png)
 
-**Note**: The unavailable status will not show on the Roku client or any other client that doesn't subscribe to the plex websocket.
+	**Note**: The unavailable status will not show on the Roku client or any other client that doesn't subscribe to the plex websocket.
 
-### Letterboxd Friends Activity
+- ### Letterboxd Friends Activity
 
-Activity from your letterboxd friends can be displayed on the server home page. Different users on your server can be configured to display their own friend feeds.
+	Activity from your letterboxd friends can be displayed on the server home page. Different users on your server can be configured to display their own friend feeds.
 
-![Letterboxd Friends Activity Feed](docs/images/letterboxd_friends_hub.png)
+	![Letterboxd Friends Activity Feed](docs/images/letterboxd_friends_hub.png)
 
-### Letterboxd Friends Reviews
+- ### Letterboxd Friends Reviews
 
-Reviews from your letterboxd friends can be included alongside the RottenTomatoes reviews
+	Reviews from your letterboxd friends can be included alongside the RottenTomatoes reviews
 
-![Letterboxd Friends Reviews](docs/images/letterboxd_friends_reviews.png)
+	![Letterboxd Friends Reviews](docs/images/letterboxd_friends_reviews.png)
 
-# Setup
+## Setup
 
 ### SSL
 
