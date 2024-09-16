@@ -28,7 +28,7 @@ Activity from your letterboxd friends can be displayed on the server home page. 
 
 ### Letterboxd Friends Reviews
 
-Reviews from your letterboxd friends can be included alongside the RottonTomatoes reviews
+Reviews from your letterboxd friends can be included alongside the RottenTomatoes reviews
 
 ![Letterboxd Friends Reviews](docs/images/letterboxd_friends_reviews.png)
 
