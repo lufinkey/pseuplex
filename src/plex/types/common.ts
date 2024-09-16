@@ -40,6 +40,7 @@ export enum PlexMediaItemType {
 	Album = 'album',
 	Clip = 'clip',
 	Photos = 'photos',
+	Playlist = 'playlist',
 	Mixed = 'mixed'
 }
 

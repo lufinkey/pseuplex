@@ -1,7 +1,7 @@
 
 import {
-	LoadableFeed
-} from '../fetching/LoadableFeed';
+	LoadableList
+} from '../fetching/LoadableList';
 import {
 	LoadableListFetchedChunk,
 	LoadableListChunk
@@ -36,12 +36,12 @@ export abstract class PseuplexFeedHub<
 	TOptions extends PseuplexFeedHubOptions = PseuplexFeedHubOptions
 	> extends PseuplexHub {
 	_options: TOptions;
-	_itemList: LoadableFeed<TItem,TItemToken,TPageToken>;
+	_itemList: LoadableList<TItem,TItemToken,TPageToken>;
 	
 	constructor(options: TOptions) {
 		super();
 		this._options = options;
-		this._itemList = new LoadableFeed<TItem,TItemToken,TPageToken>({
+		this._itemList = new LoadableList<TItem,TItemToken,TPageToken>({
 			loader: (pageToken) => {
 				return this.fetchPage(pageToken);
 			},

@@ -7,13 +7,13 @@ import {
 	GetLoadableListItemsOptions
 } from './LoadableListFragment';
 
-export type LoadableFeedOptions<ItemType,TokenType,PageTokenType> = {
+export type LoadableListOptions<ItemType,TokenType,PageTokenType> = {
 	loader: LoadableListChunkLoader<ItemType,TokenType,PageTokenType>;
 	tokenComparer: LoadableListItemTokenComparer<TokenType>;
 };
 
-export class LoadableFeed<ItemType,ItemTokenType,PageTokenType> {
-	_options: LoadableFeedOptions<ItemType,ItemTokenType,PageTokenType>;
+export class LoadableList<ItemType,ItemTokenType,PageTokenType> {
+	_options: LoadableListOptions<ItemType,ItemTokenType,PageTokenType>;
 	_newFragmentTask: Promise<LoadableListFragment<ItemType,ItemTokenType,PageTokenType>> | null = null;
 	_fragment: LoadableListFragment<ItemType,ItemTokenType,PageTokenType> | null = null;
 	_lastNewFragmentFetchTime: number;
@@ -21,10 +21,10 @@ export class LoadableFeed<ItemType,ItemTokenType,PageTokenType> {
 	
 	listStartFetchInterval: number | 'never' = 60;
 	
-	constructor(options: LoadableFeedOptions<ItemType,ItemTokenType,PageTokenType>) {
+	constructor(options: LoadableListOptions<ItemType,ItemTokenType,PageTokenType>) {
 		this._options = {...options};
 	}
-
+	
 	get totalItemCount(): number | null {
 		if(this._fragment == null) {
 			return null;
@@ -74,6 +74,7 @@ export class LoadableFeed<ItemType,ItemTokenType,PageTokenType> {
 	}
 	
 	async getOrFetchStartItems(maxCount: number, options: GetLoadableListItemsOptions): Promise<LoadableListChunk<ItemType,ItemTokenType>> {
+		let startFragment: LoadableListFragment<ItemType,ItemTokenType,PageTokenType>;
 		if(this._newFragmentTask == null) {
 			// determine if the start fragment needs to be fetched again
 			if(this._fragment == null
@@ -85,18 +86,19 @@ export class LoadableFeed<ItemType,ItemTokenType,PageTokenType> {
 				}, this._fragment);
 				this._newFragmentTask = newFragmentTask;
 				try {
-					const newFragment = await newFragmentTask;
-					this._fragment = newFragment;
+					startFragment = await newFragmentTask;
+					this._fragment = startFragment;
 					this._lastNewFragmentFetchTime = process.uptime();
 				} finally {
 					this._newFragmentTask = null;
 				}
+			} else {
+				startFragment = this._fragment;
 			}
 		} else {
 			// wait for the start fragment to be fetched
-			await this._newFragmentTask;
+			startFragment = await this._newFragmentTask;
 		}
-		const startFragment = this._fragment;
 		// attempt to load atleast 1 item into the list
 		await startFragment.getOrFetchItems(0, 1, options);
 		// merge fragments after a delay

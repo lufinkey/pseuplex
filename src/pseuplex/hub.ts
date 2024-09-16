@@ -60,7 +60,13 @@ export abstract class PseuplexHub {
 			metadataBasePath += '/';
 		}
 		const metadataIds = page.items
-			.map((item) => parseMetadataIDFromKey(item.key, metadataBasePath)?.id)
+			.map((item) => {
+				let metadataId = parseMetadataIDFromKey(item.key, metadataBasePath)?.id;
+				if (!metadataId) {
+					metadataId = item.ratingKey;
+				}
+				return metadataId;
+			})
 			.filter((metadataId) => metadataId);
 		return {
 			...page.hub,
