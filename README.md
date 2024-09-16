@@ -18,7 +18,7 @@ This project is still very much a WIP and it is not recommended to enable this u
 
 	![Unavailable](docs/images/unavailable.png)
 
-	**Note**: The unavailable status will not show on the Roku client or any other client that doesn't subscribe to the plex websocket.
+	**Note**: The unavailable status will not show on the Roku client or any other client that doesn't subscribe to the plex server websocket.
 
 - ### Letterboxd Friends Activity
 
