@@ -91,8 +91,9 @@ If you are using remote access, you'll need to port forward your pseuplex proxy 
 
 ### Running
 
-To run, cd into this repo's folder in terminal and run the following command, replacing the config.json path with your own:
+To run, cd into this repo's folder in terminal and run the following commands, replacing the config.json path with your own:
 
 ```sh
+npm install
 npm start -- --config="/path/to/config.json"
 ```
