@@ -493,11 +493,11 @@ app.post('/playQueues', [
 			});
 			queryItems['uri'] = uriProp;
 			return stringifyURLPath(urlPathParts);
-		},
-		requestBodyModifier: (bodyContent, req) => {
+		}
+		/*requestBodyModifier: (bodyContent, req) => {
 			console.log(`body ${bodyContent} (type ${typeof bodyContent})`);
 			return bodyContent;
-		}
+		}*/
 	})
 ]);
 
