@@ -83,7 +83,7 @@ In the *Custom server access URLs* field, put the URLs of your pseuplex server, 
 
 Ensure *Enable local network discovery (GDM)* and *Enable Relay* are both unchecked, and then save the changes to your server's network settings.
 
-At this point, your plex server might not show up on *app.plex.tv* until you start pseuplex, but you should still be able to access it via direct ip.
+At this point, your plex server might not show up on *app.plex.tv* until you start pseuplex, but you should still be able to access it via its local ip.
 
 ### Local Access
 
