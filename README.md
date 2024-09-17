@@ -4,7 +4,7 @@ A middleware proxy for the plex server API. This sits in between the plex client
 
 Inspired by [Replex](https://github.com/lostb1t/replex)
 
-This project is still very much a WIP and it is not recommended to enable this up for remote access yet.
+This project is still very much a WIP and it is not recommended to enable this for remote access yet.
 
 ## Features
 
