@@ -91,7 +91,7 @@ If you're using a custom domain name for your SSL certificate, you should hardco
 
 ### Remote Access
 
-If you are using remote access, you'll need to port forward your pseuplex proxy instead of your plex server.
+If you want to enable pseuplex for remote access, you'll need to port forward your pseuplex proxy instead of your plex server.
 
 ### Running
 
