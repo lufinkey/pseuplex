@@ -170,7 +170,7 @@ const pseuplex = {
 			}
 		};
 	},
-
+	
 	resolvePlayQueueURI: async (uri: string, options: {
 		plexMachineIdentifier: string,
 		plexServerURL: string,

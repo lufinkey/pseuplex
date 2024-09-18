@@ -9,6 +9,7 @@ export const plexServerFetch = async <TResult>(options: {
 	method?: 'GET' | 'POST' | 'PUT' | 'DELETE',
 	endpoint: string,
 	params?: {[key: string]: string | number | boolean} | null,
+	headers?: {[key: string]: string},
 	authContext?: PlexAuthContext | null
 }): Promise<TResult> => {
 	// build URL
@@ -47,7 +48,8 @@ export const plexServerFetch = async <TResult>(options: {
 	const res = await fetch(url, {
 		method: options.method ?? 'GET',
 		headers: {
-			'accept': 'application/json'
+			'accept': 'application/json',
+			...options.headers
 		}
 	});
 	if(!res.ok) {

@@ -153,7 +153,8 @@ app.get(`${pseuplex.letterboxd.metadata.basePath}/:id`, [
 				try {
 					// attach letterboxd friends reviews if needed
 					if(userPrefs && userPrefs.letterboxdUsername) {
-						if(params.includeReviews == true) {
+						if(params.includeReviews == true
+							&& (userPrefs.letterboxdFriendsReviewsEnabled ?? cfg.letterboxdFriendsReviewsEnabled ?? true)) {
 							// attach letterboxd friends reviews
 							await pseuLetterboxd.attachLetterboxdFriendsReviewsToPlexMetadata(metadataItem, {
 								letterboxdMetadataId: id,
@@ -261,7 +262,7 @@ app.get('/hubs', [
 	plexAuthenticator,
 	plexApiProxy(cfg, args, {
 		responseModifier: async (proxyRes, resData: plexTypes.PlexLibraryHubsPage, userReq: IncomingPlexAPIRequest, userRes): Promise<plexTypes.PlexLibraryHubsPage> => {
-			resData = await tweaks.addLetterboxdFeedHub(resData, {
+			resData = await tweaks.addLetterboxdFriendsActivityHubIfNeeded(resData, {
 				userReq,
 				config: cfg,
 				plexServerAccountsStore,
@@ -280,7 +281,8 @@ app.get('/hubs/promoted', [
 			const contentDirectoryID = userReq.query['contentDirectoryID'];
 			const pinnedContentDirIds = (typeof pinnedContentDirectoryID == 'string') ? pinnedContentDirectoryID.split(',') : pinnedContentDirectoryID;
 			if(!pinnedContentDirIds || pinnedContentDirIds.length == 0 || !contentDirectoryID || contentDirectoryID == pinnedContentDirIds[0]) {
-				resData = await tweaks.addLetterboxdFeedHub(resData, {
+				// this is the first pinned content directory
+				resData = await tweaks.addLetterboxdFriendsActivityHubIfNeeded(resData, {
 					userReq,
 					config: cfg,
 					plexServerAccountsStore,
@@ -329,15 +331,20 @@ app.get(`/library/metadata/:metadataId`, [
 							}
 						}
 						// attach letterboxd data if needed
+						let fetchedLetterboxdData: boolean = false;
 						if(userPrefs && userPrefs.letterboxdUsername) {
-							if(params.includeReviews == true) {
+							// attach friend reviews if needed
+							if(params.includeReviews == true
+								&& (userPrefs.letterboxdFriendsReviewsEnabled ?? cfg.letterboxdFriendsReviewsEnabled ?? true)) {
 								// attach letterboxd friends reviews
 								await pseuLetterboxd.attachLetterboxdFriendsReviewsToPlexMetadata(metadataItem, {
 									letterboxdMetadataProvider: pseuplex.letterboxd.metadata,
 									letterboxdUsername: userPrefs.letterboxdUsername
 								});
+								fetchedLetterboxdData = true;
 							}
-						} else {
+						}
+						if(!fetchedLetterboxdData) {
 							// pre-fetch and cache letterboxd id
 							await pseuplex.letterboxd.metadata.getIDForPlexItem(metadataItem);
 						}
@@ -354,9 +361,12 @@ app.get(`/library/metadata/:metadataId`, [
 app.get(`/library/metadata/:metadataId/related`, [
 	plexAuthenticator,
 	pseuplexMetadataIdsRequestMiddleware(async (req: IncomingPlexAPIRequest, res, metadataIds, params): Promise<plexTypes.PlexHubsPage> => {
-		let hubs: plexTypes.PlexHubWithItems[] = [];
+		// get request info
+		const userInfo = req.plex.userInfo;
+		const userPrefs = cfg.perUser[userInfo.email];
 		const hubPageParams = plexTypes.parsePlexHubPageParams(req, {fromListPage:true});
 		// get hub(s) from plex
+		let hubs: plexTypes.PlexHubWithItems[] = [];
 		const plexIds = await metadataIds.filter((metadataId) => metadataId.source == PseuplexMetadataSource.Plex);
 		let caughtError: Error = undefined;
 		if(plexIds.length > 0) {
@@ -368,6 +378,7 @@ app.get(`/library/metadata/:metadataId/related`, [
 						return qs.escape(idString);
 					})}/related`,
 					params: params,
+					// TODO include forwarded request headers
 					serverURL: plexServerURL,
 					authContext: req.plex.authContext
 				}));
@@ -380,7 +391,6 @@ app.get(`/library/metadata/:metadataId/related`, [
 			}
 		}
 		// get hub(s) from other providers
-		// TODO combine same hubs from same provider
 		await Promise.all(metadataIds.map(async (metadataId) => {
 			switch(metadataId.source) {
 				case PseuplexMetadataSource.Letterboxd: {
@@ -410,57 +420,61 @@ app.get(`/library/metadata/:metadataId/related`, [
 	}),
 	plexApiProxy(cfg, args, {
 		responseModifier: async (proxyRes, resData: plexTypes.PlexHubsPage, userReq: IncomingPlexAPIRequest, userRes) => {
+			const userInfo = userReq.plex.userInfo;
+			const userPrefs = cfg.perUser[userInfo.email];
 			const hubPageParams = plexTypes.parsePlexHubPageParams(userReq, {fromListPage:true});
 			// add similar letterboxd movies hub
-			try {
-				let hubEntries = resData.MediaContainer.Hub;
-				if(!hubEntries) {
-					hubEntries = [];
-					resData.MediaContainer.Hub = hubEntries;
-				}
-				// all metadata ids are plex ids
-				const metadataIds = parseMetadataIdsFromPathParam(userReq.params.metadataId);
-				// get hubs for metadata ids
-				const hubs = await Promise.all(metadataIds.map(async (metadataId) => {
-					// get plex guid from metadata id
-					const metadataIdString = stringifyMetadataID(metadataId);
-					let plexGuid: string;
-					if(metadataId.isURL) {
-						plexGuid = metadataIdString;
-					} else {
-						plexGuid = await plexServerIdToGuidCache.getOrFetch(metadataIdString);
+			if(userPrefs.letterboxdSimilarItemsEnabled ?? cfg.letterboxdSimilarItemsEnabled ?? true) {
+				try {
+					let hubEntries = resData.MediaContainer.Hub;
+					if(!hubEntries) {
+						hubEntries = [];
+						resData.MediaContainer.Hub = hubEntries;
 					}
-					if(!plexGuid) {
-						return null;
-					}
-					// get letterboxd id for plex guid
-					const letterboxdId = await pseuplex.letterboxd.metadata.getIDForPlexGUID(plexGuid, {
-						plexServerURL,
-						plexAuthContext
-					});
-					if(!letterboxdId) {
-						return null;
-					}
-					// get letterboxd similar movies hub
-					return await pseuplex.letterboxd.hubs.similar.get(letterboxdId);
-				}));
-				// append hubs
-				for(const hub of hubs) {
-					if(!hub) {
-						continue;
-					}
-					try {
-						const hubEntry = await hub.getHubListEntry(hubPageParams, {
+					// all metadata ids are plex ids
+					const metadataIds = parseMetadataIdsFromPathParam(userReq.params.metadataId);
+					// get hubs for metadata ids
+					const hubs = await Promise.all(metadataIds.map(async (metadataId) => {
+						// get plex guid from metadata id
+						const metadataIdString = stringifyMetadataID(metadataId);
+						let plexGuid: string;
+						if(metadataId.isURL) {
+							plexGuid = metadataIdString;
+						} else {
+							plexGuid = await plexServerIdToGuidCache.getOrFetch(metadataIdString);
+						}
+						if(!plexGuid) {
+							return null;
+						}
+						// get letterboxd id for plex guid
+						const letterboxdId = await pseuplex.letterboxd.metadata.getIDForPlexGUID(plexGuid, {
 							plexServerURL,
-							plexAuthContext: userReq.plex.authContext
+							plexAuthContext
 						});
-						hubEntries.push(hubEntry);
-					} catch(error) {
-						console.error(error);
+						if(!letterboxdId) {
+							return null;
+						}
+						// get letterboxd similar movies hub
+						return await pseuplex.letterboxd.hubs.similar.get(letterboxdId);
+					}));
+					// append hubs
+					for(const hub of hubs) {
+						if(!hub) {
+							continue;
+						}
+						try {
+							const hubEntry = await hub.getHubListEntry(hubPageParams, {
+								plexServerURL,
+								plexAuthContext: userReq.plex.authContext
+							});
+							hubEntries.push(hubEntry);
+						} catch(error) {
+							console.error(error);
+						}
 					}
+				} catch(error) {
+					console.error(error);
 				}
-			} catch(error) {
-				console.error(error);
 			}
 			return resData;
 		}

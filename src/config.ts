@@ -12,9 +12,15 @@ export interface Config {
 		keyPath: string,
 		certPath: string
 	},
+	letterboxdSimilarItemsEnabled?: boolean;
+	letterboxdFriendsActivityHubEnabled?: boolean;
+	letterboxdFriendsReviewsEnabled?: boolean;
 	perUser: {
 		[email: string]: {
 			letterboxdUsername?: string | null;
+			letterboxdSimilarItemsEnabled?: boolean;
+			letterboxdFriendsActivityHubEnabled?: boolean;
+			letterboxdFriendsReviewsEnabled?: boolean;
 		}
 	}
 }
