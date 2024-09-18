@@ -93,7 +93,7 @@ At this point, your plex server might not show up on *app.plex.tv* until you sta
 
 ### Local Access
 
-If you're using a custom domain name for your SSL certificate, you should hardcode the DNS entry mapping on your home router (or pihole if you have it). This way your domain will always resolve to the local ip when accessing via your local network (ie: map `yourdomain.com` to `192.168.1.123` or whatever the local IP of your pseuplex server is).
+If you're using a custom domain name for your SSL certificate, you can hardcode the DNS entry mapping on your home router (or pihole if you have it). This way your domain will always resolve to the local ip when accessing via your local network (ie: map `yourdomain.com` to `192.168.1.123` or whatever the local IP of your pseuplex server is).
 
 ### Remote Access
 
