@@ -70,10 +70,10 @@ Create a `config.json` file with the following structure, and fill in the config
 - **ssl.certPath**: The path to your SSL certificate
 - **perUser**: A map of settings to configure for each user on your server. The entry keys are the plex email for each the user.
 	- **letterboxdUsername**: The letterboxd username for this user
- 	- **letterboxdSimilarItemsEnabled**: (*optional*) Display similar items from letterboxd on non-letterboxd media item pages for this user
+ 	- **letterboxdSimilarItemsEnabled**: (*optional*) Display similar items from letterboxd on plex media item pages for this user
   	- **letterboxdFriendsActivityHubEnabled**: (*optional*) Display the letterboxd friends activity hub on the home page for this user
   	- **letterboxdFriendsReviewsEnabled**: (*optional*) Display letterboxd friends reviews for this user
-- **letterboxdSimilarItemsEnabled**: (*optional*) Display similar items from letterboxd on non-letterboxd media item pages for all users
+- **letterboxdSimilarItemsEnabled**: (*optional*) Display similar items from letterboxd on plex media item pages for all users
 - **letterboxdFriendsActivityHubEnabled**: (*optional*) Display the letterboxd friends activity hub on the home page for all users
 - **letterboxdFriendsReviewsEnabled**: (*optional*) Display letterboxd friends reviews for all users
 
