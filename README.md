@@ -4,7 +4,7 @@ A middleware proxy for the plex server API. This sits in between the plex client
 
 Inspired by [Replex](https://github.com/lostb1t/replex)
 
-This project is still very much a WIP and it is not recommended to enable this up for remote access yet.
+This project is still very much a WIP and it is not recommended to enable remote access yet.
 
 ## Features
 
@@ -81,13 +81,17 @@ In the *Custom server access URLs* field, put the URLs of your pseuplex server, 
 
 ![Plex Server URLs](docs/images/plex_server_urls.png)
 
-Ensure *Enable local network discovery (GDM)* and *Enable Relay* are both unchecked, and then the changes to your server's network settings.
+Ensure *Enable local network discovery (GDM)* and *Enable Relay* are both unchecked, and then save the changes to your server's network settings.
 
-At this point, your plex server might no longer show up on *app.plex.tv*
+At this point, your plex server might not show up on *app.plex.tv* until you start pseuplex, but you should still be able to access it via its local ip.
+
+### Local Access
+
+If you're using a custom domain name for your SSL certificate, you should hardcode the DNS entry mapping on your home router (or pihole if you have it). This way your domain will always resolve to the local ip when accessing via your local network (ie: map `yourdomain.com` to `192.168.1.123` or whatever the local IP of your pseuplex server is).
 
 ### Remote Access
 
-If you are using remote access, you'll need to port forward your pseuplex proxy instead of your plex server.
+If you want to enable pseuplex for remote access, you'll need to port forward your pseuplex proxy instead of your plex server.
 
 ### Running
 
