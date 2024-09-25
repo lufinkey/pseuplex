@@ -51,6 +51,7 @@ export abstract class PseuplexFeedHub<
 		});
 	}
 	
+	abstract parseItemTokenParam(itemToken: string): TItemToken | null;
 	abstract fetchPage(pageToken: TPageToken | null): Promise<LoadableListFetchedChunk<TItem,TItemToken,TPageToken>>;
 	abstract compareItemTokens(itemToken1: TItemToken, itemToken2: TItemToken): number;
 	abstract transformItem(item: TItem, context: PseuplexHubContext): (plexTypes.PlexMetadataItem | Promise<plexTypes.PlexMetadataItem>);
@@ -60,22 +61,22 @@ export abstract class PseuplexFeedHub<
 		let chunk: LoadableListChunk<TItem,TItemToken>;
 		let start: number;
 		let { listStartToken } = params;
+		let listStartItemToken: TItemToken | null | undefined = undefined;
 		if(listStartToken != null || (params.start != null && params.start > 0)) {
 			if(listStartToken != null) {
-				listStartToken = Number.parseInt(listStartToken as any);
-				listStartToken = !Number.isNaN(listStartToken) ? listStartToken : params.listStartToken;
+				listStartItemToken = this.parseItemTokenParam(listStartToken);
 			}
 			start = params.start ?? 0;
-			chunk = await this._itemList.getOrFetchItems(listStartToken as any, start, params.count ?? opts.defaultItemCount, {unique:opts.uniqueItemsOnly});
+			chunk = await this._itemList.getOrFetchItems(listStartItemToken as any, start, params.count ?? opts.defaultItemCount, {unique:opts.uniqueItemsOnly});
 		} else {
 			const maxItemCount = params.count ?? opts.defaultItemCount;
 			start = 0;
 			chunk = await this._itemList.getOrFetchStartItems(maxItemCount, {unique:opts.uniqueItemsOnly});
-			listStartToken = chunk.items[0].token;
+			listStartItemToken = chunk.items[0].token;
 		}
 		let key = opts.hubPath;
-		if(listStartToken != null) {
-			key = addQueryArgumentToURLPath(opts.hubPath, `listStartToken=${listStartToken}`);
+		if(listStartItemToken != null) {
+			key = addQueryArgumentToURLPath(opts.hubPath, `listStartToken=${listStartItemToken}`);
 		}
 		return {
 			hub: {

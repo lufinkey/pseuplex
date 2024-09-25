@@ -31,6 +31,11 @@ export class LetterboxdActivityFeedHub extends PseuplexFeedHub<letterboxd.Film,n
 		return this._options.metadataTransformOptions.metadataBasePath;
 	}
 
+	override parseItemTokenParam(itemToken: string): number | null {
+		const parsedToken = Number.parseInt(itemToken);
+		return Number.isNaN(parsedToken) ? null : parsedToken;
+	}
+
 	override async fetchPage(pageToken: PageToken | null) {
 		const page = await this._fetchPage(pageToken);
 		//fixStringLeaks(page);

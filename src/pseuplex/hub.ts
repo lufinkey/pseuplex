@@ -14,7 +14,7 @@ export type PseuplexHubPage = {
 }
 
 export type PseuplexHubPageParams = plexTypes.PlexHubPageParams & {
-	listStartToken?: string | number | null | undefined;
+	listStartToken?: string | null | undefined;
 };
 
 export type PseuplexHubContext = {
