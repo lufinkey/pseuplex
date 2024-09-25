@@ -12,6 +12,8 @@ export type LoadableListOptions<ItemType,TokenType,PageTokenType> = {
 	tokenComparer: LoadableListItemTokenComparer<TokenType>;
 };
 
+export type ListFetchInterval = number | 'never';
+
 export class LoadableList<ItemType,ItemTokenType,PageTokenType> {
 	_options: LoadableListOptions<ItemType,ItemTokenType,PageTokenType>;
 	_newFragmentTask: Promise<LoadableListFragment<ItemType,ItemTokenType,PageTokenType>> | null = null;
@@ -19,7 +21,7 @@ export class LoadableList<ItemType,ItemTokenType,PageTokenType> {
 	_lastNewFragmentFetchTime: number;
 	_fragmentMergeTimeout: NodeJS.Timeout | null = null;
 	
-	listStartFetchInterval: number | 'never' = 60;
+	listStartFetchInterval: ListFetchInterval = 60;
 	
 	constructor(options: LoadableListOptions<ItemType,ItemTokenType,PageTokenType>) {
 		this._options = {...options};

@@ -10,7 +10,7 @@
 	"scripts": {
 		"build": "tsc",
 		"start": "tsc && node dist/main.js",
-		"start_test": "tsc && node dist/main.js --config=config/config.json --verbose",
+		"start_test": "tsc && node --trace-deprecation dist/main.js --config=config/config.json --verbose",
 		"debug": "tsc && node --inspect dist/main.js --config=config/config.json --verbose",
 		"lint": "eslint . --ext .ts"
 	},

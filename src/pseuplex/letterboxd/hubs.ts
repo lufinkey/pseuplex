@@ -9,19 +9,13 @@ import {
 } from '../metadataidentifier';
 import { PseuplexMetadataTransformOptions } from '../metadata';
 import {
-	PseuplexHub,
-	PseuplexHubContext,
-	PseuplexHubPage,
-	PseuplexHubPageParams
+	PseuplexHubContext
 } from '../hub';
 import * as lbtransform from './transform';
 import { LetterboxdMetadataProvider } from './metadata';
-import {
-	LetterboxdHub,
-	LetterboxdHubPage
-} from './hub';
 import { LetterboxdActivityFeedHub } from './activityfeedhub';
 import { PseuplexMetadataSource } from '../types';
+import { PseuplexFeedHub } from '../feedhub';
 
 
 export const createUserFollowingFeedHub = (letterboxdUsername: string, options: {
@@ -48,7 +42,7 @@ export const createUserFollowingFeedHub = (letterboxdUsername: string, options: 
 		},
 		letterboxdMetadataProvider: options.letterboxdMetadataProvider
 	}, async (pageToken) => {
-		return letterboxd.getUserFollowingFeed(letterboxdUsername, {
+		return await letterboxd.getUserFollowingFeed(letterboxdUsername, {
 			after: pageToken?.token ?? undefined,
 			csrf: pageToken?.csrf ?? undefined
 		});
@@ -75,28 +69,37 @@ export const createSimilarItemsHub = async (metadataId: PseuplexPartialMetadataI
 		: metadataId;
 	const relativePath = options.relativePath.startsWith('/') ? options.relativePath : '/'+options.relativePath;
 	const hubPath = `${metadataTransformOpts.metadataBasePath}/${metadataIdInPath}${relativePath}`;
-	return new class extends LetterboxdHub {
-		override async fetchPage(params: PseuplexHubPageParams, context: PseuplexHubContext): Promise<LetterboxdHubPage> {
+	return new class extends PseuplexFeedHub<letterboxd.Film,void,string> {
+		override get metadataBasePath() {
+			return metadataTransformOpts.metadataBasePath;
+		}
+
+		override parseItemTokenParam(itemToken: string): void {
+			return undefined;
+		}
+
+		override compareItemTokens(itemToken1: void, itemToken2: void): number {
+			return 1;
+		}
+
+		override async fetchPage(pageToken: string | null) {
 			const page = await letterboxd.getSimilar(filmOpts);
-			let pageItems = page.items;
-			let hasMore = false;
-			const totalCount = pageItems.length;
-			const start = Math.max(params.start ?? 0, 0);
-			if(params.count == null && options.defaultCount != null) {
-				params.count = options.defaultCount;
-			}
-			if((params.start ?? 0) > 0 || (params.count != null)) {
-				const end = params.count != null ? start+Math.max(params.count ?? 0, 0) : undefined;
-				if(end != null && end < pageItems.length) {
-					hasMore = true;
-				}
-				pageItems = pageItems.slice(start, end);
-			}
 			return {
-				items: pageItems,
-				hasMore,
-				totalItemCount: totalCount
+				items: page.items.map((film) => {
+					return {
+						id: film.href,
+						token: undefined,
+						item: film
+					};
+				}),
+				hasMore: false,
+				totalItemCount: page.items?.length ?? 0,
+				nextPageToken: null
 			};
+		}
+
+		override async transformItem(item: letterboxd.Film, context: PseuplexHubContext): Promise<plexTypes.PlexMetadataItem> {
+			return await lbtransform.transformLetterboxdFilmHubEntry(item, context, options.letterboxdMetadataProvider, metadataTransformOpts);
 		}
 	}({
 		hubPath: hubPath,
@@ -106,7 +109,8 @@ export const createSimilarItemsHub = async (metadataId: PseuplexPartialMetadataI
 		hubIdentifier: `${plexTypes.PlexMovieHubIdentifierType.Similar}.letterboxd`,
 		context: `hub.${plexTypes.PlexMovieHubIdentifierType.Similar}.letterboxd`,
 		promoted: options.promoted,
-		metadataTransformOptions: metadataTransformOpts,
-		letterboxdMetadataProvider: options.letterboxdMetadataProvider
+		defaultItemCount: options.defaultCount ?? 12,
+		uniqueItemsOnly: true,
+		listStartFetchInterval: 'never'
 	});
 };

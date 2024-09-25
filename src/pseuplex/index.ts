@@ -65,9 +65,9 @@ const pseuplex = {
 				}
 			}(),
 
-			similar: {
-				relativePath: '/similar',
-				async get(metadataId: PseuplexPartialMetadataIDString): Promise<PseuplexHub> {
+			similar: new class extends PseuplexHubProvider {
+				relativePath = '/similar';
+				override fetch(metadataId: PseuplexPartialMetadataIDString): PseuplexHub | Promise<PseuplexHub> {
 					return pseuLetterboxd.createSimilarItemsHub(metadataId, {
 						relativePath: pseuplex.letterboxd.hubs.similar.relativePath,
 						title: "Similar Films on Letterboxd",
@@ -77,7 +77,7 @@ const pseuplex = {
 						defaultCount: 12
 					});
 				}
-			}
+			}()
 		}
 	},
 

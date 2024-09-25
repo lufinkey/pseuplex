@@ -1,5 +1,6 @@
 
 import {
+	ListFetchInterval,
 	LoadableList
 } from '../fetching/LoadableList';
 import {
@@ -27,11 +28,12 @@ export type PseuplexFeedHubOptions = {
 	promoted?: boolean;
 	defaultItemCount: number;
 	uniqueItemsOnly: boolean;
+	listStartFetchInterval?: ListFetchInterval
 };
 
 export abstract class PseuplexFeedHub<
 	TItem,
-	TItemToken extends (string | number),
+	TItemToken extends (string | number | void),
 	TPageToken,
 	TOptions extends PseuplexFeedHubOptions = PseuplexFeedHubOptions
 	> extends PseuplexHub {
@@ -49,6 +51,9 @@ export abstract class PseuplexFeedHub<
 				return this.compareItemTokens(itemToken1, itemToken2);
 			}
 		});
+		if(options.listStartFetchInterval != null) {
+			this._itemList.listStartFetchInterval = options.listStartFetchInterval;
+		}
 	}
 	
 	abstract parseItemTokenParam(itemToken: string): TItemToken | null;

@@ -43,7 +43,7 @@ export class LetterboxdActivityFeedHub extends PseuplexFeedHub<letterboxd.Film,n
 			items: page.items.filter((item) => (item.film != null)).map((item) => {
 				const token = Number.parseInt(item.id);
 				return {
-					id: item.film.slug,
+					id: item.film.href,
 					token: !Number.isNaN(token) ? token : item.id as any,
 					item: item.film
 				};
@@ -61,11 +61,6 @@ export class LetterboxdActivityFeedHub extends PseuplexFeedHub<letterboxd.Film,n
 
 	override async transformItem(item: letterboxd.Film, context: PseuplexHubContext): Promise<plexTypes.PlexMetadataItem> {
 		const opts = this._options;
-		const metadataItem = lbtransform.filmToPlexMetadata(item, opts.metadataTransformOptions);
-		const metadataId = lbtransform.partialMetadataIdFromFilm(item);
-		return await opts.letterboxdMetadataProvider.attachPlexDataIfAble(metadataId, metadataItem, {
-			plexServerURL: context.plexServerURL,
-			plexAuthContext: context.plexAuthContext
-		});
+		return await lbtransform.transformLetterboxdFilmHubEntry(item, context, opts.letterboxdMetadataProvider, opts.metadataTransformOptions);
 	}
 }

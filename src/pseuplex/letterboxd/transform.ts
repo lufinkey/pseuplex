@@ -18,6 +18,8 @@ import {
 	stringifyPartialMetadataID
 } from '../metadataidentifier';
 import { PseuplexMetadataTransformOptions } from '../metadata';
+import { PseuplexHubContext } from '../hub';
+import { LetterboxdMetadataProvider } from './metadata';
 
 export const partialMetadataIdFromFilmInfo = (filmInfo: letterboxd.FilmInfo): PseuplexPartialMetadataIDString => {
 	return stringifyPartialMetadataID({
@@ -137,6 +139,15 @@ export const filmToPlexMetadata = (film: letterboxd.Film, options: PseuplexMetad
 		year: intParam(film.year)
 	};
 };
+
+export const transformLetterboxdFilmHubEntry = async (film: letterboxd.Film, context: PseuplexHubContext, metadataProvider: LetterboxdMetadataProvider, metadataTransformOptions: PseuplexMetadataTransformOptions): Promise<plexTypes.PlexMetadataItem> => {
+	const metadataId = partialMetadataIdFromFilm(film);
+	const metadataItem = filmToPlexMetadata(film, metadataTransformOptions);
+	return await metadataProvider.attachPlexDataIfAble(metadataId, metadataItem, {
+		plexServerURL: context.plexServerURL,
+		plexAuthContext: context.plexAuthContext
+	});
+}
 
 export const viewingToPlexReview = (viewing: letterboxd.Viewing): plexTypes.PlexReview => {
 	return {
