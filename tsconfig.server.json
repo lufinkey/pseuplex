@@ -1,0 +1,25 @@
+{
+	"include": [
+		"server/**/*"
+	],
+	"compilerOptions": {
+		"sourceRoot": "server",
+		"outDir": "dist",
+		"module": "commonjs",
+		"esModuleInterop": true,
+		"target": "es6",
+		"lib": ["dom","ES2022"],
+		"moduleResolution": "node",
+		"resolveJsonModule": true,
+		"declaration": true,
+		"declarationMap": true,
+		"sourceMap": true,
+		"strictNullChecks": true,
+		"paths": {
+			"@server/*": ["./server/*"]
+		},
+		"plugins": [
+			{ "transform": "ts-transformer-keys/transformer" }
+		]
+	},
+}

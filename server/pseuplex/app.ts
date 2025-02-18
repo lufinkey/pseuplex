@@ -1442,7 +1442,7 @@ export class PseuplexApp {
 		let opened = false;
 		let closed = false;
 		// listen for errors
-		socket.addEventListener('error', (error) => {
+		socket.addEventListener('error', (error: WebSocketEventMap['error']) => {
 			if(!opened) {
 				this.logger?.logServerWebsocketFailedToOpen(error, firstAttempt);
 			} else {
@@ -1495,7 +1495,7 @@ export class PseuplexApp {
 			// TODO log possibly
 		});
 		// listen for message
-		socket.addEventListener('message', (evt) => {
+		socket.addEventListener('message', (evt: WebSocketEventMap['message']) => {
 			// TODO log possibly
 			this._handlePlexServerNotification(evt);
 		});

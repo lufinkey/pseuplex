@@ -15,6 +15,13 @@ export const mapObject = <TNewValue,TValue>(obj: object, mapper: (key: string, v
 	return mappedObject;
 };
 
+export const nameOf = (obj: {[key:string]: any}): string | undefined => {
+	for(const key in obj) {
+		return key;
+	}
+	return undefined;
+};
+
 export const combinePathSegments = (part1: string, part2: string) => {
 	if(!part2) {
 		return part1;

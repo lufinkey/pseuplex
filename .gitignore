@@ -132,6 +132,10 @@ dist
 # macOS
 .DS_Store
 
+# React Router
+/.react-router/
+/build/
+
 # private data
 /plex_docker/docker-compose.yml
 /keys

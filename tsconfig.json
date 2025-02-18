@@ -1,21 +1,7 @@
 {
-	"compilerOptions": {
-		"rootDir": "./src",
-		"outDir": "./dist",
-		"module": "commonjs",
-		"esModuleInterop": true,
-		"target": "es6",
-		"lib": ["ES2021"],
-		"moduleResolution": "node",
-		"resolveJsonModule": true,
-		"declaration": true,
-		"declarationMap": true,
-		"sourceMap": true,
-		"strictNullChecks": true
-	},
-	"exclude": [
-		"dist",
-		"node_modules",
-		"pluginexample"
+	"files": [],
+	"references": [
+		{ "path": "./tsconfig.server.json" },
+		{ "path": "./tsconfig.webapp.json" }
 	]
 }

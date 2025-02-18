@@ -1,0 +1,13 @@
+
+.hamburger-icon-bar {
+	display: block;
+	width: 22px;
+	height: 2px;
+	background-color: #FFFFFF;
+	border-radius: 1px;
+ }
+ 
+ .hamburger-icon-bar+.hamburger-icon-bar {
+	margin-top: 4px;
+ }
+ 
