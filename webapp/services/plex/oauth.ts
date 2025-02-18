@@ -5,13 +5,13 @@ import { delay } from '@webapp/utils/timing';
 
 // code adapted from https://github.com/sct/overseerr/blob/develop/src/utils/plex.ts
 
-interface PlexHeaders extends Record<string, string> {
+interface PlexHeaders extends Record<string, string | undefined> {
 	'X-Plex-Product': string;
 	'X-Plex-Version': string;
 	'X-Plex-Client-Identifier': string;
 	'X-Plex-Model': string;
 	'X-Plex-Platform': string;
-	'X-Plex-Platform-Version': string;
+	'X-Plex-Platform-Version'?: string;
 	'X-Plex-Device': string;
 	'X-Plex-Device-Name': string;
 	'X-Plex-Device-Screen-Resolution': string;
@@ -59,13 +59,16 @@ export default class PlexOAuth {
 		}
 
 		const browser = Bowser.getParser(window.navigator.userAgent);
+		const browserVersion = browser.getBrowserVersion();
 		this.plexHeaders = {
 			'X-Plex-Product': constants.APP_NAME,
 			'X-Plex-Version': 'Plex OAuth',
 			'X-Plex-Client-Identifier': clientId,
 			'X-Plex-Model': 'Plex OAuth',
 			'X-Plex-Platform': browser.getBrowserName(),
-			'X-Plex-Platform-Version': browser.getBrowserVersion(),
+			...(browserVersion ? {
+				'X-Plex-Platform-Version': browserVersion,
+			} : undefined),
 			'X-Plex-Device': browser.getOSName(),
 			'X-Plex-Device-Name': `${browser.getBrowserName()} (Overseerr)`,
 			'X-Plex-Device-Screen-Resolution': `${window.screen.width}x${window.screen.height}`,
@@ -192,10 +195,11 @@ export default class PlexOAuth {
 		}
 	}
 
-	private encodeData(data: Record<string, string>): string {
+	private encodeData(data: Record<string, string | undefined>): string {
 		return Object.keys(data)
-			.map(function (key) {
-				return [key, data[key]].map(encodeURIComponent).join('=');
+			.filter((key) => (key !== undefined))
+			.map((key) => {
+				return [key, data[key]!].map(encodeURIComponent).join('=');
 			})
 			.join('&');
 	}

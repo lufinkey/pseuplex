@@ -182,6 +182,6 @@ To run, cd into this repo's folder in terminal and run the following commands, r
 
 ```sh
 npm install
-npm run build
-npm start -- --config="/path/to/config.json"
+npm run server-build
+npm run server-start -- --config="/path/to/config.json"
 ```
