@@ -14,14 +14,15 @@
 		"url": "https://github.com/lufinkey/pseuplex.git"
 	},
 	"scripts": {
-		"clean": "rm -rf dist .react-router node_modules plugindeps pluginexample/node_modules pluginexample/dist pluginexample/package-lock.json",
+		"clean": "rm -rf build dist .react-router node_modules plugindeps pluginexample/node_modules pluginexample/dist pluginexample/package-lock.json",
 		"build": "nnpm run webapp-build && npm run server-build --",
 		"start": "npm run webapp-build && npm run server-start --",
+		"start-dev": "npm run webapp-build && npm run server-start-dev --",
 		"prepare": "npm run webapp-typecheck && npm run server-typecheck",
 		"server-typecheck": "tsc --project tsconfig.server.json",
 		"server-build": "npm run server-typecheck && npm link pseuplex@file:./",
 		"server-start": "npm run server-typecheck && node --enable-source-maps dist/server/main.js",
-		"server-start-test": "npm run server-typecheck && node --enable-source-maps --trace-deprecation dist/server/main.js --config=config/config.json --verbose --verbose-traffic",
+		"server-start-dev": "npm run server-typecheck && node --enable-source-maps --trace-deprecation dist/server/main.js --config=config/config.json --verbose --verbose-traffic",
 		"server-debug": "npm run server-typecheck && node --enable-source-maps --inspect dist/server/main.js --config=config/config.json --verbose",
 		"webapp-typecheck": "react-router typegen && tsc --project tsconfig.webapp.json",
 		"webapp-build": "react-router build",
