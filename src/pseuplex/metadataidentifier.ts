@@ -107,7 +107,7 @@ export const parseMetadataID = (idString: PseuplexMetadataIDString): PseuplexMet
 		isURL,
 		source,
 		directory,
-		id: isURL ? qs.unescape(id) : id, // id is not escaped when non-URL (but components of ID might be parsed and unescaped separately)
+		id: qs.unescape(id),
 		relativePath,
 	};
 };
@@ -130,10 +130,10 @@ export const stringifyMetadataID = (idParts: PseuplexMetadataIDParts): PseuplexM
 			}
 			return idParts.id;
 		} else {
-			if(idParts.directory == null && idParts.relativePath == null) {
+			if(idParts.directory == null) {
 				idString = `${idParts.source}:${qs.escape(idParts.id)}`;
 			} else {
-				idString = `${idParts.source}:${qs.escape(idParts.directory ?? '')}:${idParts.id}`;
+				idString = `${idParts.source}:${qs.escape(idParts.directory)}:${qs.escape(idParts.id)}`;
 			}
 		}
 		if(idParts.relativePath != null) {
@@ -159,7 +159,7 @@ export const parsePartialMetadataID = (metadataId: PseuplexPartialMetadataIDStri
 	}
 	return {
 		directory: qs.unescape(metadataId.substring(0, colonIndex)),
-		id: metadataId.substring(colonIndex+1)
+		id: qs.unescape(metadataId.substring(colonIndex+1))
 	};
 };
 
@@ -167,7 +167,7 @@ export const stringifyPartialMetadataID = (idParts: PseuplexPartialMetadataIDPar
 	if(idParts.directory == null) {
 		return qs.escape(idParts.id);
 	} else {
-		return `${qs.escape(idParts.directory)}:${idParts.id}`;
+		return `${qs.escape(idParts.directory)}:${qs.escape(idParts.id)}`;
 	}
 };
 
