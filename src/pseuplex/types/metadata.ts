@@ -10,6 +10,7 @@ export enum PseuplexMetadataSource {
 	Plex = 'plex',
 	PlexServer = 'plexserver',
 	Letterboxd = 'letterboxd',
+	Bandcamp = 'bandcamp',
 	Request = 'request'
 };
 

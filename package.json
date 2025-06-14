@@ -23,6 +23,7 @@
 	"author": "Luis Finke (luisfinke@gmail.com)",
 	"license": "Zlib",
 	"dependencies": {
+		"bandcamp-retriever": "https://github.com/lufinkey/bandcamp-retriever.git",
 		"express": "^5.1.0",
 		"express-http-proxy": "https://github.com/lufinkey/express-http-proxy.git",
 		"http-proxy": "https://github.com/Jimbly/http-proxy-node16.git",
