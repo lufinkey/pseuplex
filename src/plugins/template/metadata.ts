@@ -8,6 +8,7 @@ import {
 	PseuplexMetadataTransformOptions,
 	PseuplexPartialMetadataIDString,
 	PseuplexRequestContext,
+	PseuplexProviderFetchMetadataItemOptions,
 } from '../../pseuplex';
 import * as tmplTransform from './transform';
 
@@ -24,7 +25,7 @@ export class TemplateMetadataProvider extends PseuplexMetadataProviderBase<Templ
 	readonly sourceDisplayName = "Template";
 	readonly sourceSlug = 'templatesource'; // replace this with a slug for your source. For example: "letterboxd"
 
-	override async fetchMetadataItem(id: PseuplexPartialMetadataIDString): Promise<TemplateMetadataItem> {
+	override async fetchMetadataItem(id: PseuplexPartialMetadataIDString, options: PseuplexProviderFetchMetadataItemOptions): Promise<TemplateMetadataItem> {
 		// TODO fetch raw metadata item from id
 		return {
 			id: 'test1212',

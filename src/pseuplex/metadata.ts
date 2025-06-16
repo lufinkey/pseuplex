@@ -141,6 +141,16 @@ export type PseuplexMetadataProviderItemMatchParams = {
 	guids: `${string}://${string}`[],
 };
 
+export type PseuplexProviderFetchMetadataItemOptions = {
+	plexParams?: plexTypes.PlexMetadataPageParams;
+	context: PseuplexRequestContext;
+};
+
+export type PseuplexProviderFetchMetadataChildrenOptions = {
+	plexParams?: plexTypes.PlexMetadataChildrenPageParams;
+	context: PseuplexRequestContext;
+};
+
 export abstract class PseuplexMetadataProviderBase<TMetadataItem> implements PseuplexMetadataProvider {
 	abstract readonly sourceDisplayName: string;
 	abstract readonly sourceSlug: string;
@@ -172,14 +182,8 @@ export abstract class PseuplexMetadataProviderBase<TMetadataItem> implements Pse
 		this.plexIdToInfoCache = options.plexIdToInfoCache;
 	}
 	
-	abstract fetchMetadataItem(id: PseuplexPartialMetadataIDString, options: {
-		plexParams?: plexTypes.PlexMetadataPageParams,
-		context: PseuplexRequestContext,
-	}): Promise<TMetadataItem>;
-	fetchMetadataItemChildren?: (id: PseuplexPartialMetadataIDString, options: {
-		plexParams?: plexTypes.PlexMetadataChildrenPageParams,
-		context: PseuplexRequestContext,
-	}) => Promise<PseuplexMetadataListPage<TMetadataItem>>;
+	abstract fetchMetadataItem(id: PseuplexPartialMetadataIDString, options: PseuplexProviderFetchMetadataItemOptions): Promise<TMetadataItem>;
+	fetchMetadataItemChildren?: (id: PseuplexPartialMetadataIDString, options: PseuplexProviderFetchMetadataChildrenOptions) => Promise<PseuplexMetadataListPage<TMetadataItem>>;
 	abstract transformMetadataItem(metadataItem: TMetadataItem, context: PseuplexRequestContext, options: PseuplexMetadataTransformOptions): PseuplexMetadataItem;
 	abstract idFromMetadataItem(metadataItem: TMetadataItem): PseuplexPartialMetadataIDString;
 	

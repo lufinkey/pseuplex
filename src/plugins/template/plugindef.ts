@@ -4,7 +4,7 @@ import {
 	PseuplexRequestContext
 } from '../../pseuplex';
 import {
-	TemplatePluginConfig,
+	TemplatePluginConfig
 } from './config';
 
 export interface TemplatePluginDef extends PseuplexPlugin {
