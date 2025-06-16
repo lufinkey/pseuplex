@@ -2,12 +2,10 @@
 import { PseuplexConfigBase } from '../../pseuplex/configbase';
 
 type BandcampFlags = {
-	BandcampPlugin?: {
-		enabled?: boolean;
-	}
+	//
 };
 type BandcampPerUserPluginConfig = {
-	//
+	cookiesFile?: string;
 } & BandcampFlags;
 export type BandcampPluginConfig = PseuplexConfigBase<BandcampPerUserPluginConfig> & BandcampFlags & {
 	//

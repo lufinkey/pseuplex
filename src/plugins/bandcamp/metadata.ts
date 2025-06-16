@@ -10,39 +10,42 @@ import {
 	PseuplexMetadataProviderOptions,
 	parsePartialMetadataID,
 	PseuplexMetadataProviderItemMatchParams,
+	PseuplexProviderFetchMetadataItemOptions,
 	PseuplexRequestContext,
 } from '../../pseuplex';
 import { BandcampMetadataItem } from './types';
 import * as bcTransform from './transform';
+import { BandcampPluginDef } from './plugindef';
 
 export type BandcampMetadataProviderOptions = PseuplexMetadataProviderOptions & {
-	bandcampClient: bandcamp.Bandcamp;
+	plugin: BandcampPluginDef;
 };
 
 export class BandcampMetadataProvider extends PseuplexMetadataProviderBase<BandcampMetadataItem> {
 	readonly sourceDisplayName = "Bandcamp";
 	readonly sourceSlug = PseuplexMetadataSource.Bandcamp;
-	readonly bandcampClient: bandcamp.Bandcamp;
+	readonly plugin: BandcampPluginDef;
 
 	constructor(options: BandcampMetadataProviderOptions) {
 		super(options);
-		this.bandcampClient = options.bandcampClient;
+		this.plugin = options.plugin;
 	}
 
-	override async fetchMetadataItem(id: PseuplexPartialMetadataIDString): Promise<BandcampMetadataItem> {
+	override async fetchMetadataItem(id: PseuplexPartialMetadataIDString, options: PseuplexProviderFetchMetadataItemOptions): Promise<BandcampMetadataItem> {
+		const bandcampClient = this.plugin.getBandcampClient(options.context.plexUserInfo);
 		const idParts = parsePartialMetadataID(id);
 		switch(idParts.directory) {
 			case bandcamp.BandcampItemType.Track:
-				return await this.bandcampClient.getTrack(idParts.id);
+				return await bandcampClient.getTrack(idParts.id);
 			case bandcamp.BandcampItemType.Album:
-				return await this.bandcampClient.getAlbum(idParts.id);
+				return await bandcampClient.getAlbum(idParts.id);
 			case bandcamp.BandcampItemType.Artist:
 			case bandcamp.BandcampItemType.Label:
-				return await this.bandcampClient.getArtist(idParts.id);
+				return await bandcampClient.getArtist(idParts.id);
 			//case bandcamp.BandcampItemType.Fan:
 			//	return await this.bandcampClient.getFan(idParts.id);
 		}
-		return (await this.bandcampClient.getItemFromURL(idParts.id)) as BandcampMetadataItem;
+		return (await bandcampClient.getItemFromURL(idParts.id)) as BandcampMetadataItem;
 	}
 
 	override transformMetadataItem(metadataItem: BandcampMetadataItem, context: PseuplexRequestContext, options: PseuplexMetadataTransformOptions): PseuplexMetadataItem {
