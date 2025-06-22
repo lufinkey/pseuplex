@@ -1,7 +1,7 @@
 import express from 'express';
 import bandcamp from 'bandcamp-retriever';
 import tough from 'tough-cookie';
-import FileCookieStore from 'tough-cookie-file-store';
+import FileCookieStore, { FileFormat } from 'tough-cookie-file-store';
 import * as plexTypes from '../../plex/types';
 import { IncomingPlexAPIRequest } from '../../plex/requesthandling';
 import {
@@ -39,6 +39,14 @@ export default (class BandcampPlugin implements BandcampPluginDef, PseuplexPlugi
 					cookies: new FileCookieStore(cookiesFile, {
 						async: true,
 						loadAsync: true,
+						fileFormat: FileFormat.txt,
+						forceParse: true,
+						onLoadLineError: (line, lineNumber) => {
+							console.warn(`Cookies file ${cookiesFile}: Invalid cookie on line ${lineNumber}`);
+						},
+						onLoadError: (error) => {
+							console.error(error);
+						},
 					})
 				});
 				this._bandcampClients[cookiesFile] = bandcampClient;

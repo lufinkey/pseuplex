@@ -23,7 +23,7 @@
 	"author": "Luis Finke (luisfinke@gmail.com)",
 	"license": "Zlib",
 	"dependencies": {
-		"tough-cookie-file-store": "^2.0.3",
+		"tough-cookie-file-store": "https://github.com/lufinkey/tough-cookie-file-store.git",
 		"bandcamp-retriever": "https://github.com/lufinkey/bandcamp-retriever.git",
 		"express": "^5.1.0",
 		"express-http-proxy": "https://github.com/lufinkey/express-http-proxy.git",
