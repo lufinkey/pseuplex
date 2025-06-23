@@ -141,31 +141,6 @@ export abstract class PseuplexFeedHub<
 								(plexServerItem as PseuplexMetadataItem).Pseuplex = (item as PseuplexMetadataItem).Pseuplex;
 								plexServerItem.key = item.key;
 								plexServerItem.ratingKey = item.ratingKey;
-								/*delete plexServerItem.librarySectionID;
-								delete plexServerItem.librarySectionKey;
-								delete plexServerItem.librarySectionTitle;
-								delete plexServerItem.Role;
-								delete plexServerItem.Director;
-								delete plexServerItem.Writer;
-								delete plexServerItem.Media;
-								delete plexServerItem.UltraBlurColors;
-								delete plexServerItem.Producer;
-								delete plexServerItem.Genre;
-								delete plexServerItem.Country;
-								delete plexServerItem.Rating;
-								delete plexServerItem.Field;
-								//delete plexServerItem.slug;
-								delete plexServerItem.primaryExtraKey;
-								delete plexServerItem.chapterSource;
-								delete plexServerItem.Guid;
-								delete plexServerItem.Image;
-								delete plexServerItem.art;
-								delete plexServerItem.duration;
-								delete plexServerItem.addedAt;
-								delete plexServerItem.updatedAt;
-								delete plexServerItem.tagline;
-								delete plexServerItem.duration;
-								delete plexServerItem.contentRating;*/
 								return plexServerItem;
 							}
 						}

@@ -56,7 +56,6 @@ export default (class BandcampPlugin implements BandcampPluginDef, PseuplexPlugi
 		return this._sharedBandcampClient;
 	}
 	
-
 	responseFilters?: PseuplexReadOnlyResponseFilters = {
 		//
 	}

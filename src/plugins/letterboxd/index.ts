@@ -28,6 +28,7 @@ import {
 	getPlexRelatedHubsEndpoints,
 	PseuplexMetadataRelatedHubsResponseFilterContext,
 	PseuplexMetadataItem,
+	PseuplexHubProviderBase,
 } from '../../pseuplex';
 import { LetterboxdPluginConfig } from './config';
 import {
@@ -83,7 +84,7 @@ export default (class LetterboxdPlugin implements LetterboxdPluginDef, PseuplexP
 
 		// create hub providers
 		this.hubs = {
-			userFollowingActivity: new class extends PseuplexHubProvider {
+			userFollowingActivity: new class extends PseuplexHubProviderBase {
 				readonly basePath = `${self.basePath}/hubs/following`;
 				override fetch(letterboxdUsername: string): PseuplexHub | Promise<PseuplexHub> {
 					// TODO validate that the profile exists
@@ -102,7 +103,7 @@ export default (class LetterboxdPlugin implements LetterboxdPluginDef, PseuplexP
 				}
 			}(),
 			
-			similar: new class extends PseuplexHubProvider {
+			similar: new class extends PseuplexHubProviderBase {
 				readonly relativePath = 'similar';
 
 				override transformHubID(id: string): (string | Promise<string>) {
@@ -127,7 +128,7 @@ export default (class LetterboxdPlugin implements LetterboxdPluginDef, PseuplexP
 				}
 			}(),
 
-			list: new class extends PseuplexHubProvider {
+			list: new class extends PseuplexHubProviderBase {
 				readonly basePath = `${self.basePath}/list`;
 
 				override transformHubID(id: string): string {
@@ -351,10 +352,10 @@ export default (class LetterboxdPlugin implements LetterboxdPluginDef, PseuplexP
 		router.get(`${this.metadata.basePath}/:id/${this.hubs.similar.relativePath}`, [
 			this.app.middlewares.plexAuthentication,
 			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexHubsPage> => {
-				const id = req.params.id;
+				const { id } = req.params;
 				const context = this.app.contextForRequest(req);
 				const params = plexTypes.parsePlexHubPageParams(req, {fromListPage:false});
-				const hub = await this.hubs.similar.get(id);
+				const hub = await this.hubs.similar.get({id, context});
 				return await hub.getHubPage(params, context);
 			})
 		]);
@@ -363,13 +364,16 @@ export default (class LetterboxdPlugin implements LetterboxdPluginDef, PseuplexP
 		router.get(`${this.hubs.userFollowingActivity.basePath}/:letterboxdUsername`, [
 			this.app.middlewares.plexAuthentication,
 			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexMetadataPage> => {
+				const { letterboxdUsername } = req.params;
 				const context = this.app.contextForRequest(req);
-				const letterboxdUsername = req.params['letterboxdUsername'];
 				if(!letterboxdUsername) {
 					throw httpError(400, "No user provided");
 				}
 				const params = plexTypes.parsePlexHubPageParams(req, {fromListPage:false});
-				const hub = await this.hubs.userFollowingActivity.get(letterboxdUsername);
+				const hub = await this.hubs.userFollowingActivity.get({
+					id:letterboxdUsername,
+					context
+				});
 				return await hub.getHubPage({
 					...params,
 					listStartToken: parseStringQueryParam(req.query['listStartToken'])
@@ -381,30 +385,37 @@ export default (class LetterboxdPlugin implements LetterboxdPluginDef, PseuplexP
 		router.get(`${this.hubs.list.basePath}/:listId`, [
 			this.app.middlewares.plexAuthentication,
 			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexHubPage> => {
-				const listId = req.params['listId'];
+				const { listId } = req.params;
 				if(!listId) {
 					throw httpError(400, "No list ID provided");
 				}
 				const context = this.app.contextForRequest(req);
 				const params = plexTypes.parsePlexHubPageParams(req, {fromListPage:false});
-				const hub = await this.hubs.list.get(listId);
+				const hub = await this.hubs.list.get({
+					id: listId,
+					context
+				});
 				return await hub.getHubPage(params, context);
 			})
 		]);
 	}
 
 
-	async _addFriendsActivityHubIfNeeded(resData: plexTypes.PlexLibraryHubsPage, context: PseuplexResponseFilterContext): Promise<void> {
-		const userInfo = context.userReq.plex.userInfo;
+	async _addFriendsActivityHubIfNeeded(resData: plexTypes.PlexLibraryHubsPage, filterContext: PseuplexResponseFilterContext): Promise<void> {
+		const reqContext = this.app.contextForRequest(filterContext.userReq);
+		const userInfo = filterContext.userReq.plex.userInfo;
 		// get prefs
 		const config = this.config;
 		const userPrefs = config.perUser[userInfo.email];
 		const friendsActvityHubEnabled = userPrefs?.letterboxd?.friendsActivityHubEnabled ?? config.letterboxd?.friendsActivityHubEnabled ?? false;
 		// add friends activity feed hub if enabled
 		if(friendsActvityHubEnabled && userPrefs?.letterboxd?.username) {
-			const params = plexTypes.parsePlexHubPageParams(context.userReq, {fromListPage:true});
-			const hub = await this.hubs.userFollowingActivity.get(userPrefs.letterboxd.username);
-			const page = await hub.getHubListEntry(params, this.app.contextForRequest(context.userReq));
+			const params = plexTypes.parsePlexHubPageParams(filterContext.userReq, {fromListPage:true});
+			const hub = await this.hubs.userFollowingActivity.get({
+				id: userPrefs.letterboxd.username,
+				context: reqContext
+			});
+			const page = await hub.getHubListEntry(params, this.app.contextForRequest(filterContext.userReq));
 			if(!resData.MediaContainer.Hub) {
 				resData.MediaContainer.Hub = [];
 			} else if(!(resData.MediaContainer.Hub instanceof Array)) {
@@ -415,15 +426,16 @@ export default (class LetterboxdPlugin implements LetterboxdPluginDef, PseuplexP
 		}
 	}
 
-	async _addSimilarItemsHubIfNeeded(resData: plexTypes.PlexHubsPage, context: PseuplexMetadataRelatedHubsResponseFilterContext) {
-		const userInfo = context.userReq.plex.userInfo;
-		const plexAuthContext = context.userReq.plex.authContext;
+	async _addSimilarItemsHubIfNeeded(resData: plexTypes.PlexHubsPage, filterContext: PseuplexMetadataRelatedHubsResponseFilterContext) {
+		const reqContext = this.app.contextForRequest(filterContext.userReq);
+		const userInfo = filterContext.userReq.plex.userInfo;
+		const plexAuthContext = filterContext.userReq.plex.authContext;
 		// get prefs
 		const config = this.config;
 		const userPrefs = config.perUser[userInfo.email];
 		// add similar letterboxd movies hub
 		if(userPrefs?.letterboxd?.similarItemsEnabled ?? config.letterboxd?.similarItemsEnabled ?? true) {
-			const metadataId = context.metadataId;
+			const metadataId = filterContext.metadataId;
 			let letterboxdId: string | null = null;
 			// get plex guid from metadata id
 			if(metadataId.source == this.metadata.sourceSlug) {
@@ -458,9 +470,12 @@ export default (class LetterboxdPlugin implements LetterboxdPluginDef, PseuplexP
 				return;
 			}
 			// get letterboxd similar movies hub
-			const hub =  await this.hubs.similar.get(letterboxdId);
-			const hubPageParams = plexTypes.parsePlexHubPageParams(context.userReq, { fromListPage:true });
-			const hubEntry = await hub.getHubListEntry(hubPageParams, this.app.contextForRequest(context.userReq));
+			const hub =  await this.hubs.similar.get({
+				id: letterboxdId,
+				context: reqContext
+			});
+			const hubPageParams = plexTypes.parsePlexHubPageParams(filterContext.userReq, { fromListPage:true });
+			const hubEntry = await hub.getHubListEntry(hubPageParams, this.app.contextForRequest(filterContext.userReq));
 			resData.MediaContainer.Hub = pushToArray(resData.MediaContainer.Hub, hubEntry);
 			resData.MediaContainer.size = (resData.MediaContainer.size ?? 0) + 1;
 			if(resData.MediaContainer.totalSize != null) {

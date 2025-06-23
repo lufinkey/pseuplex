@@ -56,7 +56,10 @@ export class DashboardSection extends PseuplexSectionBase {
 					//throw new Error(`No hub with slug ${hubConfig.hub}`);
 					continue;
 				}
-				const hub = await hubProvider.get(hubConfig.arg);
+				const hub = await hubProvider.get({
+					id: hubConfig.arg,
+					context,
+				});
 				if(!hub) {
 					//throw new Error(`No hub from arg ${hubConfig.arg}`);
 					continue;

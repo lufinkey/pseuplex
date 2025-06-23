@@ -110,9 +110,14 @@ export abstract class PseuplexHub {
 	}
 }
 
+export interface PseuplexHubProvider<THub extends PseuplexHub = PseuplexHub> {
+	get(options: {
+		id: string,
+		context: PseuplexRequestContext
+	}): Promise<THub>;
+}
 
-
-export abstract class PseuplexHubProvider<THub extends PseuplexHub = PseuplexHub> {
+export abstract class PseuplexHubProviderBase<THub extends PseuplexHub = PseuplexHub> implements PseuplexHubProvider<THub> {
 	readonly cache: CachedFetcher<THub>;
 
 	constructor() {
@@ -121,17 +126,20 @@ export abstract class PseuplexHubProvider<THub extends PseuplexHub = PseuplexHub
 		});
 	}
 
-	transformHubID?(id: string): (string | Promise<string>);
+	transformHubID?(id: string, context: PseuplexRequestContext): (string | Promise<string>);
 	abstract fetch(id: string): (THub | Promise<THub>);
 
-	async get(id: string): Promise<THub> {
-		if(id == null) {
+	async get(options: {
+		id: string,
+		context: PseuplexRequestContext
+	}): Promise<THub> {
+		if(options.id == null) {
 			throw new Error("Invalid null id");
 		}
 		if(this.transformHubID) {
-			id = await this.transformHubID(id);
+			options.id = await this.transformHubID(options.id, options.context);
 		}
-		return this.cache.getOrFetch(id);
+		return this.cache.getOrFetch(options.id);
 	}
 }
 

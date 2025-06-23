@@ -1,5 +1,6 @@
 
 import * as letterboxd from 'letterboxd-retriever';
+import { LoadableListFetchedChunk } from '../../fetching/LoadableListFragment';
 import * as plexTypes from '../../plex/types';
 import {
 	PseuplexFeedHub,
@@ -9,7 +10,6 @@ import {
 } from '../../pseuplex';
 import { LetterboxdMetadataProvider } from './metadata';
 import * as lbtransform from './transform';
-import { LoadableListFetchedChunk } from '../../fetching/LoadableListFragment';
 
 type PageToken = {
 	csrf: string;

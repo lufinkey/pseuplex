@@ -1,4 +1,9 @@
-import { BandcampAlbum, BandcampItemType, BandcampTrack } from 'bandcamp-retriever';
+import {
+	BandcampAlbum,
+	BandcampFanFeed$Item,
+	BandcampItemType,
+	BandcampTrack
+} from 'bandcamp-retriever';
 import * as plexTypes from '../../plex/types';
 import {
 	PseuplexMetadataIDString,
@@ -13,14 +18,19 @@ import {
 import { combinePathSegments } from '../../utils/misc';
 import { BandcampMetadataItem } from './types';
 
-export const partialMetadataIdFromBandcampItem = (item: BandcampMetadataItem): PseuplexPartialMetadataIDString => {
+type BandcampItemPropsForID = {
+	type: BandcampItemType
+	url: string
+}
+
+export const partialMetadataIdFromBandcampItem = (item: BandcampItemPropsForID): PseuplexPartialMetadataIDString => {
 	return stringifyPartialMetadataID({
 		directory: item.type,
 		id: item.url,
 	});
 };
 
-export const fullMetadataIdFromBandcampItem = (item: BandcampMetadataItem, opts?: {asUrl?: boolean}): PseuplexMetadataIDString => {
+export const fullMetadataIdFromBandcampItem = (item: BandcampItemPropsForID, opts?: {asUrl?: boolean}): PseuplexMetadataIDString => {
 	return stringifyMetadataID({
 		isURL: opts?.asUrl,
 		source: PseuplexMetadataSource.Bandcamp,
@@ -70,6 +80,26 @@ export const bandcampItemToPlexMetadata = (item: BandcampMetadataItem, context: 
 		Pseuplex: {
 			isOnServer: false,
 			unavailable: true, // TODO set based on playabale tracks
+			metadataIds: {
+				[PseuplexMetadataSource.Bandcamp]: partialMetadataId
+			}
+		},
+	};
+};
+
+export const fanFeedItemToPlexMetadata = (item: BandcampFanFeed$Item, options: PseuplexMetadataTransformOptions): PseuplexMetadataItem => {
+	const partialMetadataId = partialMetadataIdFromBandcampItem(item);
+	const fullMetadataId = fullMetadataIdFromBandcampItem(item, {asUrl:false});
+	return {
+		// guid: fullMetadataIdFromBandcampItem(item, {asUrl:true}),
+		key: combinePathSegments(options.metadataBasePath, options.qualifiedMetadataIds ? fullMetadataId : partialMetadataId),
+		ratingKey: fullMetadataId,
+		type: plexTypeFromBandcampItemType(item.type),
+		title: item.name,
+		art: item.images[0]?.url,
+		Pseuplex: {
+			isOnServer: false,
+			unavailable: true, // TODO determine based on item properties
 			metadataIds: {
 				[PseuplexMetadataSource.Bandcamp]: partialMetadataId
 			}

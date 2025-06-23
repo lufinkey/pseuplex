@@ -607,7 +607,10 @@ export abstract class PseuplexMetadataProviderBase<TMetadataItem> implements Pse
 		if(this.relatedHubsProviders && this.relatedHubsProviders.length > 0) {
 			const relatedHubs = (await Promise.all(this.relatedHubsProviders.map(async (hubProvider) => {
 				try {
-					const hub = await hubProvider.get(id);
+					const hub = await hubProvider.get({
+						id,
+						context: options.context,
+					});
 					const hubListEntry = await hub.getHubListEntry(options.plexParams ?? {}, options.context);
 					return [hubListEntry]
 				} catch(error) {
