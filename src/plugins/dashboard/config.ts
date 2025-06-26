@@ -3,7 +3,7 @@ import { PseuplexConfigBase } from '../../pseuplex';
 export type DashboardHubConfig = {
 	plugin: string;
 	hub: string;
-	arg: string;
+	arg?: string;
 };
 
 type DashboardFlags = {

@@ -112,7 +112,7 @@ export abstract class PseuplexHub {
 
 export interface PseuplexHubProvider<THub extends PseuplexHub = PseuplexHub> {
 	get(options: {
-		id: string,
+		id?: string,
 		context: PseuplexRequestContext
 	}): Promise<THub>;
 }
@@ -126,20 +126,21 @@ export abstract class PseuplexHubProviderBase<THub extends PseuplexHub = Pseuple
 		});
 	}
 
-	transformHubID?(id: string, context: PseuplexRequestContext): (string | Promise<string>);
+	transformHubID?(id: (string | undefined), context: PseuplexRequestContext): (string | Promise<string>);
 	abstract fetch(id: string): (THub | Promise<THub>);
 
 	async get(options: {
-		id: string,
+		id?: string,
 		context: PseuplexRequestContext
 	}): Promise<THub> {
-		if(options.id == null) {
+		let { id } = options
+		if(this.transformHubID) {
+			id = await this.transformHubID(id, options.context);
+		}
+		if(id == null) {
 			throw new Error("Invalid null id");
 		}
-		if(this.transformHubID) {
-			options.id = await this.transformHubID(options.id, options.context);
-		}
-		return this.cache.getOrFetch(options.id);
+		return this.cache.getOrFetch(id);
 	}
 }
 

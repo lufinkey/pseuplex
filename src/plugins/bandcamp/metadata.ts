@@ -32,7 +32,7 @@ export class BandcampMetadataProvider extends PseuplexMetadataProviderBase<Bandc
 	}
 
 	override async fetchMetadataItem(id: PseuplexPartialMetadataIDString, options: PseuplexProviderFetchMetadataItemOptions): Promise<BandcampMetadataItem> {
-		const bandcampClient = this.plugin.getBandcampClient(options.context.plexUserInfo);
+		const bandcampClient = this.plugin.bandcampClientForPlexUser(options.context.plexUserInfo);
 		const idParts = parsePartialMetadataID(id);
 		switch(idParts.directory) {
 			case bandcamp.BandcampItemType.Track:

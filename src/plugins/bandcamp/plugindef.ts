@@ -12,5 +12,5 @@ export interface BandcampPluginDef extends PseuplexPlugin {
 	app: PseuplexApp;
 	config: BandcampPluginConfig;
 
-	getBandcampClient(plexUserInfo: PlexServerAccountInfo): bandcamp.Bandcamp;
+	bandcampClientForPlexUser(plexUserInfo: PlexServerAccountInfo): bandcamp.Bandcamp;
 } 
