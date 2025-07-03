@@ -23,6 +23,7 @@ import { getAppVersionString } from './utils/version';
 import { RequestExecutor } from './fetching/RequestExecutor';
 import { PseuplexApp } from './pseuplex';
 import LetterboxdPlugin from './plugins/letterboxd';
+import BandcampPlugin from './plugins/bandcamp';
 import RequestsPlugin from './plugins/requests';
 import DashboardPlugin from './plugins/dashboard';
 import {
@@ -192,6 +193,7 @@ const readPlexPrefsIfNeeded = async () => {
 		logger,
 		plugins: [
 			LetterboxdPlugin,
+			BandcampPlugin,
 			RequestsPlugin,
 			DashboardPlugin,
 			...plugins,
