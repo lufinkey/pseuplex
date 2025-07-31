@@ -197,7 +197,7 @@ export class PlexRequestsHandler implements PseuplexMetadataProvider {
 			throw httpError(401, `User is not allowed to make ${reqProvider.slug} requests`);
 		}
 		// get numeric media type
-		const numericMediaType = plexTypes.PlexMediaItemTypeToNumeric[id.mediaType];
+		let numericMediaType = plexTypes.PlexMediaItemTypeToNumeric[id.mediaType];
 		if(numericMediaType == null) {
 			throw httpError(400, `Unknown media type ${id.mediaType}`);
 		}

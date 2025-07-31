@@ -89,7 +89,7 @@ export abstract class PseuplexFeedHub<
 		const loadAheadCount = opts.loadAheadCount ?? DEFAULT_LOAD_AHEAD_COUNT;
 		let chunk: LoadableListChunk<TItem,TItemToken>;
 		let start: number;
-		const { listStartToken } = params;
+		let { listStartToken } = params;
 		let listStartItemToken: TItemToken | null | undefined = undefined;
 		if(listStartToken != null || (params.start != null && params.start > 0)) {
 			if(listStartToken != null) {

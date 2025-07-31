@@ -1,5 +1,5 @@
 
-const modded = false;
+let modded = false;
 export const modConsoleColors = () => {
 	if(modded) {
 		console.warn("Console colors are already modded. Skipping...");

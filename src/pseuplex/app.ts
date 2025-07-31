@@ -1180,7 +1180,7 @@ export class PseuplexApp {
 		// get metadata for each id
 		const metadataItems = (await Promise.all(metadataIds.map(async (metadataId) => {
 			try {
-				const source = metadataId.source;
+				let source = metadataId.source;
 				// if the metadataId doesn't have a source, assume plex
 				if (source == null || source == PseuplexMetadataSource.Plex) {
 					// fetch from plex
@@ -1297,7 +1297,7 @@ export class PseuplexApp {
 			qualifiedMetadataIds: transformOpts.qualifiedMetadataId,
 		};
 		// get metadata for each id
-		const source = metadataId.source;
+		let source = metadataId.source;
 		// if the metadataId doesn't have a source, assume plex
 		if (source == null || source == PseuplexMetadataSource.Plex) {
 			// fetch from plex
@@ -1428,7 +1428,7 @@ export class PseuplexApp {
 		if(metadataKeyParts) {
 			// path is using /library/metadata
 			let metadataIds = metadataKeyParts.id.split(',');
-			const parsedMetadataIds = metadataIds.map((id) => parseMetadataID(id));
+			let parsedMetadataIds = metadataIds.map((id) => parseMetadataID(id));
 			// remap if the path is using a mapped id
 			if(this.metadataIdMappings) {
 				for(let i=0; i<parsedMetadataIds.length; i++) {
@@ -1604,8 +1604,8 @@ export class PseuplexApp {
 			return;
 		}
 		// check if hub key needs to be mapped
-		const metadataKeyParts = parseMetadataIDFromKey(hub.hubKey, '/library/metadata/');
-		const metadataIds: (string | number)[] | undefined = metadataKeyParts?.id.split(',');
+		let metadataKeyParts = parseMetadataIDFromKey(hub.hubKey, '/library/metadata/');
+		let metadataIds: (string | number)[] | undefined = metadataKeyParts?.id.split(',');
 		if(metadataIds) {
 			for(let i=0; i<metadataIds.length; i++) {
 				const metadataIdString = `${metadataIds[i]}`;
@@ -1634,7 +1634,7 @@ export class PseuplexApp {
 			return;
 		}
 		// check if ID needs to be mapped
-		const metadataKeyParts = parseMetadataIDFromKey(metadataItem.key, '/library/metadata/');
+		let metadataKeyParts = parseMetadataIDFromKey(metadataItem.key, '/library/metadata/');
 		let metadataIdString = metadataKeyParts?.id;
 		if(!metadataIdString) {
 			metadataIdString = metadataItem.ratingKey;

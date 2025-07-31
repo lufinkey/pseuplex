@@ -8,7 +8,7 @@ export const parseHttpContentType = (contentType: string | null | undefined): {c
 		return { contentTypes: [], contentTypeSuffix: '' };
 	}
 	// split content type string
-	const delimeterIndex = contentType.indexOf(';');
+	let delimeterIndex = contentType.indexOf(';');
 	let contentTypeSuffix = '';
 	if(delimeterIndex != -1) {
 		contentTypeSuffix = contentType.substring(delimeterIndex);
@@ -63,7 +63,7 @@ const NameValidationRegex = /^[a-zA-Z0-9:\-_\.]+$/
 const convertPlexJSForXMLBuilder = (json: any, parentKey: string) => {
 	const xmlObj = {};
 	const xmlAttrs = {};
-	for(const key in json) {
+	for(let key in json) {
 		// ignore invalid keys
 		if(!NameValidationRegex.test(key)) {
 			continue;

@@ -9,7 +9,7 @@ export enum PseuplexMetadataSource {
 	PlexServer = 'plexserver',
 	Letterboxd = 'letterboxd',
 	Request = 'request'
-}
+};
 
 export type PseuplexMetadataItem = PlexMetadataItem & {
 	Pseuplex: {

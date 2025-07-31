@@ -56,7 +56,7 @@ export enum UsersSortType {
 	Updated = 'updated',
 	Requests = 'requests',
 	DisplayName = 'displayname'
-}
+};
 
 
 
@@ -66,7 +66,7 @@ export enum MediaRequestStatus {
 	PendingApproval = 1,
 	Approved = 2,
 	Declined = 3
-}
+};
 
 export type MediaRequestItem = {
 	id: number;
@@ -136,7 +136,7 @@ export type CrewMember = {
 export enum MediaType {
 	Movie = 'movie',
 	TV = 'tv'
-}
+};
 
 export enum MediaStatus {
 	Unknown = 1,
@@ -144,7 +144,7 @@ export enum MediaStatus {
 	Processing = 3,
 	PartiallyAvailable = 4,
 	Available = 5
-}
+};
 
 export type MediaItemInfo = {
 	id: number;

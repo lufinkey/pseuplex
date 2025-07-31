@@ -12,7 +12,7 @@ export enum PlexNotificationType {
 	Timeline = 'timeline',
 	Playing = 'playing',
 	UpdateStateChange = 'update.statechange',
-}
+};
 
 export type PlexNotificationContainer = (
 	PlexActivityNotificationContainer
@@ -31,7 +31,7 @@ export enum PlexActivityEventType {
 	Started = 'started',
 	Updated = 'updated',
 	Ended = 'ended'
-}
+};
 
 export enum PlexActivityType {
 	LibraryRefreshItems = 'library.refresh.items',
@@ -135,7 +135,7 @@ export enum PlexTimelineEntryNotificationState {
 	AddingExtras = 4,
 	FinishedRefresh = 5,
 	Deleted = 9,
-}
+};
 
 export enum PlexTimelineEntryNotificationMetadataState {
 	Created = 'created',

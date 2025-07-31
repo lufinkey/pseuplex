@@ -76,7 +76,7 @@ export type PseuplexMetadataChildrenParams = {
 export enum PseuplexRelatedHubsSource {
 	Library = 'library',
 	Hubs = 'hubs',
-}
+};
 
 export type PseuplexRelatedHubsParams = {
 	plexParams?: plexTypes.PlexHubListPageParams;
@@ -175,7 +175,7 @@ export abstract class PseuplexMetadataProviderBase<TMetadataItem> implements Pse
 	
 	abstract getPlexMatchParams(metadataItem: TMetadataItem): (PlexMediaItemMatchParams | null);
 	async getPlexGUIDForID(id: PseuplexPartialMetadataIDString, context: PseuplexRequestContext): Promise<string | null> {
-		const plexGuid = this.idToPlexGuidCache.get(id);
+		let plexGuid = this.idToPlexGuidCache.get(id);
 		if(plexGuid || plexGuid === null) {
 			return await plexGuid;
 		}
@@ -312,7 +312,7 @@ export abstract class PseuplexMetadataProviderBase<TMetadataItem> implements Pse
 				continue;
 			}
 			// check if matching GUID exists for provider metadata id
-			const plexGuid = this.idToPlexGuidCache.get(id);
+			let plexGuid = this.idToPlexGuidCache.get(id);
 			if(plexGuid || plexGuid === null) {
 				plexGuids[id] = plexGuid;
 			}
@@ -567,7 +567,7 @@ export abstract class PseuplexMetadataProviderBase<TMetadataItem> implements Pse
 				size: childItemsPage.items?.length ?? 0,
 				totalSize: childItemsPage.totalItemCount,
 				Metadata: childItemsPage.items.map((metadataItem) => {
-					const pseuMetadataItem = this.transformMetadataItem(metadataItem, context, transformOpts);
+					let pseuMetadataItem = this.transformMetadataItem(metadataItem, context, transformOpts);
 					return pseuMetadataItem;
 				})
 			}

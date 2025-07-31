@@ -153,7 +153,7 @@ export type PseuplexPartialMetadataIDString =
 	| `${string}:${string}`;
 
 export const parsePartialMetadataID = (metadataId: PseuplexPartialMetadataIDString): PseuplexPartialMetadataIDParts => {
-	const colonIndex = metadataId.indexOf(':');
+	let colonIndex = metadataId.indexOf(':');
 	if(colonIndex == -1) {
 		return {id:qs.unescape(metadataId)};
 	}

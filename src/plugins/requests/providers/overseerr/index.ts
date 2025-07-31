@@ -100,7 +100,7 @@ export class OverseerrRequestsProvider implements RequestsProvider {
 	}
 
 	async _getOverseerrUserFromPlexUser(token: string, userInfo: PlexServerAccountInfo): Promise<overseerrTypes.User | null> {
-		const overseerrUser = this._findOverseerrUserFromPlexUser(token, userInfo);
+		let overseerrUser = this._findOverseerrUserFromPlexUser(token, userInfo);
 		if(overseerrUser) {
 			return overseerrUser;
 		}
@@ -126,8 +126,8 @@ export class OverseerrRequestsProvider implements RequestsProvider {
 			throw httpError(401, `User is not allowed to request media from ${this.slug}`);
 		}
 		// get plex item info
-		const guidPrefix: string = 'tmdb://';
-		const mediaIdKey: ('tvdbId' | 'mediaId') = 'mediaId';
+		let guidPrefix: string = 'tmdb://';
+		let mediaIdKey: ('tvdbId' | 'mediaId') = 'mediaId';
 		let type: overseerrTypes.MediaType;
 		switch(plexItem.type) {
 			case plexTypes.PlexMediaItemType.Movie:

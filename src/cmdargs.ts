@@ -57,7 +57,7 @@ const ArgsWithValues: Set<CmdFlag> = new Set([
 ]);
 
 export const parseCmdArgs = (args: string[]): CommandArguments => {
-	const parsedArgs: CommandArguments = {};
+	var parsedArgs: CommandArguments = {};
 	for(let i=0; i<args.length; i++) {
 		const arg = args[i];
 		// check if argument is a flag

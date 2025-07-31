@@ -115,7 +115,7 @@ export const filmInfoToPlexMetadata = (filmInfo: letterboxd.FilmPage, context: P
 };
 
 export const filmInfoGuids = (filmInfo: letterboxd.FilmPage) => {
-	const guids: `${string}://${string}`[] = [];
+	let guids: `${string}://${string}`[] = [];
 	const tmdbInfo = filmInfo.pageData.tmdb;
 	if(tmdbInfo && tmdbInfo.id) {
 		guids.push(`tmdb://${tmdbInfo.id}`);

@@ -45,7 +45,7 @@ export enum PlexTVSearchResultsType {
 	Plex = 'plex',
 	PlexTVOnDemand = 'plex_tvod',
 	External = 'external'
-}
+};
 
 export type PlexTVSearchResults = {
 	id: PlexTVSearchResultsType;
