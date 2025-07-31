@@ -36,6 +36,8 @@
 		"@types/uuid": "^10.0.0",
 		"@types/winreg": "^1.2.36",
 		"@types/xml2js": "^0.4.14",
-		"typescript": "^5.5.3"
+		"typescript": "^5.5.3",
+		"eslint": "^8.56.0",
+		"typescript-eslint": "^7.17.0"
 	}
 }

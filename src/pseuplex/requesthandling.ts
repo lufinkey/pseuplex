@@ -45,7 +45,7 @@ export const pseuplexMetadataIdRequestMiddleware = <TResult>(
 		keysToIdsMap: {[key: string]: (number | string)}) => Promise<TResult>,
 ) => {
 	return asyncRequestHandler(async (req: express.Request, res): Promise<boolean> => {
-		let metadataId = req.params.metadataId;
+		const metadataId = req.params.metadataId;
 		if(!metadataId) {
 			// let plex handle the empty api request
 			return false;

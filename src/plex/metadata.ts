@@ -9,7 +9,7 @@ import { forArrayOrSingle } from '../utils/misc';
 
 export const createPlexServerIdToGuidCache = (options: plexServerAPI.PlexAPIRequestOptions) => {
 	return new CachedFetcher<string | null>(async (id: string) => {
-		let metadatas = (await plexServerAPI.getLibraryMetadata(id, options))?.MediaContainer?.Metadata;
+		const metadatas = (await plexServerAPI.getLibraryMetadata(id, options))?.MediaContainer?.Metadata;
 		let metadata: plexTypes.PlexMetadataItem;
 		if(metadatas instanceof Array) {
 			metadata = metadatas[0];
@@ -42,7 +42,7 @@ export class PlexGuidToInfoCache extends CachedFetcher<PlexGuidCachedInfo | null
 	}) {
 		super(async (guid: string) => {
 			const guidParts = parsePlexMetadataGuid(guid);
-			let metadatas = (await this.plexMetadataClient.getMetadata(guidParts.id))?.MediaContainer?.Metadata;
+			const metadatas = (await this.plexMetadataClient.getMetadata(guidParts.id))?.MediaContainer?.Metadata;
 			let metadataItem: plexTypes.PlexMetadataItem;
 			if(metadatas instanceof Array) {
 				metadataItem = metadatas[0];

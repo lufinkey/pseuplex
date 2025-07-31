@@ -47,7 +47,7 @@ function getPortFromRequest(req: express.Request) {
   return port ?
 	port
     : requestIsEncrypted(req) ? '443' : '80';
-};
+}
 
 export const plexThinProxy = (serverURL: string, args: PlexProxyOptions, proxyOptions: expressHttpProxy.ProxyOptions = {}) => {
 	proxyOptions = {

@@ -180,7 +180,7 @@ export class PlexMediaProviderClient extends PlexSubclientBase<
 	plexTypes.PlexFeatureType,
 	plexTypes.PlexMediaProviderFeature> {
 	
-	protected override get _subclientFeatures() { return this.data?.Feature; };
+	protected override get _subclientFeatures() { return this.data?.Feature; }
 	
 	get getMatches() { return this._featureMethod(plexTypes.PlexFeatureType.Match, this._getMatches); }
 	private async _getMatches(feature: plexTypes.PlexFeature, params: plexTypes.PlexGetLibraryMatchesParams, options?: PlexClientMethodOptions): Promise<plexTypes.PlexMetadataPage> {
@@ -258,7 +258,7 @@ export class PlexMediaProviderSettingsClient extends PlexSubclientBase<
 	plexTypes.PlexMediaProviderSettingType,
 	plexTypes.PlexMediaProviderSetting> {
 	
-	protected override get _subclientFeatures() { return this.data?.MediaContainer?.Setting; };
+	protected override get _subclientFeatures() { return this.data?.MediaContainer?.Setting; }
 
 	get getSearchProviders() { return this._featureMethod(plexTypes.PlexMediaProviderSettingType.SearchProviders, this._getSearchProviders); }
 	private async _getSearchProviders(setting: plexTypes.PlexMediaProviderSetting, options?: PlexClientMethodOptions): Promise<plexTypes.PlexTVSearchProvidersPage> {

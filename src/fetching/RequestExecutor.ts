@@ -160,7 +160,7 @@ export class RequestExecutor {
 	}
 
 	private _doRequestWork<T>(work: () => Promise<T>, abortSignal: AbortSignal | null): Promise<T> {
-		let promise = work();
+		const promise = work();
 		if(!promise) {
 			return promise;
 		}

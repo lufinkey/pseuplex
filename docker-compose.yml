@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  pseuplex:
+    build: .
+    container_name: pseuplex
+    restart: unless-stopped
+    ports:
+      - "32397:32397"
+    volumes:
+      # Mount your config.json file here.
+      # You should create a 'config' directory in the same directory as this docker-compose.yml
+      # and place your config.json inside it.
+      - ./config:/config:ro
+
+      # Mount your plex app data directory here if you want to use autoP12Path.
+      # This path should match the plex service's config volume.
+      # This allows pseuplex to find the SSL certificates from your Plex installation.
+      - ./plex/config:/plex-config:ro
+
+      # If you are not using autoP12Path, you can mount your ssl certs here
+      # and update the path in your config.json.
+      - ./ssl:/ssl:ro
+    depends_on:
+      - plex
+
+  plex:
+    container_name: plex
+    image: plexinc/pms-docker
+    restart: unless-stopped
+    ports:
+      # You may not want to expose the plex port directly to the host,
+      # as the primary way to access it should be through pseuplex.
+      # If you choose to expose it, use a different port than 32400 to avoid conflicts
+      # if you have another Plex instance running on the host.
+      - "32401:32400"
+    environment:
+      - TZ=America/New_York # Set your timezone
+      # This should be the URL of your pseuplex proxy.
+      # Replace <your-domain-or-ip> with the actual domain or IP address
+      # of the machine running Docker.
+      - PLEX_ADVERTISE_URL="http://<your-domain-or-ip>:32397"
+    volumes:
+      # These paths should be updated to where your plex data is stored on the host.
+      # It is recommended to use absolute paths for Plex data.
+      - ./plex/config:/config
+      - ./plex/transcode:/transcode
+      - ./plex/data:/data:ro

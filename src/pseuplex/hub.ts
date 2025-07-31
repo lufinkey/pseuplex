@@ -61,7 +61,7 @@ export abstract class PseuplexHub {
 	
 	async getHubListEntry(params: PseuplexHubPageParams, context: PseuplexRequestContext): Promise<plexTypes.PlexHubWithItems> {
 		const page = await this.get(params, context);
-		let transformOpts = this.metadataTransformOptions;
+		const transformOpts = this.metadataTransformOptions;
 		let metadataBasePath = transformOpts.metadataBasePath;
 		if(metadataBasePath && !metadataBasePath.endsWith('/')) {
 			metadataBasePath += '/';

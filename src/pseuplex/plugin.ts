@@ -60,4 +60,4 @@ export interface PseuplexPlugin {
 	getSections?: (context: PseuplexRequestContext) => Promise<PseuplexSection[]>;
 	shouldListenToPlexServerNotifications?: () => boolean;
 	onPlexServerNotification?: (notification: plexTypes.PlexNotificationMessage) => void;
-};
+}

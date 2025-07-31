@@ -5,7 +5,7 @@ export enum PlexTVSearchProviderType {
 	plexAvailableOnDemand = 'plexAVOD',
 	plexTVOnDemand = 'plexTVOD',
 	plexFAST = 'plexFAST'
-};
+}
 
 export type PlexTVSearchProvider = {
 	enabled: boolean;

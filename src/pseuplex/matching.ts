@@ -47,7 +47,7 @@ export const findMatchingPlexMediaItem = async (metadataClient: PlexClient, para
 	}
 	// no matches against guids, so try finding by title and year if possible
 	if(params.year) {
-		let includedFields = params.includeFields;
+		const includedFields = params.includeFields;
 		if(includedFields) {
 			if(includedFields.indexOf('title') == -1) {
 				includedFields.push('title');

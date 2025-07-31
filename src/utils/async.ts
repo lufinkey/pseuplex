@@ -2,7 +2,7 @@
 export const promiseCountSettled = (promises: Iterable<Promise<any>>, expectedCount: number): Promise<void> => {
 	return new Promise((resolve, reject) => {
 		let completedCount = 0;
-		let total = 0;
+		const total = 0;
 		for(const promise of promises) {
 			promise.then(() => {
 				completedCount++;

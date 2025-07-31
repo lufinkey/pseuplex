@@ -64,7 +64,7 @@ export class CachedFetcher<ItemType> {
 	}
 
 	async getOrFetch(id: string | number): Promise<ItemType> {
-		let itemNode = this._cache[id];
+		const itemNode = this._cache[id];
 		if(itemNode == null) {
 			return await this.fetch(id);
 		}
