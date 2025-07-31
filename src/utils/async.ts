@@ -4,6 +4,7 @@ export const promiseCountSettled = (promises: Iterable<Promise<any>>, expectedCo
 		let completedCount = 0;
 		let total = 0;
 		for(const promise of promises) {
+			total++;
 			promise.then(() => {
 				completedCount++;
 				if(completedCount === expectedCount) {

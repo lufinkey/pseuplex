@@ -5,6 +5,7 @@ export const modConsoleColors = () => {
 		console.warn("Console colors are already modded. Skipping...");
 		return;
 	}
+	modded = true;
 
 	const innerConsoleError = console.error;
 	console.error = function (...args) {

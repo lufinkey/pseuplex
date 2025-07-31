@@ -72,11 +72,11 @@ export class PlexServerAccountsStore {
 					});
 				} catch(error) {
 					// 401 means the token isn't authorized as the server owner
-					if((error as HttpResponseError).httpResponse?.status != 401) {
-						// all non-401 errors should still get thrown
-						throw error;
+					if((error as HttpResponseError).httpResponse?.status == 401) {
+						return null;
 					}
-					myPlexAccountPage = null;
+					// all non-401 errors should still get thrown
+					throw error;
 				}
 				// check that required data exists
 				if(!myPlexAccountPage?.MyPlex?.username) {

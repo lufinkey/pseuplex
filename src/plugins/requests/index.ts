@@ -164,9 +164,9 @@ export default (class RequestsPlugin implements PseuplexPlugin {
 					// cache metadata access if needed
 					if(this.app.pluginMetadataAccessCache) {
 						const metadataId = reqsTransform.createRequestPartialMetadataId({
+							requestProviderSlug: providerSlug,
 							mediaType: mediaType as plexTypes.PlexMediaItemType,
 							plexId,
-							requestProviderSlug: providerSlug,
 							season,
 						});
 						let metadataKey = req.path;
