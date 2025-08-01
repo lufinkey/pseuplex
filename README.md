@@ -172,3 +172,45 @@ To run, cd into this repo's folder in terminal and run the following commands, r
 npm install
 npm start -- --config="/path/to/config.json"
 ```
+
+Alternatively, you can use Docker. See the [Running with Docker](#running-with-docker) section for more details.
+
+### Running with Docker
+
+The easiest way to run pseuplex is with Docker. A `docker-compose.yml` file is provided to run both `pseuplex` and `plex` services.
+
+1.  **Install Docker and Docker Compose.** If you don't have them installed, follow the official instructions for your operating system.
+
+2.  **Create a `config` directory** in the same directory where you have the `docker-compose.yml` file, and create a `config.json` file inside it. Refer to the [Configuration](#configuration) section for the available options.
+
+    Your `config.json` file should be configured to work with the Docker setup. For example, the `plex.host` should point to the plex service name defined in the `docker-compose.yml` file, which is `http://plex:32400`.
+
+    Here is an example `config.json` for Docker:
+
+    ```json
+    {
+        "port": 32397,
+        "plex": {
+            "host": "http://plex:32400",
+            "token": "<YOUR PLEX TOKEN>"
+        }
+    }
+    ```
+
+3.  **Configure Plex volumes.** The `docker-compose.yml` file is configured to use relative paths for Plex data (`./plex/config`, `./plex/transcode`, `./plex/data`). You should update these paths to point to the actual location of your Plex data on your host machine. It is recommended to use absolute paths.
+
+4.  **Set the advertise URL for Plex.** In the `docker-compose.yml` file, you need to set the `PLEX_ADVERTISE_URL` environment variable for the `plex` service. This URL should point to your `pseuplex` proxy. Replace `<your-domain-or-ip>` with the public IP address or domain name of the machine running Docker.
+
+5.  **Run the services.** Open a terminal in the project root directory and run the following command:
+
+    ```sh
+    docker-compose up -d
+    ```
+
+    This will build the `pseuplex` image and start both the `pseuplex` and `plex` services in the background.
+
+    To view the logs, you can use the following command:
+
+    ```sh
+    docker-compose logs -f pseuplex
+    ```
