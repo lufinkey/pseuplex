@@ -21,8 +21,15 @@ export const asyncRequestHandler = <TRequest extends express.Request = express.R
 export const expressErrorHandler = (error: Error, req: express.Request, res: express.Response, next) => {
 	if(error) {
 		console.error(`Got error while handling request:`);
-		console.error(`url: ${req.originalUrl}`);
-		console.error(`headers: ${JSON.stringify(req.rawHeaders, null, '\t')}`);
+		console.error(`\turl: ${req.originalUrl}`);
+		console.error(`\theaders:\n`);
+		const reqHeaderList = req.rawHeaders;
+		for(let i=0; i<reqHeaderList.length; i++) {
+			const headerKey = reqHeaderList[i];
+			i++;
+			const headerVal = reqHeaderList[i];
+			console.error(`\t\t${headerKey}: ${headerVal}`);
+		}
 		console.error(error);
 		let statusCode =
 			(error as HttpError).statusCode

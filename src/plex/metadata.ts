@@ -42,6 +42,9 @@ export class PlexGuidToInfoCache extends CachedFetcher<PlexGuidCachedInfo | null
 	}) {
 		super(async (guid: string) => {
 			const guidParts = parsePlexMetadataGuid(guid);
+			if(!guidParts) {
+				return undefined!;
+			}
 			let metadatas = (await this.plexMetadataClient.getMetadata(guidParts.id))?.MediaContainer?.Metadata;
 			let metadataItem: plexTypes.PlexMetadataItem;
 			if(metadatas instanceof Array) {

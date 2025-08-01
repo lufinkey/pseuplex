@@ -129,9 +129,9 @@ type PublicFeatureMethod<TArg extends Array<any>,TReturn> = (...args: TArg) => T
 abstract class PlexSubclientBase<TData,TFeatureType,TFeature extends PlexSubclientFeatureBase<TFeatureType>> {
 	readonly data: TData;
 	readonly requestOptions: plexServerAPI.PlexAPIRequestOptions;
-	readonly requestExecutor: RequestExecutor;
+	readonly requestExecutor?: RequestExecutor | null | undefined;
 
-	constructor(data: TData, options: plexServerAPI.PlexAPIRequestOptions, requestExecutor: RequestExecutor) {
+	constructor(data: TData, options: plexServerAPI.PlexAPIRequestOptions, requestExecutor?: RequestExecutor | null | undefined) {
 		this.data = data;
 		this.requestOptions = options;
 		this.requestExecutor = requestExecutor;
@@ -214,7 +214,7 @@ export class PlexMediaProviderClient extends PlexSubclientBase<
 	}
 
 	get getMetadataChildren() { return this._featureMethod(plexTypes.PlexFeatureType.Metadata, this._getMetadataChildren); }
-	private async _getMetadataChildren(feature: plexTypes.PlexFeature, id: string, params?: plexTypes.PlexMetadataChildrenPageParams, options?: PlexClientMethodOptions): Promise<plexTypes.PlexMetadataPage> {
+	private async _getMetadataChildren(feature: plexTypes.PlexFeature, id: string, params?: plexTypes.PlexMetadataChildrenPageParams, options?: PlexClientMethodOptions): Promise<plexTypes.PlexMetadataChildrenPage> {
 		return await this.fetch({
 			endpoint: `${feature.key}/${qs.escape(id)}/children`,
 			method: 'GET',

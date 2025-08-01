@@ -16,8 +16,8 @@ export type HttpResponseError = Error & {
 	httpResponse: Response;
 };
 
-export const httpResponseError = (url: string, res: Response) => {
-	const error = new Error(res.statusText) as HttpResponseError;
+export const httpResponseError = (url: string, res: Response, message?: string) => {
+	const error = new Error(message || res.statusText) as HttpResponseError;
 	error.code = `HTTP${res.status}`;
 	error.url = url;
 	error.httpResponse = res;

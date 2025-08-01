@@ -1,5 +1,3 @@
-import { parsePlexMetadataGuid } from '../plex/metadataidentifier';
-import * as plexTypes from '../plex/types';
 import { PseuplexMetadataProvider } from './metadata';
 import { qualifyPartialMetadataID } from './metadataidentifier';
 import { PseuplexMetadataItem, PseuplexRequestContext } from './types';
@@ -42,7 +40,7 @@ export class PseuplexMetadataAccessCache {
 		if(!metadatas) {
 			return;
 		}
-		let metadataItem: PseuplexMetadataItem;
+		let metadataItem: PseuplexMetadataItem | undefined;
 		if(metadatas instanceof Array) {
 			if(metadatas.length == 1) {
 				metadataItem = metadatas[0];
@@ -154,9 +152,13 @@ export class PseuplexMetadataAccessCache {
 		if(accessors) {
 			for(const {token,clientId} of accessors) {
 				const metadataIdsMap = this.getMetadataIdMapForGuidAndClient(guid,token,clientId);
+				if(!metadataIdsMap) {
+					console.error(`metadata ids map was undefined for guid ${guid}, even though it was listed as an accessor`);
+					continue;
+				}
 				const metadataIds = Object.keys(metadataIdsMap);
 				if(metadataIds.length == 0) {
-					console.warn(`0 metadata ids for guid ${guid}, even though it was listed as an accessor`);
+					console.error(`0 metadata ids for guid ${guid}, even though it was listed as an accessor`);
 					continue;
 				}
 				callback({token, clientId, metadataIds, metadataIdsMap});

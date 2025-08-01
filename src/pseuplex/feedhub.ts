@@ -79,7 +79,7 @@ export abstract class PseuplexFeedHub<
 		}
 	}
 	
-	abstract parseItemTokenParam(itemToken: string): TItemToken | null;
+	abstract parseItemTokenParam(itemToken: string): TItemToken | null | undefined;
 	abstract fetchPage(pageToken: TPageToken | null): Promise<PseuplexFeedHubChunk<TItem,TItemToken,TPageToken>>;
 	abstract compareItemTokens(itemToken1: TItemToken, itemToken2: TItemToken): number;
 	abstract transformItem(item: TItem, context: PseuplexRequestContext): (plexTypes.PlexMetadataItem | Promise<plexTypes.PlexMetadataItem>);

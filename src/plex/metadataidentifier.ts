@@ -8,32 +8,20 @@ export type PlexMetadataKeyParts = {
 	relativePath?: string;
 };
 
-export const parseMetadataIDFromKey = (metadataKey: string | null | undefined, basePath: string, warnOnFailure: boolean = true): PlexMetadataKeyParts | null => {
+export const parseMetadataIDFromKeyOrThrow = (metadataKey: string | null | undefined, basePath: string): PlexMetadataKeyParts | null => {
 	if(!metadataKey) {
-		if(warnOnFailure) {
-			console.error(new Error(`Null metadata id passed to parseMetadataIDFromKey`));
-		}
-		return null;
+		throw httpError(400, `Invalid empty metadata key`);
 	}
 	if(!metadataKey.startsWith(basePath)) {
-		if(warnOnFailure) {
-			console.warn(`Unrecognized metadata key ${metadataKey}`);
-		}
-		return null;
+		throw httpError(400, `Unrecognized metadata key ${metadataKey}`);
 	}
 	if(metadataKey.length == basePath.length) {
-		if(warnOnFailure) {
-			console.warn(`Metadata key is the same as the base path ${metadataKey}`);
-		}
-		return null;
+		throw httpError(400, `Metadata key is the same as the base path ${metadataKey}`);
 	}
 	let idStartIndex = basePath.length;
 	if(!basePath.endsWith('/')) {
 		if(metadataKey[basePath.length] != '/') {
-			if(warnOnFailure) {
-				console.warn(`Unrecognized metadata key ${metadataKey}`);
-			}
-			return null;
+			throw httpError(400, `Unrecognized metadata key ${metadataKey}`);
 		}
 		idStartIndex += 1;
 	}
@@ -52,43 +40,70 @@ export const parseMetadataIDFromKey = (metadataKey: string | null | undefined, b
 	};
 };
 
+export const parseMetadataIDFromKey = (metadataKey: string | null | undefined, basePath: string, warnOnFailure: boolean = true): PlexMetadataKeyParts | null => {
+	try {
+		return parseMetadataIDFromKeyOrThrow(metadataKey, basePath);
+	} catch(error) {
+		if(warnOnFailure) {
+			console.warn((error as Error).message);
+		}
+		return null;
+	}
+};
+
 export type PlexMetadataGuidParts = {
-	protocol: 'plex' | string;
-	type: plexTypes.PlexMediaItemType | string;
+	protocol: plexTypes.PlexMetadataGuidProtocol | string;
+	type?: plexTypes.PlexMediaItemType | string;
 	id: string
 };
 
-export const parsePlexMetadataGuid = (guid: string): PlexMetadataGuidParts => {
+export const parsePlexMetadataGuidOrThrow = (guid: string): PlexMetadataGuidParts => {
 	if(!guid) {
 		throw httpError(400, "Invalid empty guid");
 	}
-	// trim trailing slashes
-	while(guid.endsWith('/')) {
+	// trim trailing slash
+	if(guid.endsWith('/')) {
 		guid = guid.substring(0, guid.length-1);
 	}
-	// parse ID portion
-	const slashIndex = guid.lastIndexOf('/');
-	if(slashIndex == -1) {
-		throw httpError(400, `Invalid guid ${guid}`);
-	}
-	const id = guid.substring(slashIndex+1);
-	// parse type portion
-	const prevSlashIndex = guid.lastIndexOf('/', slashIndex-1);
-	if(prevSlashIndex == -1) {
-		throw httpError(400, `Invalid guid ${guid}`);
-	}
-	const type = guid.substring(prevSlashIndex+1, slashIndex);
 	// parse protocol
-	if(prevSlashIndex < 3 || guid[prevSlashIndex-2] != ':' || guid[prevSlashIndex-1] != '/') {
-		throw httpError(400, `Invalid guid structure  ${guid}`);
+	const protocolEndIndex = guid.indexOf('://');
+	if(protocolEndIndex == -1) {
+		throw httpError(400, `Invalid guid ${guid}`);
 	}
-	const protocol = guid.substring(0, prevSlashIndex-2);
+	const protocol = guid.slice(0, protocolEndIndex);
+	// split remaining path
+	const remainingPath = guid.slice(protocolEndIndex+3);
+	if(!remainingPath) {
+		throw httpError(400, `Invalid guid ${guid}`);
+	}
+	const pathParts = remainingPath.split('/');
+	if(pathParts.length > 2) {
+		throw httpError(400, `Invalid guid ${guid}`);
+	}
+	// parse ID portion
+	const id = pathParts[pathParts.length-1];
+	if(!id) {
+		throw httpError(400, `Invalid guid ${guid}`);
+	}
+	// parse type portion
+	const type = pathParts.length > 1 ? pathParts[0] : undefined;
 	// parse protocol
 	return {
 		protocol,
 		type,
 		id
 	};
+};
+
+export const parsePlexMetadataGuid = (guid: string, warnOnFailure = true): PlexMetadataGuidParts | null => {
+	try {
+		return parsePlexMetadataGuidOrThrow(guid);
+	} catch(error) {
+		if(warnOnFailure) {
+			console.warn((error as Error).message);
+		}
+		return null;
+	}
 };
 
 export const parsePlexExternalGuids = (guids: plexTypes.PlexGuid[]): {[source: string]: string} => {

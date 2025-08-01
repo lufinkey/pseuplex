@@ -16,9 +16,13 @@ export class PlexMetadataMatchStore {
 	constructor(options: PlexMetadataMatchStoreOptions) {
 		this._options = options;
 	}
-}
+};
 
-export type PlexMediaItemMatchParams = {
+export type PlexMetadatas = {
+
+};
+
+export type PlexMetadataItemMatchParams = {
 	title: string,
 	year?: number | string,
 	types: plexTypes.PlexMediaItemTypeNumeric | plexTypes.PlexMediaItemTypeNumeric[],
@@ -28,7 +32,7 @@ export type PlexMediaItemMatchParams = {
 	excludeElements?: string[],
 };
 
-export const findMatchingPlexMediaItem = async (metadataClient: PlexClient, params: PlexMediaItemMatchParams): Promise<plexTypes.PlexMetadataItem | null> => {
+export const findMatchingPlexMetadataItem = async (metadataClient: PlexClient, params: PlexMetadataItemMatchParams): Promise<plexTypes.PlexMetadataItem | null> => {
 	// match against guids
 	if(params.guids) {
 		for(const guid of params.guids) {

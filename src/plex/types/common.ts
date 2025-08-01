@@ -38,6 +38,11 @@ export enum PlexLanguage {
 	EnglishUS = 'en-US'
 }
 
+export enum PlexMetadataGuidProtocol {
+	Plex = 'plex',
+	Local = 'local',
+}
+
 export enum PlexMediaItemType {
 	Movie = 'movie',
 	TVShow = 'show',

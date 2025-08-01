@@ -3,8 +3,8 @@ import qs from 'querystring';
 import * as plexTypes from '../../plex/types';
 import {
 	PseuplexMetadataItem,
-	PlexMediaItemMatchParams,
 	PseuplexMetadataProviderBase,
+	PseuplexMetadataProviderItemMatchParams,
 	PseuplexMetadataTransformOptions,
 	PseuplexPartialMetadataIDString,
 	PseuplexRequestContext,
@@ -43,7 +43,7 @@ export class TemplateMetadataProvider extends PseuplexMetadataProviderBase<Templ
 		return tmplTransform.partialMetadataIdFromTemplateItem(metadataItem);
 	}
 
-	override getPlexMatchParams(metadataItem: TemplateMetadataItem): PlexMediaItemMatchParams {
+	override getPlexMatchParams(metadataItem: TemplateMetadataItem): PseuplexMetadataProviderItemMatchParams {
 		// TODO give parameters to find a matching plex item from the given metadata item
 		let types: plexTypes.PlexMediaItemTypeNumeric[];
 		switch(metadataItem.type) {

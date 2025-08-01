@@ -47,8 +47,8 @@ export abstract class PseuplexPlaylist {
 		return {
 			MediaContainer: {
 				size: (page.items?.length ?? 0),
-				totalSize: page.totalCount,
-				offset: page.offset,
+				totalSize: page.totalCount!,
+				offset: page.offset!,
 				composite: page.playlist.composite,
 				duration: Math.floor(page.playlist.duration / 1000),
 				leafCount: page.playlist.leafCount,
@@ -76,6 +76,6 @@ export abstract class PseuplexPlaylistProvider<TPlaylist extends PseuplexPlaylis
 	abstract fetch(id: string): (TPlaylist | Promise<TPlaylist>);
 
 	async get(id: string): Promise<TPlaylist> {
-		return this.cache.getOrFetch(id);
+		return await this.cache.getOrFetch(id);
 	}
 }

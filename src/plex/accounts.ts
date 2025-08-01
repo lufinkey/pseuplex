@@ -33,7 +33,7 @@ export class PlexServerAccountsStore {
 	_sharedServersTask: Promise<void> | null = null;
 	_lastSharedServersFetchTime: number | null = null;
 
-	_logPlexFuckery: boolean;
+	_logPlexFuckery?: boolean;
 
 	constructor(options: PlexServerAccountsStoreOptions) {
 		this.plexServerProperties = options.plexServerProperties;

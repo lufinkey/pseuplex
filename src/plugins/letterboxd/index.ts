@@ -156,11 +156,14 @@ export default (class LetterboxdPlugin implements PseuplexPlugin {
 					if(!listSlug) {
 						return id;
 					}
-					delete hrefParts.base;
-					delete hrefParts.userSlug;
-					delete hrefParts.listSlug;
-					const queryKeys = Object.keys(hrefParts).sort();
+					// get list params from href (by, with, etc)
+					const hrefParams: {[key: string]: any} = {...hrefParts};
+					delete hrefParams.base;
+					delete hrefParams.userSlug;
+					delete hrefParams.listSlug;
+					const queryKeys = Object.keys(hrefParams).sort();
 					if(queryKeys.length > 0) {
+						// href has params
 						const query = {};
 						for(const key of queryKeys) {
 							const val = hrefParts[key];
@@ -173,8 +176,10 @@ export default (class LetterboxdPlugin implements PseuplexPlugin {
 							}
 						}
 						return `${userSlug}:${listSlug}?${qs.stringify(query)}`
+					} else {
+						// href doesn't have params
+						return `${userSlug}:${listSlug}`;
 					}
-					return `${userSlug}:${listSlug}`;
 				}
 
 				override fetch(listId: lbTransform.PseuplexLetterboxdListID): PseuplexHub | Promise<PseuplexHub> {
@@ -289,7 +294,7 @@ export default (class LetterboxdPlugin implements PseuplexPlugin {
 							return;
 						}
 						const metadataIdParts = parsePartialMetadataID(metadataId);
-						// add similar items hub
+						// add letterboxd hubs
 						const metadataProvider = this.metadata;
 						const relHubsData = await metadataProvider.getRelatedHubs(metadataId, {
 							context,
@@ -298,8 +303,10 @@ export default (class LetterboxdPlugin implements PseuplexPlugin {
 						const existingRelatedItemCount = (metadataItem.Related?.Hub?.length ?? 0);
 						if(existingRelatedItemCount > 0) {
 							const relatedItemsOgCount = relHubsData.MediaContainer.size ?? relHubsData.MediaContainer.Hub?.length ?? 0;
-							relHubsData.MediaContainer.Hub = metadataItem.Related.Hub.concat(relHubsData.MediaContainer.Hub);
-							relHubsData.MediaContainer.size = relatedItemsOgCount + existingRelatedItemCount;
+							if(relatedItemsOgCount > 0) {
+								relHubsData.MediaContainer.Hub = metadataItem.Related!.Hub!.concat(relHubsData.MediaContainer.Hub!);
+								relHubsData.MediaContainer.size = relatedItemsOgCount + existingRelatedItemCount;
+							}
 						}
 						// filter response
 						await this.app.filterResponse('metadataRelatedHubsFromProvider', relHubsData, {
@@ -439,7 +446,7 @@ export default (class LetterboxdPlugin implements PseuplexPlugin {
 				letterboxdId = stringifyPartialMetadataID(metadataId);
 			} else {
 				// get plex guid
-				let plexGuid: string | null = null;
+				let plexGuid: string | null | undefined = null;
 				if(metadataId.source == PseuplexMetadataSource.Plex) {
 					plexGuid = stringifyMetadataID({
 						...metadataId,

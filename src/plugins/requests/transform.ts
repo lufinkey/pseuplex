@@ -1,12 +1,12 @@
 import * as plexTypes from '../../plex/types';
-import { parsePlexMetadataGuid } from '../../plex/metadataidentifier';
+import { parsePlexMetadataGuidOrThrow } from '../../plex/metadataidentifier';
 import {
 	PseuplexMetadataSource,
 	PseuplexPartialMetadataIDString,
 	stringifyMetadataID,
 	stringifyPartialMetadataID,
 	parsePartialMetadataID
-} from "../../pseuplex";
+} from '../../pseuplex';
 
 export const ChildrenRelativePath = '/children';
 export const SeasonRelativePath = '/season/';
@@ -90,7 +90,8 @@ export const createRequestItemMetadataKey = (options: {
 }): string => {
 	if(options.qualifiedMetadataId) {
 		const metadataId = createRequestFullMetadataId(options);
-		return `${options.basePath}/${metadataId}`;
+		return `${options.basePath}/${metadataId}`
+			+ (options.children ? ChildrenRelativePath : '');
 	} else {
 		return `${options.basePath}/${options.requestProviderSlug}/${options.mediaType}/${options.plexId}`
 			+ (options.season != null ? `${SeasonRelativePath}${options.season}` : '')
@@ -200,6 +201,8 @@ export const parsePartialRequestMetadataId = (metadataId: PseuplexPartialMetadat
 
 export type TransformRequestMetadataOptions = {
 	basePath: string,
+	parentKey?: string,
+	parentRatingKey?: string,
 	requestProviderSlug: string,
 	children?: boolean,
 	qualifiedMetadataIds: boolean;
@@ -213,7 +216,7 @@ export const setMetadataItemKeyToRequestKey = (metadataItem: plexTypes.PlexMetad
 		itemGuid = metadataItem.parentGuid;
 		season = metadataItem.index;
 	}
-	const guidParts = parsePlexMetadataGuid(itemGuid!);
+	const guidParts = parsePlexMetadataGuidOrThrow(itemGuid!);
 	const children = opts?.children ?? metadataItem.key.endsWith(ChildrenRelativePath);
 	metadataItem.key = createRequestItemMetadataKey({
 		basePath: opts.basePath,
@@ -232,9 +235,15 @@ export const setMetadataItemKeyToRequestKey = (metadataItem: plexTypes.PlexMetad
 			season,
 		});
 	}
+	if(opts.parentKey) {
+		metadataItem.parentKey = opts.parentKey;
+	}
+	if(opts.parentRatingKey) {
+		metadataItem.parentRatingKey = opts.parentRatingKey;
+	}
 };
 
-export const transformRequestableSeasonMetadata = (metadataItem: plexTypes.PlexMetadataItem, opts: TransformRequestMetadataOptions) => {
+export const transformRequestableChildMetadata = (metadataItem: plexTypes.PlexMetadataItem, opts: TransformRequestMetadataOptions) => {
 	setMetadataItemKeyToRequestKey(metadataItem, opts);
 	metadataItem.title = `Request: ${metadataItem.title}`;
 };

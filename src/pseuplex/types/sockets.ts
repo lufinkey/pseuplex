@@ -1,18 +1,15 @@
 import stream from 'stream';
 
-type PseuplexClientWebSocketInfoBase = {
+export type PseuplexPossiblyConfirmedClientWebSocketInfo = {
 	endpoint: string;
 	socket: stream.Duplex;
-}
+	proxySocket?: stream.Duplex;
+};
 
-export type PseuplexUnconfirmedClientWebSocketInfo = PseuplexClientWebSocketInfoBase & {
+export type PseuplexUnconfirmedClientWebSocketInfo = PseuplexPossiblyConfirmedClientWebSocketInfo & {
 	proxySocket: undefined;
 };
 
-export type PseuplexClientWebSocketInfo = PseuplexClientWebSocketInfoBase & {
+export type PseuplexClientWebSocketInfo = PseuplexPossiblyConfirmedClientWebSocketInfo & {
 	proxySocket: stream.Duplex;
 };
-
-export type PseuplexPossiblyConfirmedClientWebSocketInfo =
-	PseuplexUnconfirmedClientWebSocketInfo
-	| PseuplexClientWebSocketInfo;

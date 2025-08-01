@@ -111,7 +111,7 @@ export const doesRequestIncludeFirstPinnedContentDirectory = (params: {
 	pinnedContentDirectoryID?: string | string[],
 }, options: {
 	plexAuthContext: plexTypes.PlexAuthContext,
-	assumedTopSectionID: string | number,
+	assumedTopSectionID?: string | number,
 }): boolean => {
 	// parse pinned content dir ids
 	const pinnedContentDirectoryID = params.pinnedContentDirectoryID;

@@ -18,8 +18,8 @@ export const getLibraryMetadata = async (id: string | string[], options: (PlexAP
 
 export const getLibraryMetadataChildren = async (id: string, options: (PlexAPIRequestOptions & {
 	params?: plexTypes.PlexMetadataChildrenPageParams,
-})): Promise<plexTypes.PlexMetadataPage> => {
-	return await plexServerFetch<plexTypes.PlexMetadataPage>({
+})): Promise<plexTypes.PlexMetadataChildrenPage> => {
+	return await plexServerFetch<plexTypes.PlexMetadataChildrenPage>({
 		...options,
 		method: 'GET',
 		endpoint: `library/metadata/${qs.escape(id)}/children`,

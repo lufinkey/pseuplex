@@ -1,7 +1,7 @@
 
 import * as plexTypes from '../../../../plex/types';
 import { PlexServerAccountInfo } from '../../../../plex/accounts';
-import { parsePlexMetadataGuid } from '../../../../plex/metadataidentifier';
+import { parsePlexMetadataGuidOrThrow } from '../../../../plex/metadataidentifier';
 import {
 	PseuplexApp,
 	PseuplexConfigBase
@@ -10,12 +10,12 @@ import {
 	PlexMediaRequestOptions,
 	RequestsProvider
 } from '../../provider';
-import { RequestInfo } from '../../types';
+import { RequestedMediaStatus, RequestInfo, RequestStatus } from '../../types';
 import { OverseerrRequestsPluginConfig } from './config';
 import * as overseerrAPI from './api';
 import * as overseerrTypes from './apitypes'
 import * as ovrsrTransform from './transform';
-import { httpError } from '../../../../utils/error';
+import { httpError, HttpResponseError } from '../../../../utils/error';
 import { firstOrSingle } from '../../../../utils/misc';
 
 export class OverseerrRequestsProvider implements RequestsProvider {
@@ -49,6 +49,15 @@ export class OverseerrRequestsProvider implements RequestsProvider {
 		return false;
 	}
 
+	private _overseerrReqOpts()  {
+		const cfg = this.config.overseerr;
+		return {
+			serverURL: cfg.host,
+			apiKey: cfg.apiKey,
+			verbose: this.app.loggingOptions.logOutgoingRequests,
+		};
+	}
+
 	async _refetchOverseerrUsersIfAble(): Promise<boolean> {
 		// wait for existing fetch operation, if any
 		if(this._overseerrUsersTask) {
@@ -62,12 +71,9 @@ export class OverseerrRequestsProvider implements RequestsProvider {
 		try {
 			const cfg = this.config.overseerr;
 			// fetch overseer users
-			const task = overseerrAPI.getUsers({
+			const task = overseerrAPI.getUsers({take: 1000}, {
 				serverURL: cfg.host,
 				apiKey: cfg.apiKey,
-				params: {
-					take: 1000
-				}
 			}).then((usersPage) => {
 				this._overseerrUsers = usersPage.results;
 				this._plexTokensToOverseerrUsersMap = {};
@@ -90,7 +96,8 @@ export class OverseerrRequestsProvider implements RequestsProvider {
 		}
 		overseerrUser = this._overseerrUsers?.find((osrUser) => {
 			return (osrUser.plexId != null && osrUser.plexId == userInfo.plexUserID)
-				|| (osrUser.plexUsername && osrUser.plexUsername == userInfo.plexUsername);
+				|| (osrUser.plexUsername && osrUser.plexUsername == userInfo.plexUsername)
+				|| (osrUser.email && osrUser.email == userInfo.email);
 		});
 		if(overseerrUser) {
 			this._plexTokensToOverseerrUsersMap[token] = overseerrUser;
@@ -143,7 +150,10 @@ export class OverseerrRequestsProvider implements RequestsProvider {
 				if(!plexItem.grandparentGuid) {
 					throw httpError(500, `Unable to determine show for episode`);
 				}
-				const grandparentGuidParts = parsePlexMetadataGuid(plexItem.grandparentGuid);
+				const grandparentGuidParts = parsePlexMetadataGuidOrThrow(plexItem.grandparentGuid);
+				if(grandparentGuidParts.protocol != plexTypes.PlexMetadataGuidProtocol.Plex) {
+					throw httpError(500, `Unrecognized guid ${plexItem.grandparentGuid}`);
+				}
 				options.seasons = [plexItem.parentIndex];
 				plexItem = firstOrSingle((await this.app.plexMetadataClient.getMetadata(grandparentGuidParts.id)).MediaContainer.Metadata)!;
 				if(!plexItem) {
@@ -164,7 +174,7 @@ export class OverseerrRequestsProvider implements RequestsProvider {
 				if(!plexItem.parentGuid) {
 					throw httpError(500, `Unable to determine show for season`);
 				}
-				const parentGuidParts = parsePlexMetadataGuid(plexItem.parentGuid);
+				const parentGuidParts = parsePlexMetadataGuidOrThrow(plexItem.parentGuid);
 				options.seasons = [plexItem.index];
 				plexItem = firstOrSingle((await this.app.plexMetadataClient.getMetadata(parentGuidParts.id)).MediaContainer.Metadata)!;
 				if(!plexItem) {
@@ -194,21 +204,15 @@ export class OverseerrRequestsProvider implements RequestsProvider {
 		}
 		//console.log(`Parsed ${matchedGuid} to ${matchedId}`);
 		// ensure request hasn't already been sent by this user
-		const cfg = this.config.overseerr;
+		const ovrsrReqOpts = this._overseerrReqOpts();
 		let mediaItemInfo: (overseerrTypes.Movie | overseerrTypes.TVShow);
 		switch(type) {
 			case overseerrTypes.MediaType.Movie:
-				mediaItemInfo = await overseerrAPI.getMovie(mediaId, {
-					serverURL: cfg.host,
-					apiKey: cfg.apiKey
-				});
+				mediaItemInfo = await overseerrAPI.getMovie(mediaId, null, ovrsrReqOpts);
 				break;
 
 			case overseerrTypes.MediaType.TV:
-				mediaItemInfo = await overseerrAPI.getTV(mediaId, {
-					serverURL: cfg.host,
-					apiKey: cfg.apiKey
-				});
+				mediaItemInfo = await overseerrAPI.getTV(mediaId, null, ovrsrReqOpts);
 				break;
 
 			default:
@@ -218,20 +222,32 @@ export class OverseerrRequestsProvider implements RequestsProvider {
 			return reqInfo.requestedBy?.id == overseerrUser.id
 		});
 		if(matchingRequest) {
+			if(this.app.loggingOptions.logOutgoingRequests) {
+				console.log(`Found existing overserr request ${JSON.stringify(matchingRequest)}`);
+			}
 			// already requested by this user
 			return ovrsrTransform.transformOverseerrRequestItem(matchingRequest, mediaItemInfo.mediaInfo);
 		}
 		// send request to overseerr
-		const resData = await overseerrAPI.createRequest({
-			serverURL: cfg.host,
-			apiKey: cfg.apiKey,
-			params: {
-				mediaType: type,
-				[mediaIdKey]: mediaId,
-				userId: overseerrUser.id,
-				seasons: options?.seasons
+		const createItemReq: overseerrAPI.CreateRequestItem = {
+			mediaType: type,
+			[mediaIdKey]: mediaId,
+			userId: overseerrUser.id,
+			seasons: options?.seasons
+		};
+		let resData: overseerrTypes.MediaRequestItem;
+		try {
+			resData = await overseerrAPI.createRequest(createItemReq, ovrsrReqOpts);
+		} catch(error) {
+			if((error as HttpResponseError).httpResponse?.status == 202) {
+				const firstRequest = mediaItemInfo?.mediaInfo?.requests?.[0];
+				if(firstRequest) {
+					// already requested by this user
+					return ovrsrTransform.transformOverseerrRequestItem(firstRequest, mediaItemInfo.mediaInfo);
+				}
 			}
-		});
+			throw error;
+		}
 		return ovrsrTransform.transformOverseerrRequestItem(resData, resData.media);
 	}
 }

@@ -134,6 +134,22 @@ export type PlexMetadataPage = {
 	}
 };
 
+export type PlexMetadataChildrenPage = PlexMetadataPage & {
+	MediaContainer: {
+		nocache?: boolean;
+		key?: string; // "12345"
+		parentIndex?: number;
+		parentTitle?: string; // "Pokemon"
+		parentYear?: number;
+		title1?: string; // "My TV Shows"
+		title2?: string; // "Pokemon"
+		viewGroup?: PlexMediaItemType; // "season"
+		theme?: string; // "/library/metadata/12345/theme/1234567890"
+		thumb?: string; // "/library/metadata/12345/thumb/1234567890"
+		summary?: string;
+	}
+};
+
 export type PlexGuid = {
 	id: `${string}://${string}`;
 };

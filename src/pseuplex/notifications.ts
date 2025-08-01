@@ -41,7 +41,7 @@ export const sendNotificationToSocket = (socketInfo: PseuplexClientNotificationW
 		case PseuplexNotificationSocketType.EventSource: {
 			let dataString = notifDataCache?.[socketType];
 			if(!dataString) {
-				const data: plexTypes.PlexNotificationContainer = {...notification};
+				const data: Partial<plexTypes.PlexNotificationContainer> = {...notification};
 				const {type} = data;
 				delete data.type;
 				delete data.size;

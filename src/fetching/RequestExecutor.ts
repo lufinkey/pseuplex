@@ -48,7 +48,7 @@ export class RequestExecutor {
 		return this._nextRetryTime ? Math.max(0, this._nextRetryTime - process.uptime()) : 0;
 	}
 	
-	async do<T>(work: () => Promise<T>, abortSignal?: AbortSignal): Promise<T> {
+	async do<T>(work: () => Promise<T>, abortSignal?: AbortSignal | null): Promise<T> {
 		const delaySeconds = this.getDelaySeconds();
 		return await this._delayAndThenDoWork(delaySeconds, this.maxRetries, abortSignal, work, true);
 	}
@@ -56,7 +56,7 @@ export class RequestExecutor {
 	private async _delayAndThenDoWork<T>(
 		delaySeconds: number,
 		remainingRetries: number,
-		abortSignal: AbortSignal | null,
+		abortSignal: AbortSignal | null | undefined,
 		work: () => Promise<T>,
 		firstAttempt: boolean,
 	) {
@@ -159,7 +159,7 @@ export class RequestExecutor {
 		}
 	}
 
-	private _doRequestWork<T>(work: () => Promise<T>, abortSignal: AbortSignal | null): Promise<T> {
+	private _doRequestWork<T>(work: () => Promise<T>, abortSignal?: AbortSignal | null): Promise<T> {
 		let promise = work();
 		if(!promise) {
 			return promise;
@@ -173,9 +173,9 @@ export class RequestExecutor {
 
 	private _getRetryAfterSeconds(res: Response): number {
 		const retryAfter = res.headers.get('Retry-After');
-		let retryAfterSeconds: number;
+		let retryAfterSeconds: number | null | undefined;
 		if(retryAfter) {
-			let retryAfterSeconds = Number.parseFloat(retryAfter);
+			retryAfterSeconds = Number.parseFloat(retryAfter);
 			if(Number.isNaN(retryAfterSeconds)) {
 				retryAfterSeconds = null;
 				try {

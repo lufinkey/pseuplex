@@ -41,6 +41,9 @@ export class DashboardSection extends PseuplexSectionBase {
 	override async getHubs(params: plexTypes.PlexHubListPageParams, context: PseuplexRequestContext): Promise<PseuplexHub[]> {
 		const hubConfigs = this.plugin.getDashboardHubsConfigForContext(context);
 		const hubs: PseuplexHub[] = [];
+		if(!hubConfigs) {
+			return hubs;
+		}
 		for(const hubConfig of hubConfigs) {
 			try {
 				const plugin = this.plugin.app.plugins[hubConfig.plugin];

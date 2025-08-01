@@ -307,6 +307,10 @@ function get_prefs_value {
 				>&2 echo "Could not find plex preferences at $prefxml_path"
 				return 2
 			fi
+			if [ -z "$(which xq)" ]; then
+				>&2 echo "xq must be installed to read from plex's Preferences.xml"
+				return 3
+			fi
 			(cat "$prefxml_path" || return $?) | (xq -x "//Preferences/@$prefname" || return $?)
 			;;
 		MacOS)

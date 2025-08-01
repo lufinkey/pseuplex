@@ -1,15 +1,18 @@
 
 import * as letterboxd from 'letterboxd-retriever';
 import * as plexTypes from '../../plex/types';
-import { parsePlexExternalGuids, parsePlexMetadataGuid } from '../../plex/metadataidentifier';
+import {
+	parsePlexExternalGuids,
+	parsePlexMetadataGuid,
+} from '../../plex/metadataidentifier';
 import {
 	PseuplexMetadataItem,
-	PlexMediaItemMatchParams,
 	PseuplexMetadataProviderBase,
 	PseuplexMetadataTransformOptions,
 	PseuplexPartialMetadataIDString,
 	PseuplexMetadataSource,
 	PseuplexRequestContext,
+	PseuplexMetadataProviderItemMatchParams,
 } from '../../pseuplex';
 import * as lbTransform from './transform';
 
@@ -39,7 +42,7 @@ export class LetterboxdMetadataProvider extends PseuplexMetadataProviderBase<Let
 		return lbTransform.partialMetadataIdFromFilmInfo(metadataItem);
 	}
 
-	override getPlexMatchParams(filmInfo: LetterboxdMetadataItem): (PlexMediaItemMatchParams | null) {
+	override getPlexMatchParams(filmInfo: LetterboxdMetadataItem): (PseuplexMetadataProviderItemMatchParams | null) {
 		let types: (plexTypes.PlexMediaItemTypeNumeric[] | undefined) = undefined;
 		const tmdbInfo = filmInfo.pageData.tmdb;
 		const imdbInfo = filmInfo.pageData.imdb;
@@ -67,16 +70,16 @@ export class LetterboxdMetadataProvider extends PseuplexMetadataProviderBase<Let
 
 	override async findMatchForPlexItem(metadataItem: plexTypes.PlexMetadataItem): Promise<LetterboxdMetadataItem | null> {
 		const plexGuid = metadataItem.guid;
-		if(plexGuid) {
+		const plexGuidParts = plexGuid ? parsePlexMetadataGuid(plexGuid) : null;
+		if(plexGuidParts) {
 			// get the slug from the guid if it exists in the cache
-			const id = await this.plexGuidToIDCache.get(plexGuid);
+			const id = await this.plexGuidToIDCache.get(plexGuid!);
 			if(id) {
 				return this.fetchMetadataItem(id);
 			} else if(id === null) {
 				return null;
 			}
-			// ensure guid is a movie
-			const plexGuidParts = parsePlexMetadataGuid(plexGuid);
+			// ensure guid is for a movie, since letterboxd only supports movies
 			if (plexGuidParts.type != plexTypes.PlexMediaItemType.Movie) {
 				return null;
 			}
@@ -114,8 +117,9 @@ export class LetterboxdMetadataProvider extends PseuplexMetadataProviderBase<Let
 			}
 			throw error;
 		});
-		if(plexGuid) {
-			this.plexGuidToIDCache.setSync(plexGuid, filmInfoTask.then((filmInfo) => {
+		// only cache the result if the guid is not a local guid
+		if(plexGuidParts && plexGuidParts.protocol != plexTypes.PlexMetadataGuidProtocol.Local) {
+			this.plexGuidToIDCache.setSync(plexGuid!, filmInfoTask.then((filmInfo) => {
 				if(!filmInfo) {
 					return null;
 				}

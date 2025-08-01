@@ -12,7 +12,7 @@ export const createDebouncer = (delay: number): ((callback: () => void) => void)
 	};
 };
 
-export const delay = (milliseconds: number, abortSignal?: AbortSignal) => {
+export const delay = (milliseconds: number, abortSignal?: AbortSignal | null) => {
 	return new Promise<void>((resolve, reject) => {
 		if(abortSignal) {
 			let timeout: NodeJS.Timeout;

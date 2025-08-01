@@ -1,6 +1,8 @@
 import letterboxd from 'letterboxd-retriever';
+import { LoadableListItemNode } from '../../fetching/LoadableListFragment';
 import {
 	PseuplexFeedHub,
+	PseuplexFeedHubChunk,
 	PseuplexFeedHubOptions,
 	PseuplexMetadataTransformOptions,
 	PseuplexRequestContext
@@ -15,6 +17,7 @@ export type LetterboxdFilmsHubOptions = PseuplexFeedHubOptions & {
 };
 
 export type LetterboxdFilmsPageFetcher = (pageToken: string | null) => Promise<letterboxd.FilmsPage>;
+type LetterboxdFilmsHubChunk = PseuplexFeedHubChunk<letterboxd.Film,void,string>;
 
 export class LetterboxdFilmsHub extends PseuplexFeedHub<letterboxd.Film,void,string,LetterboxdFilmsHubOptions> {
 	private _fetchPage: LetterboxdFilmsPageFetcher;
@@ -39,19 +42,19 @@ export class LetterboxdFilmsHub extends PseuplexFeedHub<letterboxd.Film,void,str
 		return -1;
 	}
 
-	override async fetchPage(pageToken: string | null) {
+	override async fetchPage(pageToken: string | null): Promise<LetterboxdFilmsHubChunk> {
 		const page = await this._fetchPage(pageToken);
 		return {
 			items: page.items.map((film) => {
 				return {
 					id: film.href,
-					token: undefined,
+					token: undefined, // pages like the similar items list don't have tokens per item
 					item: film
 				};
 			}),
-			hasMore: (page.nextPageHref ? true : false),
-			totalItemCount: page.items?.length ?? 0,
-			nextPageToken: page.nextPageHref,
+			//hasMore: (page.nextPageHref ? true : false),
+			//totalItemCount: page.items?.length ?? 0,
+			nextPageToken: page.nextPageHref ?? null,
 		};
 	}
 

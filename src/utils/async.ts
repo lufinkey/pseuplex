@@ -24,7 +24,7 @@ export const promiseCountSettled = (promises: Iterable<Promise<any>>, expectedCo
 	});
 };
 
-export const waitForPromise = (promise: Promise<any>, abortSignal?: AbortSignal) => {
+export const waitForPromise = (promise: Promise<any>, abortSignal?: AbortSignal | null) => {
 	if(!abortSignal) {
 		return promise;
 	}

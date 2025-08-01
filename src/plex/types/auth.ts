@@ -40,7 +40,7 @@ export const parseAuthContextFromRequest = (req: express.Request | http.Incoming
 	// get query if needed
 	let query: {[key: string]: any} = (req as express.Request).query;
 	if(!query) {
-		const urlParts = parseURLPath(req.url);
+		const urlParts = parseURLPath(req.url!);
 		query = urlParts.queryItems ?? {};
 	}
 	// parse each key
@@ -77,7 +77,7 @@ export const parseAuthContextFromRequest = (req: express.Request | http.Incoming
 export const parsePlexTokenFromRequest = (req: (http.IncomingMessage | express.Request)): string | undefined => {
 	let query: {[key: string]: any} = (req as express.Request).query;
 	if(!query) {
-		const urlParts = parseURLPath(req.url);
+		const urlParts = parseURLPath(req.url!);
 		query = urlParts.queryItems ?? {};
 	}
 	let plexToken = query ? stringParam(query['X-Plex-Token']) : undefined;
@@ -90,9 +90,11 @@ export const parsePlexTokenFromRequest = (req: (http.IncomingMessage | express.R
 export const plexUserIsNativeAndroidMobileAppPre2025 = (authContext: PlexAuthContext) => {
 	if(authContext['X-Plex-Product'] === 'Plex for Android (Mobile)') {
 		const version = authContext['X-Plex-Version'];
-		const majorVersion = Number.parseInt(version.split('.', 1)[0] || '');
-		if(majorVersion && majorVersion < 2025) {
-			return true;
+		if(version) {
+			const majorVersion = Number.parseInt(version.split('.', 1)[0] || '');
+			if(majorVersion && majorVersion < 2025) {
+				return true;
+			}
 		}
 	}
 	return false;
@@ -102,11 +104,13 @@ const plexForMobileRegex = /^Plex [fF]or (Android|iOS|tvOS|Mobile)($|\s+)/;
 
 export const plexUserIsReactNativeMobileAppPost2025 = (authContext: PlexAuthContext) => {
 	const product = authContext['X-Plex-Product'];
-	if(plexForMobileRegex.test(product)) {
+	if(product && plexForMobileRegex.test(product)) {
 		const version = authContext['X-Plex-Version'];
-		const majorVersion = Number.parseInt(version.split('.', 1)[0] || '');
-		if(majorVersion && majorVersion >= 2025) {
-			return true;
+		if(version) {
+			const majorVersion = Number.parseInt(version.split('.', 1)[0] || '');
+			if(majorVersion && majorVersion >= 2025) {
+				return true;
+			}
 		}
 	}
 	return false;

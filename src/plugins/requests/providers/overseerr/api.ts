@@ -12,13 +12,20 @@ import {
 } from './apitypes';
 import { httpResponseError } from '../../../../utils/error';
 
+export type OverseerrAPIRequestOptions = {
+	serverURL: string,
+	apiKey?: string,
+	verbose?: boolean,
+};
+
 const overseerrFetch = async (options: {
 	serverURL: string,
 	method?: 'GET' | 'POST' | 'PUT' | 'DELETE',
 	endpoint: string,
 	params?: { [key: string]: any } | null,
 	headers?: { [key: string]: string },
-	apiKey?: string | null
+	apiKey?: string | null,
+	verbose?: boolean,
 }) => {
 	// build URL
 	let url: string;
@@ -50,12 +57,22 @@ const overseerrFetch = async (options: {
 		reqBody = JSON.stringify(options.params);
 	}
 	// send request
+	if(options.verbose) {
+		console.log(`Sending request ${method} ${url}`);
+		if(reqBody) {
+			console.log(reqBody);
+		}
+	}
+	// send request
 	const res = await fetch(url, {
 		method,
 		headers,
 		body: reqBody
 	});
 	if (!res.ok) {
+		if(options.verbose) {
+			console.error(`Got response ${res.status} for ${method} ${url}: ${res.statusText}`);
+		}
 		res.body?.cancel();
 		throw httpResponseError(url, res);
 	}
@@ -64,26 +81,25 @@ const overseerrFetch = async (options: {
 	if (!resBody) {
 		return undefined;
 	}
-	return JSON.parse(resBody);
+	const resData = JSON.parse(resBody);
+	if(res.status != 200 && resData.message && Object.keys(resData).length == 1) {
+		throw httpResponseError(url, res, resData.message);
+	}
+	return resData;
 };
 
 
 
-export const getUsers = async (options: {
-	params: {
-		take?: number,
-		skip?: number,
-		sort?: UsersSortType
-	},
-	serverURL: string,
-	apiKey?: string
-}): Promise<ResultsPage<User>> => {
+export const getUsers = async (params: {
+	take?: number,
+	skip?: number,
+	sort?: UsersSortType
+}, options: OverseerrAPIRequestOptions): Promise<ResultsPage<User>> => {
 	return await overseerrFetch({
-		serverURL: options.serverURL,
+		...options,
 		method: 'GET',
 		endpoint: 'api/v1/user',
-		apiKey: options.apiKey,
-		params: options.params
+		params,
 	});
 };
 
@@ -102,50 +118,36 @@ export type CreateRequestItem = {
 	userId?: number;
 };
 
-export const createRequest = async (options: {
-	params: CreateRequestItem,
-	serverURL: string,
-	apiKey?: string
-}): Promise<MediaRequestItem> => {
+export const createRequest = async (params: CreateRequestItem, options: OverseerrAPIRequestOptions): Promise<MediaRequestItem> => {
 	return await overseerrFetch({
-		serverURL: options.serverURL,
+		...options,
 		method: 'POST',
 		endpoint: 'api/v1/request',
-		apiKey: options.apiKey,
-		params: options.params
+		params,
 	});
 };
 
 
 
-export const getMovie = async (movieId: string | number, options: {
-	params?: {
-		language?: Language
-	},
-	serverURL: string,
-	apiKey?: string
-}): Promise<Movie> => {
+export const getMovie = async (movieId: string | number, params: {
+	language?: Language
+} | null, options: OverseerrAPIRequestOptions): Promise<Movie> => {
 	return await overseerrFetch({
+		...options,
 		serverURL: options.serverURL,
 		method: 'GET',
 		endpoint: `api/v1/movie/${movieId}`,
-		apiKey: options.apiKey,
-		params: options.params
+		params,
 	});
 };
 
-export const getTV = async (tvId: string | number, options: {
-	params?: {
-		language?: Language
-	},
-	serverURL: string,
-	apiKey?: string
-}): Promise<TVShow> => {
+export const getTV = async (tvId: string | number, params: {
+	language?: Language
+} | null, options: OverseerrAPIRequestOptions): Promise<TVShow> => {
 	return await overseerrFetch({
-		serverURL: options.serverURL,
+		...options,
 		method: 'GET',
 		endpoint: `api/v1/tv/${tvId}`,
-		apiKey: options.apiKey,
-		params: options.params
+		params,
 	});
 };

@@ -93,9 +93,9 @@ export const plexProxy = (serverURL: string, args: PlexProxyOptions, opts: expre
 			const encrypted = requestIsEncrypted(userReq);
 			const remoteAddress = userReq.connection?.remoteAddress || userReq.socket?.remoteAddress;
 			const fwdHeaders = {
-				For: normalizeIPAddress(remoteAddress, ipv4Mode),
+				For: remoteAddress ? normalizeIPAddress(remoteAddress, ipv4Mode) : remoteAddress,
 				Port: getPortFromRequest(userReq),
-				Proto: encrypted ? 'https' : 'http'
+				Proto: encrypted ? 'https' : 'http',
 			};
 			for(const headerSuffix in fwdHeaders) {
 				if(headerSuffix == null) {
@@ -348,8 +348,10 @@ export const plexHttpProxy = (serverURL: string, args: PlexProxyOptions) => {
 		// add x-real-ip to proxy headers
 		if (!userReq.headers['x-real-ip']) {
 			const realIP = userReq.connection?.remoteAddress || userReq.socket?.remoteAddress;
-			const normalizedIP = normalizeIPAddress(realIP, ipv4Mode);
-			proxyReq.setHeader('X-Real-IP', normalizedIP);
+			const normalizedIP = realIP ? normalizeIPAddress(realIP, ipv4Mode) : realIP;
+			if(normalizedIP) {
+				proxyReq.setHeader('X-Real-IP', normalizedIP);
+			}
 			// fix forwarded header if needed
 			if(normalizedIP != realIP) {
 				const forwardedFor = proxyReq.getHeader('X-Forwarded-For');

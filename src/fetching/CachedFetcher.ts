@@ -46,6 +46,11 @@ export class CachedFetcher<ItemType> {
 		this._cache[id] = itemTask;
 		try {
 			const item = await itemTask;
+			if(item === undefined) {
+				// if the fetcher returns undefined, this means it shouldn't get cached
+				delete this._cache[id];
+				return item;
+			}
 			const now = process.uptime();
 			delete this._cache[id]; // ensure new ID is added to the end
 			this._cache[id] = {
@@ -75,7 +80,7 @@ export class CachedFetcher<ItemType> {
 		return itemNode.item;
 	}
 
-	get(id: string | number, access: boolean = true): (ItemType | Promise<ItemType> | undefined) {
+	get(id: string | number, access: boolean = true): (ItemType | Promise<ItemType | undefined> | undefined) {
 		const itemNode = this._cache[id];
 		if(itemNode) {
 			if(itemNode instanceof Promise) {
@@ -90,24 +95,31 @@ export class CachedFetcher<ItemType> {
 		return undefined;
 	}
 
-	async set(id: string | number, value: ItemType | Promise<ItemType>): Promise<ItemType> {
+	async set(id: string | number, value: ItemType | Promise<ItemType>): Promise<ItemType | undefined> {
+		let result: ItemType | undefined;
 		if(value instanceof Promise) {
 			this._cache[id] = value;
 			try {
-				value = await value;
+				result = await value;
 			} catch(error) {
 				delete this._cache[id];
 				throw error;
 			}
+		} else {
+			result = value;
+		}
+		if(result === undefined) {
+			delete this._cache[id];
+			return result;
 		}
 		const now = process.uptime();
 		delete this._cache[id]; // ensure new ID is added to the end
 		this._cache[id] = {
-			item: value,
+			item: result,
 			updatedAt: now,
 			accessedAt: now
 		};
-		return value;
+		return result;
 	}
 
 	setSync(id: string | number, value: ItemType | Promise<ItemType>, logError?: boolean) {
@@ -121,7 +133,7 @@ export class CachedFetcher<ItemType> {
 	}
 
 	/// Cleans any expired entries, and returns the amount of time to wait until the next cleaning
-	cleanExpiredEntries(opts?: {limit: number}): (number | null) {
+	cleanExpiredEntries(opts?: {limit?: number}): (number | null) {
 		const { itemLifetime, accessResetsLifetime } = this.options;
 		if(!itemLifetime) {
 			// items have no lifetime
@@ -161,7 +173,7 @@ export class CachedFetcher<ItemType> {
 	private _doAutoClean() {
 		// clean and check how long until next clean
 		const timeUntilNextClean = this.cleanExpiredEntries({
-			limit:this.options.autoCleanLimit
+			limit: this.options.autoCleanLimit
 		});
 		if(timeUntilNextClean == null) {
 			// no need to schedule right now
