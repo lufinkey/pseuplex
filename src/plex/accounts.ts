@@ -105,9 +105,8 @@ export class PlexServerAccountsStore {
 					throw error;
 				}
 				// ensure the account info matches the owner info
-				if (plexUserInfo.email != myPlexAccountPage.MyPlex.username
-				   && plexUserInfo.username != myPlexAccountPage.MyPlex.username) {
-					console.error(`User info ${plexUserInfo.email ?? plexUserInfo.username} doesnt match plex server owner ${myPlexAccountPage.MyPlex.username}`);
+				if (plexUserInfo.id != myPlexAccountPage.MyPlex.id) {
+					console.error(`User id ${plexUserInfo.id} doesnt match plex server owner id ${myPlexAccountPage.MyPlex.id}`);
 					return null;
 				}
 				// add user info for owner
