@@ -1,6 +1,19 @@
 
 export type PlexMyPlexAccount = {
-	id: number;
+	$: {
+		id: string;
+		username: string; // name@example.com
+		email: string; // name@example.com
+		mappingState?: string;
+		signInState: string;
+		publicAddress: string;
+		publicPort: string;
+		privateAddress: string;
+		privatePort: string;
+		subscriptionFeatures?: string;
+		subscriptionActive: string;
+		subscriptionState: string;
+	};
 	authToken: string;
 	username: string; // name@example.com
 	signInState: string;
