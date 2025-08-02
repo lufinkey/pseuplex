@@ -1,8 +1,10 @@
 
 export type PlexMyPlexAccount = {
+	id: number;
 	authToken: string;
 	username: string; // name@example.com
 	signInState: string;
+	mappingState?: string;
 	publicAddress: string;
 	publicPort: number;
 	privateAddress: string;
