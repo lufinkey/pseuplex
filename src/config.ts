@@ -15,6 +15,10 @@ export type Config = {
 	port: number;
 	ipv4ForwardingMode?: IPv4NormalizeModeKey;
 	forwardMetadataRefreshToPluginMetadata?: boolean;
+	imageOverlays?: {
+		enabled?: boolean;
+		overrides?: {[overlayName: string]: string};
+	},
 	plex: {
 		host?: string;
 		port?: number;

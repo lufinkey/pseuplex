@@ -127,6 +127,9 @@ const readPlexPrefsIfNeeded = async () => {
 		ipv4ForwardingMode: cfg.ipv4ForwardingMode ? IPv4NormalizeMode[cfg.ipv4ForwardingMode] : undefined,
 		forwardMetadataRefreshToPluginMetadata: cfg.forwardMetadataRefreshToPluginMetadata,
 		overwritePlexPrivatePort: cfg.plex.overwritePrivatePort,
+		serverOptions: {
+			...sslCertData
+		},
 		plexServerURL,
 		plexAdminAuthContext: {
 			'X-Plex-Token': cfg.plex.token
@@ -144,12 +147,11 @@ const readPlexPrefsIfNeeded = async () => {
 				occasionalDelayFrequency: 10,
 			}),
 		}),
-		serverOptions: {
-			...sslCertData
-		},
 		plexServerNotifications: {
 			socketRetryInterval: cfg.plex?.notificationSocketRetryInterval,
 		},
+		overlaysEnabled: cfg.imageOverlays?.enabled,
+		overlayImageOverrides: cfg.imageOverlays?.overrides,
 		logger,
 		plugins: [
 			LetterboxdPlugin,

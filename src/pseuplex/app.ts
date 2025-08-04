@@ -162,6 +162,10 @@ export type PseuplexAppOptions = {
 	plexMetadataClient: PlexClient;
 	pluginMetadataAccessCacheOptions?: PseuplexMetadataAccessCacheOptions;
 	plexServerNotifications?: PseuplexPlexServerNotificationsOptions;
+	overlaysEnabled?: boolean;
+	overlayImageOverrides?: {
+		[imageName: string]: string
+	}
 	logger?: Logger;
 	responseFilterOrders?: PseuplexResponseFilterOrders;
 	plugins: PseuplexPluginClass[];
@@ -195,7 +199,11 @@ export class PseuplexApp {
 	readonly pluginMetadataAccessCache?: PseuplexMetadataAccessCache;
 	readonly plexMetadataClient: PlexClient;
 
-	readonly overlayedImageEndpoint: string;
+	readonly overlayedImageEndpoint?: string | undefined;
+	readonly overlayImageCache?: CachedFetcher<{image:sharp.Sharp}>;
+	readonly overlayImageOverrides?: {
+		[imageName: string]: string
+	}
 	
 	private _plexServerNotificationsSocket?: WebSocket | undefined;
 	private _listeningToPlexServerNotifications: boolean;
@@ -245,6 +253,8 @@ export class PseuplexApp {
 		this.pluginMetadataAccessCache = this
 			? new PseuplexMetadataAccessCache(options.pluginMetadataAccessCacheOptions)
 			: undefined;
+		
+		this.overlayImageOverrides = options.overlayImageOverrides;
 
 		// define middlewares
 		const plexReqHandlerOpts: PlexAPIRequestHandlerOptions = {
@@ -846,7 +856,8 @@ export class PseuplexApp {
 			asyncRequestHandler(async (req: IncomingPlexAPIRequest, res) => {
 				let url = req.query['url'];
 				if(typeof url === 'string') {
-					if(url.startsWith(this.overlayedImageEndpoint)
+					if(this.overlayedImageEndpoint
+						&& url.startsWith(this.overlayedImageEndpoint)
 						&& pathEndingChars.indexOf(url[this.overlayedImageEndpoint.length]) !== -1) {
 						// photo transcode requests for the overlayed image endpoint should just get redirected
 						const width = req.query['width'];
@@ -876,64 +887,74 @@ export class PseuplexApp {
 			})
 		]);
 
-		const overlayImageNameRegex = /^[a-z0-9 ._-]+$/i;
-		const overlayImages = new CachedFetcher<{image:sharp.Sharp}>(async (imageName: string) => {
-			const image = await sharp(`${require.main!.path}/../images/overlays/${imageName}.png`);
-			return {image};
-		});
-
-		this.overlayedImageEndpoint = `/${this.slug}/image/withoverlay`;
-		router.get(this.overlayedImageEndpoint, [
-			this.middlewares.plexAuthentication,
-			asyncRequestHandler(async (req, res) => {
-				// parse width
-				let width = req.query['width'];
-				if(width != null) {
-					width = Number.parseInt(width);
-					if(Number.isNaN(width)) {
-						throw httpError(500, "Invalid width");
+		if(options.overlaysEnabled ?? true) {
+			const overlayImageNameRegex = /^[a-z0-9 ._-]+$/i;
+			this.overlayImageCache = new CachedFetcher<{image:sharp.Sharp}>(async (imageName: string) => {
+				let imagePath = this.overlayImageOverrides?.[imageName];
+				if(imagePath) {
+					if(!imagePath.startsWith('/') && !imagePath.startsWith('./') && !imagePath.startsWith('../')) {
+						imagePath = `${require.main!.path}/../${imagePath}`;
 					}
+				} else {
+					imagePath = `${require.main!.path}/../images/overlays/${imageName}.png`;
 				}
-				// parse height
-				let height = req.query['height'];
-				if(height != null) {
-					height = Number.parseInt(height);
-					if(Number.isNaN(height)) {
-						throw httpError(500, "Invalid height");
+				const image = await sharp(imagePath);
+				return {image};
+			});
+			
+			this.overlayedImageEndpoint = `/${this.slug}/image/withoverlay`;
+			router.get(this.overlayedImageEndpoint, [
+				this.middlewares.plexAuthentication,
+				asyncRequestHandler(async (req, res) => {
+					// parse width
+					let width = req.query['width'];
+					if(width != null) {
+						width = Number.parseInt(width);
+						if(Number.isNaN(width)) {
+							throw httpError(500, "Invalid width");
+						}
 					}
-				}
-				// parse url
-				let url = req.query['url'];
-				if(url instanceof Array) {
-					url = url[0] as string;
-				}
-				// TODO validate url (disallow any local ips that aren't localhost:psport)
-				// parse overlay name
-				let overlayName = req.query['overlay'];
-				if(overlayName instanceof Array) {
-					overlayName = overlayName[0] as string;
-				}
-				if(!overlayName) {
-					throw httpError(400, "Missing overlay parameter");
-				}
-				if(!overlayName || !overlayImageNameRegex.test(overlayName)) {
-					throw httpError(400, "Invalid overlay");
-				}
-				// get overlay image
-				const overlayImage = (await overlayImages.getOrFetch(overlayName)).image;
-				// get base image
-				const baseImageRes = await fetch(url);
-				const outputImage = await applyOverlayToImage(stream.Readable.fromWeb(baseImageRes.body!), overlayImage, (width != null && height != null) ? {
-					resize: {width,height}
-				} : undefined);
-				/*const contentType = baseImageRes.headers.get('Content-Type');
-				if(contentType) {
-					res.setHeader('Content-Type', contentType);
-				}*/
-				outputImage.image.pipe(res);
-				return true;
-			})
-		]);
+					// parse height
+					let height = req.query['height'];
+					if(height != null) {
+						height = Number.parseInt(height);
+						if(Number.isNaN(height)) {
+							throw httpError(500, "Invalid height");
+						}
+					}
+					// parse url
+					let url = req.query['url'];
+					if(url instanceof Array) {
+						url = url[0] as string;
+					}
+					// TODO validate url (disallow any local ips that aren't localhost:psport)
+					// parse overlay name
+					let overlayName = req.query['overlay'];
+					if(overlayName instanceof Array) {
+						overlayName = overlayName[0] as string;
+					}
+					if(!overlayName) {
+						throw httpError(400, "Missing overlay parameter");
+					}
+					if(!overlayName || !overlayImageNameRegex.test(overlayName)) {
+						throw httpError(400, "Invalid overlay");
+					}
+					// get overlay image
+					const overlayImage = (await this.overlayImageCache!.getOrFetch(overlayName)).image;
+					// get base image
+					const baseImageRes = await fetch(url);
+					const outputImage = await applyOverlayToImage(stream.Readable.fromWeb(baseImageRes.body!), overlayImage, (width != null && height != null) ? {
+						resize: {width,height}
+					} : undefined);
+					/*const contentType = baseImageRes.headers.get('Content-Type');
+					if(contentType) {
+						res.setHeader('Content-Type', contentType);
+					}*/
+					outputImage.image.pipe(res);
+					return true;
+				})
+			]);
+		}
 
 		// proxy requests to plex
 		const plexGeneralProxy = plexHttpProxy(this.plexServerURL, plexProxyArgs);
