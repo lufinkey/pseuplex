@@ -9,6 +9,7 @@ import {
 } from './pseuplex/types/sockets';
 import type { PlexServerAccountInfo } from './plex/accounts';
 import * as overseerrTypes from './plugins/requests/providers/overseerr/apitypes';
+import { requestIsEncrypted } from './utils/requesthandling';
 
 export type GeneralLoggingOptions = {
 	logDebug?: boolean;
@@ -157,7 +158,8 @@ export class Logger {
 		if(!this.options.logUserRequests) {
 			return;
 		}
-		console.log(`\n\x1b[42mUser ${userReq.method} ${this.urlString(userReq.originalUrl)}\x1b[0m`);
+		const secure = requestIsEncrypted(userReq);
+		console.log(`\n\x1b[42m${secure ? '🔒' : '⚠️'} User ${userReq.method} ${this.urlString(userReq.originalUrl)}\x1b[0m`);
 		if(this.options.logUserRequestHeaders) {
 			const reqHeaderList = userReq.rawHeaders;
 			for(let i=0; i<reqHeaderList.length; i++) {

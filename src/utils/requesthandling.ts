@@ -44,3 +44,16 @@ export const expressErrorHandler = (error: Error, req: express.Request, res: exp
 		next();
 	}
 };
+
+export function requestIsEncrypted(req: express.Request) {
+	const connection = ((req.connection || req.socket) as {encrypted?: boolean; pair?: boolean;})
+	const encrypted = (connection?.encrypted || connection?.pair);
+	return encrypted ? true : false;
+}
+
+export function getPortFromRequest(req: express.Request) {
+  const port = req.headers.host?.match(/:(\d+)/)?.[1];
+  return port ?
+	port
+	: requestIsEncrypted(req) ? '443' : '80';
+};

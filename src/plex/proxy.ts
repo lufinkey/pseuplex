@@ -17,23 +17,14 @@ import {
 	IPv4NormalizeMode,
 	normalizeIPAddress
 } from '../utils/ip';
+import {
+	getPortFromRequest,
+	requestIsEncrypted
+} from '../utils/requesthandling';
 
 export type PlexProxyOptions = {
 	logger?: Logger;
 	ipv4Mode?: (IPv4NormalizeMode | (() => IPv4NormalizeMode));
-};
-
-function requestIsEncrypted(req: express.Request) {
-	const connection = ((req.connection || req.socket) as {encrypted?: boolean; pair?: boolean;})
-	const encrypted = (connection?.encrypted || connection?.pair);
-	return encrypted ? true : false;
-}
-
-function getPortFromRequest(req: express.Request) {
-  const port = req.headers.host?.match(/:(\d+)/)?.[1];
-  return port ?
-	port
-    : requestIsEncrypted(req) ? '443' : '80';
 };
 
 type ProxiedUserReq = express.Request & {
