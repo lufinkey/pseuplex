@@ -2142,13 +2142,25 @@ export class PseuplexApp {
 						const plexToken = context.plexAuthContext['X-Plex-Token'];
 						const notifSockets = plexToken ? this.getClientNotificationWebSockets(plexToken) : null;
 						if(notifSockets) {
+							const childrenSuffix = '/children';
 							for(const metadataItem of unavailableItems) {
 								if(metadataItem.Pseuplex.unavailable) {
-									console.log(`Sending unavailable notifications for ${metadataItem.key} on ${notifSockets.length} socket(s)`);
+									let metadataItemKey = metadataItem.key;
+									if(metadataItemKey.endsWith(childrenSuffix)) {
+										metadataItemKey = metadataItemKey.slice(0, metadataItemKey.length-childrenSuffix.length);
+										if(!metadataItemKey || metadataItemKey == '/library/metadata') {
+											if(metadataItem.ratingKey) {
+												metadataItemKey = `/library/metadata/${metadataItem.ratingKey}`;
+											} else {
+												metadataItemKey = metadataItem.key;
+											}
+										}
+									}
+									console.log(`Sending unavailable notifications for ${metadataItemKey} on ${notifSockets.length} socket(s)`);
 									try {
 										sendMediaUnavailableNotifications(notifSockets, {
 											userID: context.plexUserInfo.serverUserID,
-											metadataKey: metadataItem.key,
+											metadataKey: metadataItemKey,
 										}, this._notificationsOptions());
 									} catch(error) {
 										console.error(`Error sending notification to socket:`);
