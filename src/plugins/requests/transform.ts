@@ -243,7 +243,14 @@ export const setMetadataItemKeyToRequestKey = (metadataItem: plexTypes.PlexMetad
 	}
 };
 
-export const transformRequestableChildMetadata = (metadataItem: plexTypes.PlexMetadataItem, opts: TransformRequestMetadataOptions) => {
+export type TransformRequestableChildMetadataOptions = TransformRequestMetadataOptions & {
+	overlayImageEndpoint: string | undefined;
+};
+
+export const transformRequestableChildMetadata = (metadataItem: plexTypes.PlexMetadataItem, opts: TransformRequestableChildMetadataOptions) => {
 	setMetadataItemKeyToRequestKey(metadataItem, opts);
 	metadataItem.title = `Request: ${metadataItem.title}`;
+	if(metadataItem.type == plexTypes.PlexMediaItemType.Season && metadataItem.thumb && opts.overlayImageEndpoint) {
+		metadataItem.thumb = `${opts.overlayImageEndpoint}?overlay=requestSeason&url=${encodeURIComponent(metadataItem.thumb)}`;
+	}
 };

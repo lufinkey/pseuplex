@@ -447,6 +447,7 @@ export class PlexRequestsHandler implements PseuplexMetadataProvider {
 					...transformOpts,
 					...childrenTransformOpts!,
 					transformRatingKey: true,
+					overlayImageEndpoint: this.plugin.app.overlayEndpoint,
 				};
 				forArrayOrSingle(childrenContainer.Metadata, (metadataItem) => {
 					reqsTransform.transformRequestableChildMetadata(metadataItem, reqChildTransformOpts);
@@ -580,6 +581,7 @@ export class PlexRequestsHandler implements PseuplexMetadataProvider {
 				reqsTransform.transformRequestableChildMetadata(metadataItem, {
 					...options.transformOptions,
 					transformRatingKey: true,
+					overlayImageEndpoint: this.plugin.app.overlayEndpoint,
 				});
 				return metadataItem;
 			}

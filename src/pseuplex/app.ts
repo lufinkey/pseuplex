@@ -1,10 +1,10 @@
-
 import http from 'http';
 import https from 'https';
 import stream from 'stream';
-import EventEmitter from 'events';
+import qs from 'querystring';
 import express from 'express';
 import httpolyglot from 'httpolyglot';
+import sharp from 'sharp';
 import * as plexTypes from '../plex/types';
 import * as plexServerAPI from '../plex/api';
 import { PlexServerPropertiesStore } from '../plex/serverproperties';
@@ -106,6 +106,7 @@ import {
 } from '../utils/misc';
 import { IPv4NormalizeMode } from '../utils/ip';
 import type { WebSocketEventMap } from '../utils/websocket';
+import { applyOverlayToImage, getImageLoader } from '../utils/images';
 
 
 // plugins
@@ -140,7 +141,7 @@ type PseuplexAppConfig = PseuplexConfigBase<{[key: string]: any}> & {[key: strin
 
 type PseuplexPlexServerNotificationsOptions = {
 	socketRetryInterval?: number;
-}
+};
 
 type PseuplexPlayQueueURIResolverOptions = {
 	plexMachineIdentifier: string;
@@ -193,6 +194,8 @@ export class PseuplexApp {
 	readonly plexGuidToInfoCache?: PlexGuidToInfoCache;
 	readonly pluginMetadataAccessCache?: PseuplexMetadataAccessCache;
 	readonly plexMetadataClient: PlexClient;
+
+	readonly overlayEndpoint: string;
 	
 	private _plexServerNotificationsSocket?: WebSocket | undefined;
 	private _listeningToPlexServerNotifications: boolean;
@@ -217,6 +220,7 @@ export class PseuplexApp {
 		if(options.mapPseuplexMetadataIds) {
 			this.metadataIdMappings = IDMappings.create();
 		}
+		const appBasePath = `/${this.slug}/`;
 		
 		// define properties
 		this.plexServerURL = options.plexServerURL;
@@ -816,24 +820,19 @@ export class PseuplexApp {
 						`https://127.0.0.1:${this.config.port}`
 					];
 					if(urlQueryArg) {
-						if(urlQueryArg instanceof Array) {
-							for(let i=0; i<urlQueryArg.length; i++) {
-								const cmpUrl = urlQueryArg[i];
-								for(const urlToRewrite of urlsToRewrite) {
-									if(cmpUrl.startsWith(urlToRewrite) && cmpUrl[urlToRewrite.length] == '/') {
-										urlQueryArg[i] = cmpUrl.substring(urlToRewrite.length);
-										break;
-									}
-								}
-							}
-						} else {
+						urlQueryArg = transformArrayOrSingle(urlQueryArg, (urlArg: string) => {
 							for(const urlToRewrite of urlsToRewrite) {
-								if(urlQueryArg.startsWith(urlToRewrite) && urlQueryArg[urlToRewrite.length] == '/') {
-									urlQueryArg = urlQueryArg.substring(urlToRewrite.length);
-									break;
+								if(urlArg.startsWith(urlToRewrite) && urlArg[urlToRewrite.length] == '/') {
+									/*const path = urlArg.slice(urlToRewrite.length+1);
+									if(path.startsWith(this.slug)) {
+										// don't rewrite plugin/proxy paths
+										return urlArg;
+									}*/
+									return urlArg.substring(urlToRewrite.length);
 								}
 							}
-						}
+							return urlArg;
+						});
 						queryItems['url'] = urlQueryArg;
 					}
 				}
@@ -844,6 +843,93 @@ export class PseuplexApp {
 			}
 			next();
 		}));
+
+		router.get('/photo/\\:/transcode', [
+			this.middlewares.plexAuthentication,
+			asyncRequestHandler(async (req: IncomingPlexAPIRequest, res) => {
+				let url = req.query['url'];
+				if(typeof url === 'string' && url.startsWith(appBasePath)) {
+					const width = req.query['width'];
+					const height = req.query['height'];
+					const queryArgs: {[key: string]: any} = {};
+					if(width != null) {
+						queryArgs['width'] = width;
+					}
+					if(height != null) {
+						queryArgs['height'] = height;
+					}
+					const queryStr = qs.stringify(queryArgs);
+					if(url.indexOf('?') == -1) {
+						url += '?' + queryStr;
+					} else {
+						url += '&' + queryStr;
+					}
+					res.redirect(url);
+					return true;
+				}
+				return false;
+			})
+		]);
+
+		const overlayNameRegex = /^[a-z0-9 ._-]+$/i;
+
+		const overlayImages = new CachedFetcher<{image:sharp.Sharp}>(async (imageName: string) => {
+			const image = await sharp(`${require.main!.path}/../images/overlays/${imageName}.png`);
+			return {image};
+		});
+		
+		this.overlayEndpoint = `/${this.slug}/image/withoverlay`;
+		router.get(this.overlayEndpoint, [
+			this.middlewares.plexAuthentication,
+			asyncRequestHandler(async (req, res) => {
+				// parse width
+				let width = req.query['width'];
+				if(width != null) {
+					width = Number.parseInt(width);
+					if(Number.isNaN(width)) {
+						throw httpError(500, "Invalid width");
+					}
+				}
+				// parse height
+				let height = req.query['height'];
+				if(height != null) {
+					height = Number.parseInt(height);
+					if(Number.isNaN(height)) {
+						throw httpError(500, "Invalid height");
+					}
+				}
+				// parse url
+				let url = req.query['url'];
+				if(url instanceof Array) {
+					url = url[0] as string;
+				}
+				// TODO validate url (disallow any local ips that aren't localhost:psport)
+				// parse overlay name
+				let overlayName = req.query['overlay'];
+				if(overlayName instanceof Array) {
+					overlayName = overlayName[0] as string;
+				}
+				if(!overlayName) {
+					throw httpError(400, "Missing overlay parameter");
+				}
+				if(!overlayName || !overlayNameRegex.test(overlayName)) {
+					throw httpError(400, "Invalid overlay");
+				}
+				// get overlay image
+				const overlayImage = (await overlayImages.getOrFetch(overlayName)).image;
+				// get base image
+				const baseImageRes = await fetch(url);
+				const outputImage = await applyOverlayToImage(stream.Readable.fromWeb(baseImageRes.body!), overlayImage, (width != null && height != null) ? {
+					resize: {width,height}
+				} : undefined);
+				/*const contentType = baseImageRes.headers.get('Content-Type');
+				if(contentType) {
+					res.setHeader('Content-Type', contentType);
+				}*/
+				outputImage.image.pipe(res);
+				return true;
+			})
+		]);
 
 		// proxy requests to plex
 		const plexGeneralProxy = plexHttpProxy(this.plexServerURL, plexProxyArgs);
@@ -933,7 +1019,6 @@ export class PseuplexApp {
 	}
 
 
-
 	listen(callback?: () => void) {
 		this.server.listen(this.port, () => {
 			if(this.shouldListenToPlexServerNotifications()) {
@@ -947,7 +1032,6 @@ export class PseuplexApp {
 		this.stopListeningToPlexServerNotifications();
 		this.server.close(callback);
 	}
-
 
 
 	shouldListenToPlexServerNotifications(): boolean {

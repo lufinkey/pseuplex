@@ -80,7 +80,9 @@ const readPlexPrefsIfNeeded = async () => {
 			}
 		}
 	}
-	console.log(`Logging options: ${JSON.stringify(loggingOptions, null, '\t')}`);
+	if(args.verbose) {
+		console.log(`Logging options: ${JSON.stringify(loggingOptions, null, '\t')}`);
+	}
 	const logger = new Logger(loggingOptions);
 	
 	// initialize server SSL
