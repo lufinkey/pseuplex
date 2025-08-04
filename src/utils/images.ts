@@ -1,31 +1,6 @@
 import stream from 'stream';
 import sharp from 'sharp';
 
-export const getImageLoader = (imagePath: string) => {
-	const fullPath = imagePath.startsWith('/')
-		? imagePath
-		: `${require.main!.path}/../${imagePath}`;
-	let imagePromise: Promise<{image: sharp.Sharp}> | undefined;
-	let image: sharp.Sharp | undefined;
-	return () => {
-		if(image) {
-			return {image};
-		}
-		if(imagePromise) {
-			return imagePromise;
-		}
-		imagePromise = (async (): Promise<{image:sharp.Sharp}> => {
-			try {
-				image = await sharp(fullPath);
-			} finally {
-				imagePromise = undefined;
-			}
-			return {image};
-		})();
-		return imagePromise;
-	};
-};
-
 const streamToBuffer = (stream): Promise<Buffer> => {
 	return new Promise((resolve, reject) => {
 		const chunks: Buffer[] = [];
@@ -54,14 +29,14 @@ export const applyOverlayToImage = async (inputImage: stream.Readable, overlayIm
 		.toBuffer();
 	
 	// Composite the resized overlay onto the base image
-	let output = baseImage
-		.composite([{
+	let output = baseImage;
+	if(options?.resize) {
+		output = output.resize(options.resize.width, options.resize.height);
+	}
+	output = output.composite([{
 			input: resizedOverlay,
 			top: 0,
 			left: 0
 		}]);
-	if(options?.resize) {
-		output = output.resize(options.resize.width, options.resize.height);
-	}
 	return {image:output};
 };

@@ -244,13 +244,13 @@ export const setMetadataItemKeyToRequestKey = (metadataItem: plexTypes.PlexMetad
 };
 
 export type TransformRequestableChildMetadataOptions = TransformRequestMetadataOptions & {
-	overlayImageEndpoint: string | undefined;
+	overlayedImageEndpoint: string | undefined;
 };
 
 export const transformRequestableChildMetadata = (metadataItem: plexTypes.PlexMetadataItem, opts: TransformRequestableChildMetadataOptions) => {
 	setMetadataItemKeyToRequestKey(metadataItem, opts);
 	metadataItem.title = `Request: ${metadataItem.title}`;
-	if(metadataItem.type == plexTypes.PlexMediaItemType.Season && metadataItem.thumb && opts.overlayImageEndpoint) {
-		metadataItem.thumb = `${opts.overlayImageEndpoint}?overlay=requestSeason&url=${encodeURIComponent(metadataItem.thumb)}`;
+	if(metadataItem.type == plexTypes.PlexMediaItemType.Season && metadataItem.thumb && opts.overlayedImageEndpoint) {
+		metadataItem.thumb = `${opts.overlayedImageEndpoint}?overlay=requestSeason&url=${encodeURIComponent(metadataItem.thumb)}`;
 	}
 };
