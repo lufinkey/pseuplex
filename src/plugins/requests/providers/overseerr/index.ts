@@ -311,7 +311,6 @@ export default (class OverseerrRequestsProvider implements RequestsProvider {
 				break;
 
 			case overseerrTypes.MediaType.TV:
-				console.log(`Getting show for tmdb id ${reqItem.tmdbId}`);
 				mediaItemInfo = await overseerrAPI.getTV(reqItem.tmdbId, null, ovrsrReqOpts);
 				break;
 
