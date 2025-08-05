@@ -80,7 +80,7 @@ export const createRequestPartialMetadataId = (idParts: RequestPartialMetadataID
 };
 
 export const createRequestItemMetadataKey = (options: {
-	basePath: string,
+	metadataBasePath: string,
 	qualifiedMetadataId: boolean,
 	requestProviderSlug: string,
 	mediaType: plexTypes.PlexMediaItemType,
@@ -90,10 +90,10 @@ export const createRequestItemMetadataKey = (options: {
 }): string => {
 	if(options.qualifiedMetadataId) {
 		const metadataId = createRequestFullMetadataId(options);
-		return `${options.basePath}/${metadataId}`
+		return `${options.metadataBasePath}/${metadataId}`
 			+ (options.children ? ChildrenRelativePath : '');
 	} else {
-		return `${options.basePath}/${options.requestProviderSlug}/${options.mediaType}/${options.plexId}`
+		return `${options.metadataBasePath}/${options.requestProviderSlug}/${options.mediaType}/${options.plexId}`
 			+ (options.season != null ? `${SeasonRelativePath}${options.season}` : '')
 			+ (options.children ? ChildrenRelativePath : '');
 	}
@@ -200,7 +200,7 @@ export const parsePartialRequestMetadataId = (metadataId: PseuplexPartialMetadat
 };
 
 export type TransformRequestMetadataOptions = {
-	basePath: string,
+	metadataBasePath: string,
 	parentKey?: string,
 	parentRatingKey?: string,
 	requestProviderSlug: string,
@@ -219,7 +219,7 @@ export const setMetadataItemKeyToRequestKey = (metadataItem: plexTypes.PlexMetad
 	const guidParts = parsePlexMetadataGuidOrThrow(itemGuid!);
 	const children = opts?.children ?? metadataItem.key.endsWith(ChildrenRelativePath);
 	metadataItem.key = createRequestItemMetadataKey({
-		basePath: opts.basePath,
+		metadataBasePath: opts.metadataBasePath,
 		qualifiedMetadataId: opts.qualifiedMetadataIds,
 		requestProviderSlug: opts.requestProviderSlug,
 		mediaType: guidParts.type as plexTypes.PlexMediaItemType,
@@ -245,12 +245,14 @@ export const setMetadataItemKeyToRequestKey = (metadataItem: plexTypes.PlexMetad
 
 export type TransformRequestableChildMetadataOptions = TransformRequestMetadataOptions & {
 	overlayedImageEndpoint: string | undefined;
+	requested: boolean;
 };
 
 export const transformRequestableChildMetadata = (metadataItem: plexTypes.PlexMetadataItem, opts: TransformRequestableChildMetadataOptions) => {
 	setMetadataItemKeyToRequestKey(metadataItem, opts);
 	metadataItem.title = `Request: ${metadataItem.title}`;
 	if(metadataItem.type == plexTypes.PlexMediaItemType.Season && metadataItem.thumb && opts.overlayedImageEndpoint) {
-		metadataItem.thumb = `${opts.overlayedImageEndpoint}?overlay=requestSeason&url=${encodeURIComponent(metadataItem.thumb)}`;
+		const overlayName = opts.requested ? 'requestedSeason' : 'requestSeason';
+		metadataItem.thumb = `${opts.overlayedImageEndpoint}?overlay=${overlayName}&url=${encodeURIComponent(metadataItem.thumb)}`;
 	}
 };

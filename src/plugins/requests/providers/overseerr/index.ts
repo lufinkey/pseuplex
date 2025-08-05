@@ -19,6 +19,14 @@ import * as overseerrTypes from './apitypes'
 import * as ovrsrTransform from './transform';
 import { httpError, HttpResponseError } from '../../../../utils/error';
 import { firstOrSingle } from '../../../../utils/misc';
+import { PlexGuidCachedInfo } from '../../../../plex/metadata';
+
+type RequestableItemInfo = {
+	type: overseerrTypes.MediaType,
+	tvdbId?: number,
+	tmdbId?: number,
+	season: number | undefined,
+};
 
 export default (class OverseerrRequestsProvider implements RequestsProvider {
 	readonly slug = 'overseerr';
@@ -144,12 +152,7 @@ export default (class OverseerrRequestsProvider implements RequestsProvider {
 		return overseerrUser ?? null;
 	}
 
-	private async _getRequestableItem(plexItem: plexTypes.PlexMetadataItem): Promise<{
-		type: overseerrTypes.MediaType,
-		tvdbId?: number,
-		tmdbId?: number,
-		season: number | undefined,
-	}> {
+	private async _getRequestableItem(plexItem: (PlexGuidCachedInfo & {type: plexTypes.PlexMediaItemType})): Promise<RequestableItemInfo> {
 		// get plex item info
 		let tmdbPrefix: string = 'tmdb://';
 		let tvdbPrefix: string = 'tvdb://';
@@ -173,10 +176,10 @@ export default (class OverseerrRequestsProvider implements RequestsProvider {
 					throw httpError(500, `Unable to determine show for episode`);
 				}
 				season = plexItem.parentIndex;
-				const grandparentMetadataPage = plexGuidToInfoCache
+				const grandparentMetadataItem = plexGuidToInfoCache
 					? await plexGuidToInfoCache.getOrFetch(plexItem.grandparentGuid)
 					: firstOrSingle((await this.app.plexMetadataClient.getMetadata(plexItem.grandparentRatingKey)).MediaContainer.Metadata);
-				itemGuids = grandparentMetadataPage?.Guid;
+				itemGuids = grandparentMetadataItem?.Guid;
 			} break;
 
 			case plexTypes.PlexMediaItemType.Season: {
@@ -189,10 +192,11 @@ export default (class OverseerrRequestsProvider implements RequestsProvider {
 					throw httpError(500, `Unable to determine show for season`);
 				}
 				season = plexItem.index;
-				const parentMetadataPage = plexGuidToInfoCache
+				const parentMetadataItem = plexGuidToInfoCache
 					? await plexGuidToInfoCache.getOrFetch(plexItem.parentGuid)
 					: firstOrSingle((await this.app.plexMetadataClient.getMetadata(plexItem.parentRatingKey)).MediaContainer.Metadata);
-				itemGuids = parentMetadataPage?.Guid;
+				itemGuids = parentMetadataItem?.Guid;
+				console.log("got guids from show item");
 			} break;
 				
 			case plexTypes.PlexMediaItemType.TVShow: {
@@ -211,8 +215,8 @@ export default (class OverseerrRequestsProvider implements RequestsProvider {
 		return {
 			type,
 			season,
-			tmdbId: (tvdbId != null && !Number.isNaN(tvdbId)) ? tvdbId : (tvdbIdString as any),
-			tvdbId: (tmdbId != null && !Number.isNaN(tmdbId)) ? tmdbId : (tmdbIdString as any),
+			tmdbId: (tmdbId != null && !Number.isNaN(tmdbId)) ? tmdbId : (tmdbIdString as any),
+			tvdbId: (tvdbId != null && !Number.isNaN(tvdbId)) ? tvdbId : (tvdbIdString as any),
 		};
 	}
 
@@ -294,8 +298,7 @@ export default (class OverseerrRequestsProvider implements RequestsProvider {
 		return ovrsrTransform.transformOverseerrRequestItem(resData, resData.media, {seasons});
 	}
 
-	async getRequests(plexItem: plexTypes.PlexMetadataItem, context: PseuplexRequestContext): Promise<RequestInfo[]> {
-		const reqItem = await this._getRequestableItem(plexItem);
+	async _getRequestsForRequestableItem(reqItem: RequestableItemInfo, context: PseuplexRequestContext) {
 		if(!reqItem.tmdbId) {
 			throw httpError(500, "Unable to find matching tmdb id");
 		}
@@ -308,6 +311,7 @@ export default (class OverseerrRequestsProvider implements RequestsProvider {
 				break;
 
 			case overseerrTypes.MediaType.TV:
+				console.log(`Getting show for tmdb id ${reqItem.tmdbId}`);
 				mediaItemInfo = await overseerrAPI.getTV(reqItem.tmdbId, null, ovrsrReqOpts);
 				break;
 
@@ -315,10 +319,43 @@ export default (class OverseerrRequestsProvider implements RequestsProvider {
 				throw httpError(400, `Cannot handle media type ${reqItem.type}`);
 		}
 		// return requests
-		return mediaItemInfo?.mediaInfo?.requests?.map((r: overseerrTypes.TVRequestInfo | overseerrTypes.MovieRequestInfo): RequestInfo => {
-			return ovrsrTransform.transformOverseerrRequestItem(r, mediaItemInfo.mediaInfo, {
-				seasons: (r as overseerrTypes.TVRequestInfo).seasons?.map((s) => s.seasonNumber)
+		let requests = mediaItemInfo?.mediaInfo?.requests;
+		if(reqItem.season != null) {
+			requests = requests.filter((r: overseerrTypes.TVRequestInfo) => {
+				return r.seasons?.find((s) => s.seasonNumber == reqItem.season);
 			});
-		}) ?? [];
+		}
+		if(reqItem.type == overseerrTypes.MediaType.TV) {
+			return requests?.map((r: overseerrTypes.TVRequestInfo): RequestInfo => {
+				return ovrsrTransform.transformOverseerrRequestItem(r, mediaItemInfo.mediaInfo, {
+					seasons: r.seasons?.map((s) => s.seasonNumber)
+				});
+			}) ?? [];
+		} else {
+			return requests?.map((r: overseerrTypes.MovieRequestInfo): RequestInfo => {
+				return ovrsrTransform.transformOverseerrRequestItem(r, mediaItemInfo.mediaInfo, {});
+			}) ?? [];
+		}
+	}
+
+	async getRequestsForPlexItem(plexItem: plexTypes.PlexMetadataItem, context: PseuplexRequestContext): Promise<RequestInfo[]> {
+		const reqItem = await this._getRequestableItem(plexItem);
+		return await this._getRequestsForRequestableItem(reqItem, context);
+	}
+
+	async getRequestsForPlexGuid(plexGuid: string, context: PseuplexRequestContext): Promise<RequestInfo[]> {
+		const plexGuidParts = parsePlexMetadataGuidOrThrow(plexGuid);
+		if(plexGuidParts.protocol != plexTypes.PlexMetadataGuidProtocol.Plex || !plexGuidParts.type) {
+			throw httpError(500, `Unrecognized plex guid ${plexGuid}`);
+		}
+		const plexGuidToInfoCache = this.app.plexGuidToInfoCache;
+		const plexItem = plexGuidToInfoCache
+			? await plexGuidToInfoCache.getOrFetch(plexGuid)
+			: firstOrSingle((await this.app.plexMetadataClient.getMetadata(plexGuidParts.id)).MediaContainer.Metadata);
+		const reqItem = await this._getRequestableItem({
+			...plexItem,
+			type: plexGuidParts.type as plexTypes.PlexMediaItemType,
+		});
+		return await this._getRequestsForRequestableItem(reqItem, context);
 	}
 } as RequestsProviderClass);

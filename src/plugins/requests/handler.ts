@@ -53,14 +53,6 @@ export type PlexRequestsHandlerOptions = {
 	logger?: Logger;
 };
 
-export type TransformRequestableSeasonsOptions = {
-	basePath: string,
-	parentKey: string,
-	parentRatingKey: string,
-	requestProviderSlug: string,
-	qualifiedMetadataIds: boolean;
-};
-
 export class PlexRequestsHandler implements PseuplexMetadataProvider {
 	readonly sourceDisplayName = "Plex Requests";
 	readonly sourceSlug = PseuplexMetadataSource.Request;
@@ -179,7 +171,7 @@ export class PlexRequestsHandler implements PseuplexMetadataProvider {
 		const requestMetadataItem: WithOptionalPropsRecursive<plexTypes.PlexMetadataItem> = {
 			guid: options.guid,
 			key: reqsTransform.createRequestItemMetadataKey({
-				basePath: options.useLibraryMetadataPath ? '/library/metadata' : this.basePath,
+				metadataBasePath: options.useLibraryMetadataPath ? '/library/metadata' : this.basePath,
 				qualifiedMetadataId: options.useLibraryMetadataPath ?? false,
 				requestProviderSlug: options.requestProvider.slug,
 				mediaType: guidParts.type as plexTypes.PlexMediaItemType,
@@ -254,16 +246,13 @@ export class PlexRequestsHandler implements PseuplexMetadataProvider {
 		}
 		// create options for transforming metadata
 		const fullIdString = reqsTransform.createRequestFullMetadataId(id);
-		const transformOpts = {
-			basePath: options.metadataBasePath || this.basePath,
-			requestProviderSlug: reqProvider.slug,
-			qualifiedMetadataIds: options.qualifiedMetadataIds ?? false,
-		};
+		const metadataBasePath = options.metadataBasePath || this.basePath;
+		const qualifiedMetadataIds = options.qualifiedMetadataIds ?? false;
 		const childrenTransformOpts = options.children ? {
 			parentRatingKey: fullIdString,
-			parentKey: (transformOpts.qualifiedMetadataIds ?
-				`${transformOpts.basePath}/${fullIdString}`
-				: `${transformOpts.basePath}/${reqsTransform.createRequestPartialMetadataId(id)}`),
+			parentKey: (qualifiedMetadataIds ?
+				`${metadataBasePath}/${fullIdString}`
+				: `${metadataBasePath}/${reqsTransform.createRequestPartialMetadataId(id)}`),
 		} : undefined;
 		// check if item already exists on the plex server
 		const guid = `plex://${id.mediaType}/${id.plexId}`;
@@ -327,20 +316,24 @@ export class PlexRequestsHandler implements PseuplexMetadataProvider {
 						// this should cause an error, since we literally just fetched this item via its guid
 						throw httpError(500, `No guid on metadata item that was fetched using guid ${guid}`);
 					}
-					await this.addRequestableSeasons(plexDisplayedPage, id.plexId, {
+					await this.addRequestableSeasons(plexDisplayedPage, {
+						...childrenTransformOpts!,
+						metadataBasePath,
+						qualifiedMetadataIds,
+						requestsProvider: reqProvider,
+						plexId: id.plexId,
+						plexType: id.mediaType,
 						plexParams: options.plexParams as (plexTypes.PlexMetadataChildrenPageParams | undefined),
-						transformExistingKeys: options.transformMatchKeys,
-						transformOptions: {
-							...transformOpts,
-							...childrenTransformOpts!
-						},
-					});
+						transformMatchKeys: options.transformMatchKeys,
+					}, context);
 				} else {
 					// transform metadata item key since not getting children
 					if(options.transformMatchKeys) {
 						forArrayOrSingle(plexDisplayedPage.MediaContainer.Metadata, (metadataItem: PseuplexMetadataItem) => {
 							reqsTransform.setMetadataItemKeyToRequestKey(metadataItem, {
-								...transformOpts,
+								metadataBasePath,
+								qualifiedMetadataIds,
+								requestProviderSlug: reqProvider.slug,
 								// since the item is on the server, we want to leave the original ratingKey,
 								//  so that the plex server items will be fetched directly if any additional request is made
 								transformRatingKey: false,
@@ -401,22 +394,22 @@ export class PlexRequestsHandler implements PseuplexMetadataProvider {
 			this.plexMetadataClient.getMetadataChildren(plexId, options.plexParams as plexTypes.PlexMetadataChildrenPageParams)
 			: this.plexMetadataClient.getMetadata(plexId, options.plexParams as plexTypes.PlexMetadataPageParams);
 		// fetch requested item from plex discover
-		const requestedPlexItemPage = (options.children || plexId != id.plexId) ?
+		const requestingPlexItemPage = (options.children || plexId != id.plexId) ?
 			await this.plexMetadataClient.getMetadata(id.plexId)
 			: await resDataPromise;
 		const resData = await resDataPromise;
 		// cache if needed
-		this.plexGuidToInfoCache?.cacheMetadataItems(requestedPlexItemPage.MediaContainer.Metadata);
-		if(resData !== requestedPlexItemPage) {
+		this.plexGuidToInfoCache?.cacheMetadataItems(requestingPlexItemPage.MediaContainer.Metadata);
+		if(resData !== requestingPlexItemPage) {
 			this.plexGuidToInfoCache?.cacheMetadataItems(resData.MediaContainer.Metadata);
 		}
+		const requestingPlexItem = firstOrSingle(requestingPlexItemPage.MediaContainer.Metadata);
 		// send request if needed
 		let reqInfo: RequestInfo | undefined = undefined;
 		if(itemType != plexTypes.PlexMediaItemType.TVShow && !options.children) {
 			// send media request
-			const requestedPlexItem = firstOrSingle(requestedPlexItemPage.MediaContainer.Metadata);
-			if(requestedPlexItem) {
-				reqInfo = await reqProvider.requestPlexItem(requestedPlexItem, {
+			if(requestingPlexItem) {
+				reqInfo = await reqProvider.requestPlexItem(requestingPlexItem, {
 					season: id.season,
 					context,
 				});
@@ -445,14 +438,23 @@ export class PlexRequestsHandler implements PseuplexMetadataProvider {
 				childrenContainer.totalSize = 0;
 			} else if(itemType == plexTypes.PlexMediaItemType.TVShow) {
 				// make seasons requestable
-				const reqChildTransformOpts = {
-					...transformOpts,
-					...childrenTransformOpts!,
-					transformRatingKey: true,
-					overlayedImageEndpoint: this.plugin.app.overlayedImageEndpoint,
-				};
+				let requests: RequestInfo[] | undefined;
+				try {
+					requests = requestingPlexItem ? (await reqProvider.getRequestsForPlexItem(requestingPlexItem, context)) : [];
+				} catch(error) {
+					console.error(`Error fetching requests for ${reqsTransform.createRequestFullMetadataId(id)} :`);
+					console.error(error);
+				}
 				forArrayOrSingle(childrenContainer.Metadata, (metadataItem) => {
-					reqsTransform.transformRequestableChildMetadata(metadataItem, reqChildTransformOpts);
+					reqsTransform.transformRequestableChildMetadata(metadataItem, {
+						...childrenTransformOpts!,
+						metadataBasePath,
+						qualifiedMetadataIds,
+						requestProviderSlug: reqProvider.slug,
+						transformRatingKey: true,
+						overlayedImageEndpoint: this.plugin.app.overlayedImageEndpoint,
+						requested: requests?.find((r) => (r.seasons?.find((s) => s == metadataItem.index) != null)) != null,
+					});
 				});
 			}
 		} else {
@@ -471,7 +473,9 @@ export class PlexRequestsHandler implements PseuplexMetadataProvider {
 					metadataItem.title = `Request • ${metadataItem.title}`;
 				}
 				reqsTransform.setMetadataItemKeyToRequestKey(metadataItem, {
-					...transformOpts,
+					metadataBasePath,
+					qualifiedMetadataIds,
+					requestProviderSlug: reqProvider.slug,
 					children: (itemType == plexTypes.PlexMediaItemType.TVShow),
 					transformRatingKey: true,
 				});
@@ -544,13 +548,30 @@ export class PlexRequestsHandler implements PseuplexMetadataProvider {
 		};
 	}
 
-	async addRequestableSeasons(resData: PseuplexMetadataChildrenPage, plexId: string, options: {
+	async addRequestableSeasons(resData: PseuplexMetadataChildrenPage, options: {
+		plexId: string,
+		plexType: plexTypes.PlexMediaItemType,
 		plexParams?: plexTypes.PlexMetadataChildrenPageParams,
-		transformExistingKeys?: boolean,
-		transformOptions: TransformRequestableSeasonsOptions,
-	}) {
+		transformMatchKeys?: boolean,
+		parentKey: string,
+		parentRatingKey: string,
+		requestsProvider: RequestsProvider,
+		metadataBasePath: string,
+		qualifiedMetadataIds: boolean,
+	}, context: PseuplexRequestContext) {
 		// fetch other children (seasons) from plex metadata provider
-		const discoverMetadataPage = await this.plexMetadataClient.getMetadataChildren(plexId, options.plexParams as plexTypes.PlexMetadataChildrenPageParams);
+		const discoverMetadataPageTask = this.plexMetadataClient.getMetadataChildren(options.plexId, options.plexParams as plexTypes.PlexMetadataChildrenPageParams);
+		// fetch requests
+		let requests: RequestInfo[] | undefined;
+		try {
+			const plexGuid = `plex://${options.plexType}/${options.plexId}`;
+			requests = await options.requestsProvider.getRequestsForPlexGuid(plexGuid, context);
+		} catch(error) {
+			console.error(`Error fetching requests for plex ${options.plexType} with id ${options.plexId} :`);
+			console.error(error);
+		}
+		// wait for plex metadata
+		const discoverMetadataPage = await discoverMetadataPageTask;
 		this.plexGuidToInfoCache?.cacheMetadataItems(discoverMetadataPage.MediaContainer.Metadata);
 		// transform requestable children
 		resData.MediaContainer.Metadata = transformArrayOrSingle(discoverMetadataPage.MediaContainer.Metadata, (metadataItem: PseuplexMetadataItem): PseuplexMetadataItem => {
@@ -562,9 +583,11 @@ export class PlexRequestsHandler implements PseuplexMetadataProvider {
 				: undefined;
 			if(matchingItem) {
 				// child exists on the server, so return that item
-				if(options.transformExistingKeys) {
+				if(options.transformMatchKeys) {
 					reqsTransform.setMetadataItemKeyToRequestKey(matchingItem, {
-						...options.transformOptions,
+						metadataBasePath: options.metadataBasePath,
+						qualifiedMetadataIds: options.qualifiedMetadataIds,
+						requestProviderSlug: options.requestsProvider.slug,
 						// don't show children of children
 						children: false,
 						// since the item is on the server, we want to leave the original ratingKey,
@@ -581,9 +604,12 @@ export class PlexRequestsHandler implements PseuplexMetadataProvider {
 					metadataIds: {},
 				};
 				reqsTransform.transformRequestableChildMetadata(metadataItem, {
-					...options.transformOptions,
+					metadataBasePath: options.metadataBasePath,
+					qualifiedMetadataIds: options.qualifiedMetadataIds,
+					requestProviderSlug: options.requestsProvider.slug,
 					transformRatingKey: true,
 					overlayedImageEndpoint: this.plugin.app.overlayedImageEndpoint,
+					requested: requests?.find((r) => (r.seasons?.find((s) => s == metadataItem.index) != null)) != null,
 				});
 				return metadataItem;
 			}

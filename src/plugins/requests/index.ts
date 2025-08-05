@@ -142,11 +142,10 @@ export default (class RequestsPlugin implements RequestsPluginDef, PseuplexPlugi
 				return;
 			}
 			const showRequestableSeasons = userPrefs?.requests?.requestableSeasons ?? config.requests?.requestableSeasons;
-			const requestProvider = await this.requestsHandler.getRequestsProviderForPlexUser(plexUserToken, plexUserInfo);
+			const requestsProvider = await this.requestsHandler.getRequestsProviderForPlexUser(plexUserToken, plexUserInfo);
 			// add requestable seasons if able
-			if(showRequestableSeasons && !context.metadataId.source && requestProvider) {
+			if(showRequestableSeasons && !context.metadataId.source && requestsProvider) {
 				await Promise.all(context.previousFilterPromises ?? []);
-				const requestProviderSlug = requestProvider.slug;
 				// get guid for id
 				const plexGuid = await this.app.plexServerIdToGuidCache.getOrFetch(context.metadataId.id);
 				const plexGuidParts = plexGuid ? parsePlexMetadataGuid(plexGuid) : null;
@@ -157,19 +156,23 @@ export default (class RequestsPlugin implements RequestsPluginDef, PseuplexPlugi
 					const fullIdString = reqsTransform.createRequestFullMetadataId({
 						mediaType: plexGuidParts.type as plexTypes.PlexMediaItemType,
 						plexId: plexGuidParts.id,
-						requestProviderSlug,
+						requestProviderSlug: requestsProvider.slug,
 					});
-					await this.requestsHandler.addRequestableSeasons(resData, plexGuidParts.id, {
+					await this.requestsHandler.addRequestableSeasons(resData, {
+						plexId: plexGuidParts.id,
+						plexType: plexGuidParts.type,
 						plexParams: context.userReq.plex.requestParams,
-						transformExistingKeys: false,
-						transformOptions: {
-							basePath: '/library/metadata',
-							qualifiedMetadataIds: true,
-							requestProviderSlug,
-							parentKey: `/library/metadata/${fullIdString}`,
-							parentRatingKey: fullIdString,
-						},
-					})
+						transformMatchKeys: false,
+						metadataBasePath: '/library/metadata',
+						qualifiedMetadataIds: true,
+						requestsProvider,
+						parentKey: `/library/metadata/${fullIdString}`,
+						parentRatingKey: fullIdString,
+					}, {
+						plexUserInfo,
+						plexAuthContext,
+						plexServerURL: this.app.plexServerURL,
+					});
 				}
 			}
 		},

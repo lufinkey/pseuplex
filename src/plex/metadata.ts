@@ -25,15 +25,26 @@ export const createPlexServerIdToGuidCache = (options: plexServerAPI.PlexAPIRequ
 
 
 export type PlexGuidCachedInfo = {
+	index?: number;
 	slug?: string;
+	parentIndex?: number;
 	parentSlug?: string;
+	parentGuid?: string;
+	parentRatingKey?: string;
 	grandparentSlug?: string;
+	grandparentGuid?: string;
+	grandparentRatingKey?: string;
 	Guid?: plexTypes.PlexGuid[];
 };
 
 
 export class PlexGuidToInfoCache extends CachedFetcher<PlexGuidCachedInfo | null> {
-	static fields: (keyof PlexGuidCachedInfo)[] = ['slug','parentSlug','grandparentSlug'];
+	static fields: (keyof PlexGuidCachedInfo)[] = [
+		'index',
+		'slug',
+		'parentIndex','parentSlug','parentGuid','parentRatingKey',
+		'grandparentSlug','grandparentGuid','grandparentRatingKey'
+	];
 	static elements: (keyof PlexGuidCachedInfo)[] = ['Guid'];
 	plexMetadataClient: PlexClient;
 
@@ -62,10 +73,16 @@ export class PlexGuidToInfoCache extends CachedFetcher<PlexGuidCachedInfo | null
 
 	private metadataToInfo(metadataItem: plexTypes.PlexMetadataItem): PlexGuidCachedInfo {
 		return {
+			index: metadataItem.index,
 			slug: metadataItem.slug,
+			parentIndex: metadataItem.parentIndex,
 			parentSlug: metadataItem.parentSlug,
+			parentGuid: metadataItem.parentGuid,
+			parentRatingKey: metadataItem.parentRatingKey,
 			grandparentSlug: metadataItem.grandparentSlug,
-			//Guid: metadataItem.Guid,
+			grandparentGuid: metadataItem.grandparentGuid,
+			grandparentRatingKey: metadataItem.grandparentRatingKey,
+			Guid: metadataItem.Guid,
 		};
 	}
 
