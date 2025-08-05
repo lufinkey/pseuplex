@@ -1,5 +1,6 @@
 
 import https from 'https';
+import sharp from 'sharp';
 import * as constants from './constants';
 import {
 	Config,
@@ -31,6 +32,7 @@ import { PlexClient } from './plex/client';
 import { Logger, LoggingOptions } from './logging';
 
 modConsoleColors();
+sharp.concurrency(1);
 
 let plexPrefs: PlexPreferences | undefined = undefined;
 let cfg: Config;
