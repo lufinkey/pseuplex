@@ -251,8 +251,11 @@ export type TransformRequestableChildMetadataOptions = TransformRequestMetadataO
 export const transformRequestableChildMetadata = (metadataItem: plexTypes.PlexMetadataItem, opts: TransformRequestableChildMetadataOptions) => {
 	setMetadataItemKeyToRequestKey(metadataItem, opts);
 	metadataItem.title = `Request: ${metadataItem.title}`;
-	if(metadataItem.type == plexTypes.PlexMediaItemType.Season && metadataItem.thumb && opts.overlayedImageEndpoint) {
-		const overlayName = opts.requested ? 'requestedSeason' : 'requestSeason';
-		metadataItem.thumb = `${opts.overlayedImageEndpoint}?overlay=${overlayName}&url=${encodeURIComponent(metadataItem.thumb)}`;
+	if(metadataItem.type == plexTypes.PlexMediaItemType.Season && opts.overlayedImageEndpoint) {
+		const thumb = metadataItem.thumb || metadataItem.parentThumb || metadataItem.grandparentThumb;
+		if(thumb) {
+			const overlayName = opts.requested ? 'requestedSeason' : 'requestSeason';
+			metadataItem.thumb = `${opts.overlayedImageEndpoint}?overlay=${overlayName}&url=${encodeURIComponent(thumb)}`;
+		}
 	}
 };

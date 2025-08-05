@@ -19,7 +19,7 @@ import * as overseerrTypes from './apitypes'
 import * as ovrsrTransform from './transform';
 import { httpError, HttpResponseError } from '../../../../utils/error';
 import { firstOrSingle } from '../../../../utils/misc';
-import { PlexGuidCachedInfo } from '../../../../plex/metadata';
+import { PlexIdCachedInfo } from '../../../../plex/metadata';
 
 type RequestableItemInfo = {
 	type: overseerrTypes.MediaType,
@@ -152,14 +152,14 @@ export default (class OverseerrRequestsProvider implements RequestsProvider {
 		return overseerrUser ?? null;
 	}
 
-	private async _getRequestableItem(plexItem: (PlexGuidCachedInfo & {type: plexTypes.PlexMediaItemType})): Promise<RequestableItemInfo> {
+	private async _getRequestableItem(plexItem: (PlexIdCachedInfo & {type: plexTypes.PlexMediaItemType})): Promise<RequestableItemInfo> {
 		// get plex item info
 		let tmdbPrefix: string = 'tmdb://';
 		let tvdbPrefix: string = 'tvdb://';
 		let type: overseerrTypes.MediaType;
 		let itemGuids: plexTypes.PlexGuid[] | undefined;
 		let season: number | undefined;
-		const plexGuidToInfoCache = this.app.plexGuidToInfoCache;
+		const plexIdToInfoCache = this.app.plexIdToInfoCache;
 		switch(plexItem.type) {
 			case plexTypes.PlexMediaItemType.Movie: {
 				type = overseerrTypes.MediaType.Movie;
@@ -172,12 +172,12 @@ export default (class OverseerrRequestsProvider implements RequestsProvider {
 				if(plexItem.parentIndex == null) {
 					throw httpError(500, `Unable to request season for episode`);
 				}
-				if(!plexItem.grandparentRatingKey || !plexItem.grandparentGuid) {
+				if(!plexItem.grandparentRatingKey) {
 					throw httpError(500, `Unable to determine show for episode`);
 				}
 				season = plexItem.parentIndex;
-				const grandparentMetadataItem = plexGuidToInfoCache
-					? await plexGuidToInfoCache.getOrFetch(plexItem.grandparentGuid)
+				const grandparentMetadataItem = plexIdToInfoCache
+					? await plexIdToInfoCache.getOrFetch(plexItem.grandparentRatingKey)
 					: firstOrSingle((await this.app.plexMetadataClient.getMetadata(plexItem.grandparentRatingKey)).MediaContainer.Metadata);
 				itemGuids = grandparentMetadataItem?.Guid;
 			} break;
@@ -188,12 +188,12 @@ export default (class OverseerrRequestsProvider implements RequestsProvider {
 				if(plexItem.index == null) {
 					throw httpError(500, `Unable to determine season index`);
 				}
-				if(!plexItem.parentRatingKey || !plexItem.parentGuid) {
+				if(!plexItem.parentRatingKey) {
 					throw httpError(500, `Unable to determine show for season`);
 				}
 				season = plexItem.index;
-				const parentMetadataItem = plexGuidToInfoCache
-					? await plexGuidToInfoCache.getOrFetch(plexItem.parentGuid)
+				const parentMetadataItem = plexIdToInfoCache
+					? await plexIdToInfoCache.getOrFetch(plexItem.parentRatingKey)
 					: firstOrSingle((await this.app.plexMetadataClient.getMetadata(plexItem.parentRatingKey)).MediaContainer.Metadata);
 				itemGuids = parentMetadataItem?.Guid;
 				console.log("got guids from show item");
@@ -347,9 +347,9 @@ export default (class OverseerrRequestsProvider implements RequestsProvider {
 		if(plexGuidParts.protocol != plexTypes.PlexMetadataGuidProtocol.Plex || !plexGuidParts.type) {
 			throw httpError(500, `Unrecognized plex guid ${plexGuid}`);
 		}
-		const plexGuidToInfoCache = this.app.plexGuidToInfoCache;
-		const plexItem = plexGuidToInfoCache
-			? await plexGuidToInfoCache.getOrFetch(plexGuid)
+		const plexIdToInfoCache = this.app.plexIdToInfoCache;
+		const plexItem = plexIdToInfoCache
+			? await plexIdToInfoCache.getOrFetch(plexGuidParts.id)
 			: firstOrSingle((await this.app.plexMetadataClient.getMetadata(plexGuidParts.id)).MediaContainer.Metadata);
 		const reqItem = await this._getRequestableItem({
 			...plexItem,

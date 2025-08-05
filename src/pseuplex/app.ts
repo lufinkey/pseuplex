@@ -13,7 +13,7 @@ import {
 	PlexServerAccountsStore
 } from '../plex/accounts';
 import {
-	PlexGuidToInfoCache,
+	PlexIdToInfoCache,
 	createPlexServerIdToGuidCache,
 } from '../plex/metadata';
 import {
@@ -195,7 +195,7 @@ export class PseuplexApp {
 		[plexToken: string]: PseuplexPossiblyConfirmedClientWebSocketInfo[]
 	} = {};
 	readonly plexServerIdToGuidCache: CachedFetcher<string | null | undefined>;
-	readonly plexGuidToInfoCache?: PlexGuidToInfoCache;
+	readonly plexIdToInfoCache?: PlexIdToInfoCache;
 	readonly pluginMetadataAccessCache?: PseuplexMetadataAccessCache;
 	readonly plexMetadataClient: PlexClient;
 
@@ -247,7 +247,7 @@ export class PseuplexApp {
 			authContext: this.plexAdminAuthContext,
 			logger: this.logger,
 		});
-		this.plexGuidToInfoCache = new PlexGuidToInfoCache({
+		this.plexIdToInfoCache = new PlexIdToInfoCache({
 			plexMetadataClient: this.plexMetadataClient
 		});
 		this.pluginMetadataAccessCache = this

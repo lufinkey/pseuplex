@@ -6,7 +6,7 @@ import {
 	parsePlexMetadataGuid,
 	parsePlexMetadataGuidOrThrow,
 } from '../../plex/metadataidentifier';
-import { PlexGuidToInfoCache } from '../../plex/metadata';
+import { PlexIdToInfoCache } from '../../plex/metadata';
 import {
 	PseuplexMetadataPage,
 	PseuplexMetadataChildrenProviderParams,
@@ -73,8 +73,8 @@ export class PlexRequestsHandler implements PseuplexMetadataProvider {
 		this.logger = options.logger;
 	}
 
-	get plexGuidToInfoCache(): PlexGuidToInfoCache | undefined {
-		return this.plugin.app.plexGuidToInfoCache;
+	get plexIdToInfoCache(): PlexIdToInfoCache | undefined {
+		return this.plugin.app.plexIdToInfoCache;
 	}
 	
 	get plexMetadataClient(): PlexClient {
@@ -153,11 +153,11 @@ export class PlexRequestsHandler implements PseuplexMetadataProvider {
 		else if(guidParts.protocol == plexTypes.PlexMetadataGuidProtocol.Plex) {
 			if(options.season != null) {
 				const metadataItems = (await options.plexMetadataClient.getMetadataChildren(guidParts.id)).MediaContainer.Metadata;
-				this.plexGuidToInfoCache?.cacheMetadataItems(metadataItems);
+				this.plexIdToInfoCache?.cacheMetadataItems(metadataItems);
 				metadataItem = findInArrayOrSingle(metadataItems, (item) => (item.index == options.season));
 			} else {
 				const metadataItems = (await options.plexMetadataClient.getMetadata(guidParts.id)).MediaContainer.Metadata;
-				this.plexGuidToInfoCache?.cacheMetadataItems(metadataItems);
+				this.plexIdToInfoCache?.cacheMetadataItems(metadataItems);
 				metadataItem = firstOrSingle(metadataItems);
 			}
 		}
@@ -370,7 +370,7 @@ export class PlexRequestsHandler implements PseuplexMetadataProvider {
 		if(id.season != null && id.mediaType == plexTypes.PlexMediaItemType.TVShow) {
 			// get guid for season
 			const showChildrenPage = await this.plexMetadataClient.getMetadataChildren(id.plexId);
-			this.plexGuidToInfoCache?.cacheMetadataItems(showChildrenPage.MediaContainer.Metadata);
+			this.plexIdToInfoCache?.cacheMetadataItems(showChildrenPage.MediaContainer.Metadata);
 			const seasonItem = findInArrayOrSingle(showChildrenPage.MediaContainer.Metadata, (item) => {
 				return item.index == id.season
 			});
@@ -401,9 +401,9 @@ export class PlexRequestsHandler implements PseuplexMetadataProvider {
 			: await resDataPromise;
 		const resData = await resDataPromise;
 		// cache if needed
-		this.plexGuidToInfoCache?.cacheMetadataItems(requestingPlexItemPage.MediaContainer.Metadata);
+		this.plexIdToInfoCache?.cacheMetadataItems(requestingPlexItemPage.MediaContainer.Metadata);
 		if(resData !== requestingPlexItemPage) {
-			this.plexGuidToInfoCache?.cacheMetadataItems(resData.MediaContainer.Metadata);
+			this.plexIdToInfoCache?.cacheMetadataItems(resData.MediaContainer.Metadata);
 		}
 		const requestingPlexItem = firstOrSingle(requestingPlexItemPage.MediaContainer.Metadata);
 		// send request if needed
@@ -574,7 +574,7 @@ export class PlexRequestsHandler implements PseuplexMetadataProvider {
 		}
 		// wait for plex metadata
 		const discoverMetadataPage = await discoverMetadataPageTask;
-		this.plexGuidToInfoCache?.cacheMetadataItems(discoverMetadataPage.MediaContainer.Metadata);
+		this.plexIdToInfoCache?.cacheMetadataItems(discoverMetadataPage.MediaContainer.Metadata);
 		// transform requestable children
 		resData.MediaContainer.Metadata = transformArrayOrSingle(discoverMetadataPage.MediaContainer.Metadata, (metadataItem: PseuplexMetadataItem): PseuplexMetadataItem => {
 			// find matching child from plex server
@@ -609,6 +609,9 @@ export class PlexRequestsHandler implements PseuplexMetadataProvider {
 					metadataBasePath: options.metadataBasePath,
 					qualifiedMetadataIds: options.qualifiedMetadataIds,
 					requestProviderSlug: options.requestsProvider.slug,
+					// don't show children of children
+					children: false,
+					// item isn't on the server, so use the "request" ratingKey
 					transformRatingKey: true,
 					overlayedImageEndpoint: this.plugin.app.overlayedImageEndpoint,
 					requested: requests?.find((r) => (r.seasons?.find((s) => s == metadataItem.index) != null)) != null,
