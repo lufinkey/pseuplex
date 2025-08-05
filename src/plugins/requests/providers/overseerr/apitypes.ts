@@ -156,7 +156,9 @@ export enum MediaStatus {
 	Pending = 2,
 	Processing = 3,
 	PartiallyAvailable = 4,
-	Available = 5
+	Available = 5,
+	Deleted = 6,
+	AvailableButNotInOverseerr = 7, // unsure of this one
 };
 
 export type MediaItemInfo = {
@@ -359,6 +361,7 @@ export type TVSeason = {
 	airDate: string;
 	episodeCount: number;
 	name: string;
+	status?: MediaStatus;
 	overview: string;
 	posterPath: string;
 	seasonNumber: number;
