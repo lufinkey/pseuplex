@@ -94,4 +94,21 @@ export default (class DashboardPlugin implements DashboardPluginDef, PseuplexPlu
 		return hubsConfig;
 	}
 
+	getDashboardHubsConfigForSection(sectionId: string | number, context: PseuplexRequestContext): (DashboardHubConfig[] | null) {
+		const sectionIdString = sectionId.toString();
+		
+		// Check if there's a specific configuration for this section ID
+		const sectionConfig = this.config.sections?.[sectionIdString];
+		if (sectionConfig && 
+			sectionConfig.enabled !== false &&
+			sectionConfig.hubs && 
+			Array.isArray(sectionConfig.hubs) &&
+			sectionConfig.hubs.length > 0) {
+			return sectionConfig.hubs;
+		}
+		
+		// No section-specific config found - return null (don't fall back to general dashboard)
+		return null;
+	}
+
 } as PseuplexPluginClass);

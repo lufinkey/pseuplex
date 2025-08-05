@@ -17,5 +17,28 @@
 				"username": "letterboxdusername"
 			}
 		}
+	},
+	"dashboard": {
+		"enabled": true,
+		"hubs": [
+			{
+				"plugin": "letterboxd",
+				"hub": "userFollowingActivity",
+				"arg": "maisiediaz"
+			}
+		]
+	},
+	"sections": {
+		"1": {
+			"enabled": true,
+			"hubs": [
+				{
+					"position": 0,
+					"plugin": "letterboxd",
+					"hub": "userFollowingActivity",
+					"arg": "maisiediaz"
+				}
+			]
+		}
 	}
 }

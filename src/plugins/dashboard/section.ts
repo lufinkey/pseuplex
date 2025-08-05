@@ -73,4 +73,39 @@ export class DashboardSection extends PseuplexSectionBase {
 	override async getPromotedHubs(params: plexTypes.PlexHubListPageParams, context: PseuplexRequestContext): Promise<PseuplexHub[]> {
 		return (await this.getHubs?.(params, context)) ?? [];
 	}
+
+	async getHubsForSection(sectionId: string | number, params: plexTypes.PlexHubListPageParams, context: PseuplexRequestContext): Promise<Array<{hub: PseuplexHub, position?: number}>> {
+		const hubConfigs = this.plugin.getDashboardHubsConfigForSection(sectionId, context);
+		const hubs: Array<{hub: PseuplexHub, position?: number}> = [];
+		if(!hubConfigs) {
+			return hubs;
+		}
+		for(const hubConfig of hubConfigs) {
+			try {
+				const plugin = this.plugin.app.plugins[hubConfig.plugin];
+				if(!plugin) {
+					//throw new Error(`No plugin with slug ${hubConfig.plugin}`);
+					continue;
+				}
+				const hubProvider = plugin.hubs?.[hubConfig.hub];
+				if(!hubProvider) {
+					//throw new Error(`No hub with slug ${hubConfig.hub}`);
+					continue;
+				}
+				const hub = await hubProvider.get(hubConfig.arg);
+				if(!hub) {
+					//throw new Error(`No hub from arg ${hubConfig.arg}`);
+					continue;
+				}
+				hubs.push({
+					hub,
+					position: hubConfig.position
+				});
+			} catch(error) {
+				console.error(`Hub ${hubConfig.hub} ${hubConfig.arg ? `(${hubConfig.arg}) ` : ''}) from plugin ${hubConfig.plugin} failed:`);
+				console.error(error);
+			}
+		}
+		return hubs;
+	}
 }

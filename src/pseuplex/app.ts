@@ -501,6 +501,78 @@ export class PseuplexApp {
 			})
 		]);
 
+		router.get('/hubs/sections/:sectionId', [
+			this.middlewares.plexAuthentication,
+			plexApiProxy(this.plexServerURL, plexProxyArgs, {
+				responseModifier: async (proxyRes, resData: plexTypes.PlexHubsPage, userReq: IncomingPlexAPIRequest, userRes) => {
+					const context = this.contextForRequest(userReq);
+					const reqParams = userReq.plex.requestParams;
+					const sectionId = userReq.params.sectionId;
+					
+					// Get dashboard hubs to add to this section
+					const dashboardPlugin = this.plugins['dashboard'];
+					if (dashboardPlugin && dashboardPlugin.getSections) {
+						const dashboardSections = await dashboardPlugin.getSections(context);
+						if (dashboardSections.length > 0) {
+							const dashboardSection = dashboardSections[0]; // Get the first (and likely only) dashboard section
+							
+							// Check if this is actually a DashboardSection and has the method we need
+							if ('getHubsForSection' in dashboardSection) {
+								// Use the new method to get hubs for the specific section
+								const dashboardHubsWithPositions = await (dashboardSection as any).getHubsForSection(sectionId, reqParams, context);
+								
+								if (dashboardHubsWithPositions.length > 0) {
+									// Convert hubs to hub entries with position information
+									const hubEntriesWithPositions = await Promise.all(dashboardHubsWithPositions.map(async (hubWithPosition: any) => {
+										const hubPageParams = {
+											count: reqParams.count,
+											includeMeta: reqParams.includeMeta,
+											excludeFields: reqParams.excludeFields
+										};
+										const hubEntry = await hubWithPosition.hub.getHubListEntry(hubPageParams, context);
+										return {
+											hubEntry,
+											position: hubWithPosition.position
+										};
+									}));
+									
+									// Start with existing Plex hubs
+									let finalHubs = [...(resData.MediaContainer.Hub ?? [])];
+									
+									// Insert/append dashboard hubs based on their position
+									for (const {hubEntry, position} of hubEntriesWithPositions) {
+										if (position !== undefined && position >= 0) {
+											// Insert at specific position
+											const insertIndex = Math.min(position, finalHubs.length);
+											finalHubs.splice(insertIndex, 0, hubEntry);
+										} else {
+											// Append at the end
+											finalHubs.push(hubEntry);
+										}
+									}
+									
+									// Update the response
+									resData.MediaContainer.Hub = finalHubs;
+									resData.MediaContainer.size = finalHubs.length;
+									if (resData.MediaContainer.totalSize != null) {
+										resData.MediaContainer.totalSize = finalHubs.length;
+									}
+								}
+							}
+						}
+					}
+					
+					// remap IDs if needed (since we may have added hubs)
+					if(this.metadataIdMappings && resData.MediaContainer.Hub) {
+						for(const hub of resData.MediaContainer.Hub) {
+							this.remapHubMetadataIdsIfNeeded(hub);
+						}
+					}
+					return resData;
+				}
+			})
+		]);
+
 		router.get(`/library/metadata/:metadataId`, [
 			this.middlewares.plexAuthentication,
 			pseuplexMetadataIdsRequestMiddleware({
