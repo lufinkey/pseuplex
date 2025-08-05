@@ -344,7 +344,7 @@ export const plexHttpProxy = (serverURL: string, args: PlexProxyOptions) => {
 					datas.push(chunk);
 				});
 				proxyRes.on('end', () => {
-					console.log("end");
+					// TODO decode gzip encoding?
 					const fullData = Buffer.concat(datas);
 					const fullDataString = fullData?.toString('utf8');
 					if(fullDataString) {

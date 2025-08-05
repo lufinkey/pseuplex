@@ -826,7 +826,9 @@ export class PseuplexApp {
 					let urlQueryArg = queryItems['url'];
 					const urlsToRewrite = [
 						`http://127.0.0.1:${this.config.port}`,
-						`https://127.0.0.1:${this.config.port}`
+						`https://127.0.0.1:${this.config.port}`,
+						'http://127.0.0.1:32400',
+						'https://127.0.0.1:32400',
 					];
 					if(urlQueryArg) {
 						urlQueryArg = transformArrayOrSingle(urlQueryArg, (urlArg: string) => {
