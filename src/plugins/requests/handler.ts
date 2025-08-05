@@ -50,8 +50,6 @@ export type PlexRequestsHandlerOptions = {
 	plugin: RequestsPluginDef;
 	basePath: string;
 	requestProviders: RequestsProvider[];
-	plexMetadataClient: PlexClient;
-	plexGuidToInfoCache?: PlexGuidToInfoCache;
 	logger?: Logger;
 };
 
@@ -70,8 +68,6 @@ export class PlexRequestsHandler implements PseuplexMetadataProvider {
 	readonly plugin: RequestsPluginDef;
 	readonly basePath: string;
 	readonly requestProviders: RequestsProviders;
-	readonly plexMetadataClient: PlexClient;
-	readonly plexGuidToInfoCache?: PlexGuidToInfoCache;
 	readonly logger?: Logger;
 
 	constructor(options: PlexRequestsHandlerOptions) {
@@ -82,9 +78,15 @@ export class PlexRequestsHandler implements PseuplexMetadataProvider {
 			requestProviders[provider.slug] = provider;
 		}
 		this.requestProviders = requestProviders;
-		this.plexMetadataClient = options.plexMetadataClient;
-		this.plexGuidToInfoCache = options.plexGuidToInfoCache;
 		this.logger = options.logger;
+	}
+
+	get plexGuidToInfoCache(): PlexGuidToInfoCache | undefined {
+		return this.plugin.app.plexGuidToInfoCache;
+	}
+	
+	get plexMetadataClient(): PlexClient {
+		return this.plugin.app.plexMetadataClient;
 	}
 	
 	async getRequestsProviderForPlexUser(token: string, userInfo: PlexServerAccountInfo): Promise<RequestsProvider | null> {

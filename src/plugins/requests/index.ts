@@ -57,9 +57,7 @@ export default (class RequestsPlugin implements RequestsPluginDef, PseuplexPlugi
 			basePath: `/${this.app.slug}/${PseuplexMetadataSource.Request}`,
 			requestProviders: RequestProviderClasses.map((providerClass) => {
 				return new providerClass(app);
-			}),
-			plexMetadataClient: this.app.plexMetadataClient,
-			plexGuidToInfoCache: this.app.plexGuidToInfoCache,
+			})
 		});
 	}
 

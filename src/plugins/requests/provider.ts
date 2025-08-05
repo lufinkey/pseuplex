@@ -15,6 +15,7 @@ export interface RequestsProvider {
 	readonly canRequestEpisodes: boolean;
 	canPlexUserMakeRequests: (token: string, userInfo: PlexServerAccountInfo) => Promise<boolean>;
 	requestPlexItem: (plexItem: plexTypes.PlexMetadataItem, options: PlexMediaRequestOptions) => Promise<RequestInfo>;
+	getRequests: (plexItem: plexTypes.PlexMetadataItem, context: PseuplexRequestContext) => Promise<RequestInfo[]>;
 }
 
 export type RequestsProviderClass = {

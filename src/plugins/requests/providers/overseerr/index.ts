@@ -144,6 +144,78 @@ export default (class OverseerrRequestsProvider implements RequestsProvider {
 		return overseerrUser ?? null;
 	}
 
+	private async _getRequestableItem(plexItem: plexTypes.PlexMetadataItem): Promise<{
+		type: overseerrTypes.MediaType,
+		tvdbId?: number,
+		tmdbId?: number,
+		season: number | undefined,
+	}> {
+		// get plex item info
+		let tmdbPrefix: string = 'tmdb://';
+		let tvdbPrefix: string = 'tvdb://';
+		let type: overseerrTypes.MediaType;
+		let itemGuids: plexTypes.PlexGuid[] | undefined;
+		let season: number | undefined;
+		const plexGuidToInfoCache = this.app.plexGuidToInfoCache;
+		switch(plexItem.type) {
+			case plexTypes.PlexMediaItemType.Movie: {
+				type = overseerrTypes.MediaType.Movie;
+				itemGuids = plexItem.Guid;
+			} break;
+
+			case plexTypes.PlexMediaItemType.Episode: {
+				// get season to request instead
+				type = overseerrTypes.MediaType.TV;
+				if(plexItem.parentIndex == null) {
+					throw httpError(500, `Unable to request season for episode`);
+				}
+				if(!plexItem.grandparentRatingKey || !plexItem.grandparentGuid) {
+					throw httpError(500, `Unable to determine show for episode`);
+				}
+				season = plexItem.parentIndex;
+				const grandparentMetadataPage = plexGuidToInfoCache
+					? await plexGuidToInfoCache.getOrFetch(plexItem.grandparentGuid)
+					: firstOrSingle((await this.app.plexMetadataClient.getMetadata(plexItem.grandparentRatingKey)).MediaContainer.Metadata);
+				itemGuids = grandparentMetadataPage?.Guid;
+			} break;
+
+			case plexTypes.PlexMediaItemType.Season: {
+				// get show for season to request
+				type = overseerrTypes.MediaType.TV;
+				if(plexItem.index == null) {
+					throw httpError(500, `Unable to determine season index`);
+				}
+				if(!plexItem.parentRatingKey || !plexItem.parentGuid) {
+					throw httpError(500, `Unable to determine show for season`);
+				}
+				season = plexItem.index;
+				const parentMetadataPage = plexGuidToInfoCache
+					? await plexGuidToInfoCache.getOrFetch(plexItem.parentGuid)
+					: firstOrSingle((await this.app.plexMetadataClient.getMetadata(plexItem.parentRatingKey)).MediaContainer.Metadata);
+				itemGuids = parentMetadataPage?.Guid;
+			} break;
+				
+			case plexTypes.PlexMediaItemType.TVShow: {
+				type = overseerrTypes.MediaType.TV;
+				itemGuids = plexItem.Guid;
+			} break;
+
+			default:
+				throw new Error(`Unsupported media type ${plexItem.type}`);
+		}
+		const tvdbIdString = itemGuids?.find((g) => g.id.startsWith(tvdbPrefix))?.id.slice(tvdbPrefix.length);
+		const tmdbIdString = itemGuids?.find((g) => g.id.startsWith(tmdbPrefix))?.id.slice(tmdbPrefix.length);
+		// parse media ids
+		const tvdbId = tvdbIdString ? Number.parseInt(tvdbIdString) : undefined;
+		const tmdbId = tmdbIdString ? Number.parseInt(tmdbIdString) : undefined;
+		return {
+			type,
+			season,
+			tmdbId: (tvdbId != null && !Number.isNaN(tvdbId)) ? tvdbId : (tvdbIdString as any),
+			tvdbId: (tmdbId != null && !Number.isNaN(tmdbId)) ? tmdbId : (tmdbIdString as any),
+		};
+	}
+
 	async canPlexUserMakeRequests(token: string, userInfo: PlexServerAccountInfo): Promise<boolean> {
 		const overseerrUser = await this._getOverseerrUserFromPlexUser(token, userInfo);
 		if(overseerrUser) {
@@ -159,94 +231,27 @@ export default (class OverseerrRequestsProvider implements RequestsProvider {
 		if(!overseerrUser) {
 			throw httpError(401, `User is not allowed to request media from ${this.slug}`);
 		}
-		// get plex item info
-		let guidPrefix: string = 'tmdb://';
-		let mediaIdKey: ('tvdbId' | 'mediaId') = 'mediaId';
-		let type: overseerrTypes.MediaType;
-		switch(plexItem.type) {
-			case plexTypes.PlexMediaItemType.Movie:
-				type = overseerrTypes.MediaType.Movie;
-				break;
-
-			case plexTypes.PlexMediaItemType.Episode:
-				// get season to request instead
-				type = overseerrTypes.MediaType.TV;
-				if(plexItem.parentIndex == null) {
-					throw httpError(500, `Unable to request season for episode`);
-				}
-				if(!plexItem.grandparentGuid) {
-					throw httpError(500, `Unable to determine show for episode`);
-				}
-				const grandparentGuidParts = parsePlexMetadataGuidOrThrow(plexItem.grandparentGuid);
-				if(grandparentGuidParts.protocol != plexTypes.PlexMetadataGuidProtocol.Plex) {
-					throw httpError(500, `Unrecognized guid ${plexItem.grandparentGuid}`);
-				}
-				options.season = plexItem.parentIndex;
-				plexItem = firstOrSingle((await this.app.plexMetadataClient.getMetadata(grandparentGuidParts.id)).MediaContainer.Metadata)!;
-				if(!plexItem) {
-					throw httpError(500, `Unable to fetch show for episode`);
-				}
-				// cache if needed
-				if(this.app.plexGuidToInfoCache) {
-					this.app.plexGuidToInfoCache.cacheMetadataItem(plexItem);
-				}
-				break;
-
-			case plexTypes.PlexMediaItemType.Season:
-				// get show for season to request
-				type = overseerrTypes.MediaType.TV;
-				if(plexItem.index == null) {
-					throw httpError(500, `Unable to determine season index`);
-				}
-				if(!plexItem.parentGuid) {
-					throw httpError(500, `Unable to determine show for season`);
-				}
-				const parentGuidParts = parsePlexMetadataGuidOrThrow(plexItem.parentGuid);
-				if(parentGuidParts.protocol != plexTypes.PlexMetadataGuidProtocol.Plex) {
-					throw httpError(500, `Unrecognized guid ${plexItem.parentGuid}`);
-				}
-				options.season = plexItem.index;
-				plexItem = firstOrSingle((await this.app.plexMetadataClient.getMetadata(parentGuidParts.id)).MediaContainer.Metadata)!;
-				if(!plexItem) {
-					throw httpError(500, `Unable to fetch show for season`);
-				}
-				// cache if needed
-				if(this.app.plexGuidToInfoCache) {
-					this.app.plexGuidToInfoCache.cacheMetadataItem(plexItem);
-				}
-				break;
-				
-			case plexTypes.PlexMediaItemType.TVShow:
-				type = overseerrTypes.MediaType.TV;
-				break;
-
-			default:
-				throw new Error(`Unsupported media type ${plexItem.type}`);
+		const reqItem = await this._getRequestableItem(plexItem);
+		if(reqItem.season == null && options.season != null) {
+			reqItem.season = options.season;
 		}
-		// parse media id
-		const matchedGuid = plexItem.Guid?.find((guid) => guid.id?.startsWith(guidPrefix))?.id;
-		if(!matchedGuid) {
-			throw new Error(`Could not find ID to request`);
+		if(!reqItem.tmdbId) {
+			throw httpError(500, "Unable to find matching tmdb id");
 		}
-		const mediaId = Number.parseInt(matchedGuid.substring(guidPrefix.length));
-		if(Number.isNaN(mediaId)) {
-			throw new Error(`Failed to parse matched guid ${matchedGuid}`);
-		}
-		//console.log(`Parsed ${matchedGuid} to ${matchedId}`);
 		// ensure request hasn't already been sent by this user
 		const ovrsrReqOpts = this._overseerrReqOpts();
 		let mediaItemInfo: (overseerrTypes.Movie | overseerrTypes.TVShow);
-		switch(type) {
+		switch(reqItem.type) {
 			case overseerrTypes.MediaType.Movie:
-				mediaItemInfo = await overseerrAPI.getMovie(mediaId, null, ovrsrReqOpts);
+				mediaItemInfo = await overseerrAPI.getMovie(reqItem.tmdbId, null, ovrsrReqOpts);
 				break;
 
 			case overseerrTypes.MediaType.TV:
-				mediaItemInfo = await overseerrAPI.getTV(mediaId, null, ovrsrReqOpts);
+				mediaItemInfo = await overseerrAPI.getTV(reqItem.tmdbId, null, ovrsrReqOpts);
 				break;
 
 			default:
-				throw httpError(400, `Cannot handle media type ${type}`);
+				throw httpError(400, `Cannot handle media type ${reqItem.type}`);
 		}
 		const matchingRequest = mediaItemInfo.mediaInfo?.requests?.find((reqInfo) => {
 			return reqInfo.requestedBy?.id == overseerrUser.id
@@ -264,8 +269,8 @@ export default (class OverseerrRequestsProvider implements RequestsProvider {
 		// send request to overseerr
 		const seasons = options?.season != null ? [options.season] : undefined;
 		const createItemReq: overseerrAPI.CreateRequestItem = {
-			mediaType: type,
-			[mediaIdKey]: mediaId,
+			mediaType: reqItem.type,
+			mediaId: reqItem.tmdbId,
 			userId: overseerrUser.id,
 			seasons,
 		};
@@ -274,7 +279,9 @@ export default (class OverseerrRequestsProvider implements RequestsProvider {
 			resData = await overseerrAPI.createRequest(createItemReq, ovrsrReqOpts);
 		} catch(error) {
 			if((error as HttpResponseError).httpResponse?.status == 202) {
-				const firstRequest = mediaItemInfo?.mediaInfo?.requests?.[0];
+				const firstRequest = options.season != null ?
+					mediaItemInfo?.mediaInfo?.requests?.find((cmpReq: overseerrTypes.TVRequestInfo) => cmpReq.seasons?.find((s) => s.seasonNumber == options.season))
+					: mediaItemInfo?.mediaInfo?.requests?.[0];
 				if(firstRequest) {
 					// already requested by this user
 					return ovrsrTransform.transformOverseerrRequestItem(firstRequest, mediaItemInfo.mediaInfo, {
@@ -285,5 +292,33 @@ export default (class OverseerrRequestsProvider implements RequestsProvider {
 			throw error;
 		}
 		return ovrsrTransform.transformOverseerrRequestItem(resData, resData.media, {seasons});
+	}
+
+	async getRequests(plexItem: plexTypes.PlexMetadataItem, context: PseuplexRequestContext): Promise<RequestInfo[]> {
+		const reqItem = await this._getRequestableItem(plexItem);
+		if(!reqItem.tmdbId) {
+			throw httpError(500, "Unable to find matching tmdb id");
+		}
+		// get media item info from overseerr
+		const ovrsrReqOpts = this._overseerrReqOpts();
+		let mediaItemInfo: (overseerrTypes.Movie | overseerrTypes.TVShow);
+		switch(reqItem.type) {
+			case overseerrTypes.MediaType.Movie:
+				mediaItemInfo = await overseerrAPI.getMovie(reqItem.tmdbId, null, ovrsrReqOpts);
+				break;
+
+			case overseerrTypes.MediaType.TV:
+				mediaItemInfo = await overseerrAPI.getTV(reqItem.tmdbId, null, ovrsrReqOpts);
+				break;
+
+			default:
+				throw httpError(400, `Cannot handle media type ${reqItem.type}`);
+		}
+		// return requests
+		return mediaItemInfo?.mediaInfo?.requests?.map((r: overseerrTypes.TVRequestInfo | overseerrTypes.MovieRequestInfo): RequestInfo => {
+			return ovrsrTransform.transformOverseerrRequestItem(r, mediaItemInfo.mediaInfo, {
+				seasons: (r as overseerrTypes.TVRequestInfo).seasons?.map((s) => s.seasonNumber)
+			});
+		}) ?? [];
 	}
 } as RequestsProviderClass);
