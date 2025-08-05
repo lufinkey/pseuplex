@@ -5,7 +5,7 @@ import { PseuplexApp, PseuplexConfigBase, PseuplexRequestContext } from '../../p
 import { RequestInfo } from './types';
 
 export type PlexMediaRequestOptions = {
-	seasons?: number[];
+	season?: number;
 	context: PseuplexRequestContext;
 };
 

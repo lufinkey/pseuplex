@@ -5,10 +5,10 @@ import {
 	UsersSortType,
 	User,
 	MediaType,
-	MediaRequestItem,
 	Language,
 	Movie,
-	TVShow
+	TVShow,
+	CreateRequestItemResult,
 } from './apitypes';
 import { Logger } from '../../../../logging';
 import { httpResponseError } from '../../../../utils/error';
@@ -112,7 +112,7 @@ export type CreateRequestItem = {
 	userId?: number;
 };
 
-export const createRequest = async (params: CreateRequestItem, options: OverseerrAPIRequestOptions): Promise<MediaRequestItem> => {
+export const createRequest = async (params: CreateRequestItem, options: OverseerrAPIRequestOptions): Promise<CreateRequestItemResult> => {
 	return await overseerrFetch({
 		...options,
 		method: 'POST',

@@ -4,7 +4,8 @@ import { PlexServerAccountInfo } from '../../../../plex/accounts';
 import { parsePlexMetadataGuidOrThrow } from '../../../../plex/metadataidentifier';
 import {
 	PseuplexApp,
-	PseuplexConfigBase
+	PseuplexConfigBase,
+	PseuplexRequestContext
 } from '../../../../pseuplex';
 import {
 	PlexMediaRequestOptions,
@@ -180,7 +181,7 @@ export default (class OverseerrRequestsProvider implements RequestsProvider {
 				if(grandparentGuidParts.protocol != plexTypes.PlexMetadataGuidProtocol.Plex) {
 					throw httpError(500, `Unrecognized guid ${plexItem.grandparentGuid}`);
 				}
-				options.seasons = [plexItem.parentIndex];
+				options.season = plexItem.parentIndex;
 				plexItem = firstOrSingle((await this.app.plexMetadataClient.getMetadata(grandparentGuidParts.id)).MediaContainer.Metadata)!;
 				if(!plexItem) {
 					throw httpError(500, `Unable to fetch show for episode`);
@@ -201,7 +202,10 @@ export default (class OverseerrRequestsProvider implements RequestsProvider {
 					throw httpError(500, `Unable to determine show for season`);
 				}
 				const parentGuidParts = parsePlexMetadataGuidOrThrow(plexItem.parentGuid);
-				options.seasons = [plexItem.index];
+				if(parentGuidParts.protocol != plexTypes.PlexMetadataGuidProtocol.Plex) {
+					throw httpError(500, `Unrecognized guid ${plexItem.parentGuid}`);
+				}
+				options.season = plexItem.index;
 				plexItem = firstOrSingle((await this.app.plexMetadataClient.getMetadata(parentGuidParts.id)).MediaContainer.Metadata)!;
 				if(!plexItem) {
 					throw httpError(500, `Unable to fetch show for season`);
@@ -246,22 +250,26 @@ export default (class OverseerrRequestsProvider implements RequestsProvider {
 		}
 		const matchingRequest = mediaItemInfo.mediaInfo?.requests?.find((reqInfo) => {
 			return reqInfo.requestedBy?.id == overseerrUser.id
+				&& (options.season == null || (reqInfo as overseerrTypes.TVRequestInfo).seasons?.find((s) => s.seasonNumber == options.season));
 		});
 		if(matchingRequest) {
 			if(this.app.logger?.options.logOutgoingRequests) {
 				console.log(`Found existing overserr request ${JSON.stringify(matchingRequest)}`);
 			}
 			// already requested by this user
-			return ovrsrTransform.transformOverseerrRequestItem(matchingRequest, mediaItemInfo.mediaInfo);
+			return ovrsrTransform.transformOverseerrRequestItem(matchingRequest, mediaItemInfo.mediaInfo, {
+				seasons: (matchingRequest as overseerrTypes.TVRequestInfo).seasons?.map((s) => s.seasonNumber),
+			});
 		}
 		// send request to overseerr
+		const seasons = options?.season != null ? [options.season] : undefined;
 		const createItemReq: overseerrAPI.CreateRequestItem = {
 			mediaType: type,
 			[mediaIdKey]: mediaId,
 			userId: overseerrUser.id,
-			seasons: options?.seasons
+			seasons,
 		};
-		let resData: overseerrTypes.MediaRequestItem;
+		let resData: overseerrTypes.CreateRequestItemResult;
 		try {
 			resData = await overseerrAPI.createRequest(createItemReq, ovrsrReqOpts);
 		} catch(error) {
@@ -269,11 +277,13 @@ export default (class OverseerrRequestsProvider implements RequestsProvider {
 				const firstRequest = mediaItemInfo?.mediaInfo?.requests?.[0];
 				if(firstRequest) {
 					// already requested by this user
-					return ovrsrTransform.transformOverseerrRequestItem(firstRequest, mediaItemInfo.mediaInfo);
+					return ovrsrTransform.transformOverseerrRequestItem(firstRequest, mediaItemInfo.mediaInfo, {
+						seasons: (firstRequest as overseerrTypes.TVRequestInfo).seasons?.map((s) => s.seasonNumber)
+					});
 				}
 			}
 			throw error;
 		}
-		return ovrsrTransform.transformOverseerrRequestItem(resData, resData.media);
+		return ovrsrTransform.transformOverseerrRequestItem(resData, resData.media, {seasons});
 	}
 } as RequestsProviderClass);

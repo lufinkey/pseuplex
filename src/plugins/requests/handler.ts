@@ -415,7 +415,7 @@ export class PlexRequestsHandler implements PseuplexMetadataProvider {
 			const requestedPlexItem = firstOrSingle(requestedPlexItemPage.MediaContainer.Metadata);
 			if(requestedPlexItem) {
 				reqInfo = await reqProvider.requestPlexItem(requestedPlexItem, {
-					seasons: id.season != null ? [id.season] : undefined,
+					season: id.season,
 					context,
 				});
 			}

@@ -3,6 +3,7 @@ export type RequestInfo = {
 	requestId: string | number;
 	requestStatus: RequestStatus;
 	mediaStatus: RequestedMediaStatus;
+	seasons?: number[];
 };
 
 
