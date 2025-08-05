@@ -98,7 +98,7 @@ export default (class RequestsPlugin implements RequestsPluginDef, PseuplexPlugi
 				return;
 			}
 			// parse params
-			const mediaType = intParam(context.userReq.query['type']) as plexTypes.PlexMediaItemTypeNumeric;
+			let mediaType = intParam(context.userReq.query['type']) as plexTypes.PlexMediaItemTypeNumeric;
 			let guid = stringParam(context.userReq.query['guid']);
 			let season: number | undefined = undefined;
 			if(!guid) {
@@ -107,6 +107,15 @@ export default (class RequestsPlugin implements RequestsPluginDef, PseuplexPlugi
 					return;
 				}
 				season = intParam(context.userReq.query['season.index']);
+			}
+			if(mediaType == null) {
+				const guidParts = parsePlexMetadataGuid(guid);
+				if(guidParts?.protocol == plexTypes.PlexMetadataGuidProtocol.Plex && guidParts.type) {
+					mediaType = plexTypes.PlexMediaItemTypeToNumeric[guidParts.type];
+				} else {
+					console.error(`No media type specified in request`);
+					return;
+				}
 			}
 			// create hook metadata
 			const metadataItem = await this.requestsHandler.createRequestButtonMetadata({

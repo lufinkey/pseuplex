@@ -135,6 +135,7 @@ export class PlexRequestsHandler implements PseuplexMetadataProvider {
 				break;
 			default:
 				// can't request type
+				console.error(`Cant request type ${options.mediaType}`);
 				return null;
 		}
 		if(librarySectionID == null) {
@@ -146,6 +147,7 @@ export class PlexRequestsHandler implements PseuplexMetadataProvider {
 		const guidParts = parsePlexMetadataGuidOrThrow(options.guid);
 		if(guidParts.protocol == plexTypes.PlexMetadataGuidProtocol.Local) {
 			// cannot fetch from plex metadata provider with a local guid
+			console.error(`Cannot fetch plex metadata for guid ${options.guid}`);
 			return null;
 		}
 		else if(guidParts.protocol == plexTypes.PlexMetadataGuidProtocol.Plex) {
