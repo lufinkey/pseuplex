@@ -35,6 +35,7 @@ export type IncomingRequestsLoggingOptions = {
 	logUserResponses?: boolean;
 	logUserResponseHeaders?: boolean;
 	logUserResponseBody?: boolean;
+	logUnsecureUserRequests?: boolean;
 };
 
 export type ProxyRequestsLoggingOptions = {
@@ -155,11 +156,11 @@ export class Logger {
 	}
 
 	logIncomingUserRequest(userReq: express.Request) {
-		if(!this.options.logUserRequests) {
+		const secure = requestIsEncrypted(userReq);
+		if(!(this.options.logUserRequests || (this.options.logUnsecureUserRequests && !secure))) {
 			return;
 		}
-		const secure = requestIsEncrypted(userReq);
-		console.log(`\n\x1b[42m${secure ? '🔒' : '⚠️'} User ${userReq.method} ${this.urlString(userReq.originalUrl)}\x1b[0m`);
+		console.log(`\n\x1b${secure ? '[42m🔒 ' : '[43m'}User ${userReq.method} ${this.urlString(userReq.originalUrl)}\x1b[0m`);
 		if(this.options.logUserRequestHeaders) {
 			const reqHeaderList = userReq.rawHeaders;
 			for(let i=0; i<reqHeaderList.length; i++) {

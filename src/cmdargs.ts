@@ -17,6 +17,7 @@ enum CmdFlag {
 	logUserResponses = '--log-user-responses',
 	logUserResponseHeaders = '--log-user-response-headers',
 	logUserResponseBody = '--log-user-response-body',
+	logUnsecureUserRequests = '--log-unsecure-user-requests',
 	logProxyRequests = '--log-proxy-requests',
 	logProxyRequestHeaders = '--log-proxy-request-headers',
 	logProxyResponses = '--log-proxy-responses',
@@ -104,6 +105,10 @@ export const parseCmdArgs = (args: string[]): CommandArguments => {
 				
 				case CmdFlag.logUserResponseBody:
 					parsedArgs.logUserResponseBody = true;
+					break;
+
+				case CmdFlag.logUnsecureUserRequests:
+					parsedArgs.logUnsecureUserRequests = true;
 					break;
 				
 				case CmdFlag.logProxyRequests:
