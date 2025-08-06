@@ -24,14 +24,10 @@ export default (class SectionHubsPlugin implements PseuplexPlugin {
 	}
 
 	responseFilters?: PseuplexReadOnlyResponseFilters = {
-		hubs: async (resData, context) => {
-			// Check if this request is for a specific section
-			const path = context.userReq.path;
-			const match = path.match(/^\/hubs\/sections\/(\d+)$/);
-			if (match) {
-				const sectionId = match[1];
-				await this._addSectionHubsIfNeeded(resData, sectionId, context);
-			}
+		sectionHubs: async (resData, context) => {
+			// Section ID is now provided directly in context
+			const sectionId = context.sectionId;
+			await this._addSectionHubsIfNeeded(resData, sectionId, context);
 		}
 	}
 
@@ -96,12 +92,6 @@ export default (class SectionHubsPlugin implements PseuplexPlugin {
 		}
 		
 		console.log(`SectionHubs: Final result has ${finalHubs.length} hubs`);
-	}
-
-	private _extractSectionIdFromPath(path: string): string | null {
-		// Extract section ID from paths like "/hubs/sections/1"
-		const match = path.match(/\/hubs\/sections\/(\d+)/);
-		return match ? match[1] : null;
 	}
 
 	private async _getHubsForSection(sectionId: string, reqParams: any, authContext: any, userInfo: any): Promise<Array<{hub: PseuplexHub, position?: number}>> {

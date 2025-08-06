@@ -25,6 +25,10 @@ export type PseuplexMetadataChildrenResponseFilterContext = PseuplexResponseFilt
 	metadataId: PseuplexMetadataIDParts;
 };
 
+export type PseuplexSectionHubsResponseFilterContext = PseuplexResponseFilterContext & {
+	sectionId: string;
+};
+
 export type PseuplexMetadataRelatedHubsResponseFilterContext = PseuplexResponseFilterContext & {
 	metadataId: PseuplexMetadataIDParts;
 	from: PseuplexRelatedHubsSource;
@@ -45,6 +49,7 @@ export type PseuplexResponseFilter<TResponseData, TContext extends PseuplexRespo
 export type PseuplexResponseFilters = {
 	mediaProviders?: PseuplexResponseFilter<plexTypes.PlexServerMediaProvidersPage>;
 	hubs?: PseuplexResponseFilter<plexTypes.PlexLibraryHubsPage>;
+	sectionHubs?: PseuplexResponseFilter<plexTypes.PlexLibraryHubsPage, PseuplexSectionHubsResponseFilterContext>;
 	promotedHubs?: PseuplexResponseFilter<plexTypes.PlexLibraryHubsPage>;
 	metadata?: PseuplexResponseFilter<PseuplexMetadataPage, PseuplexMetadataResponseFilterContext>;
 	metadataChildren?: PseuplexResponseFilter<PseuplexMetadataChildrenPage, PseuplexMetadataChildrenResponseFilterContext>;

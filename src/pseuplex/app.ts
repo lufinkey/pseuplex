@@ -508,8 +508,9 @@ export class PseuplexApp {
 			plexApiProxy(this.plexServerURL, plexProxyArgs, {
 				responseModifier: async (proxyRes, resData: plexTypes.PlexLibraryHubsPage, userReq: IncomingPlexAPIRequest, userRes) => {
 					const context = this.contextForRequest(userReq);
+					const sectionId = userReq.params.sectionId;
 					// filter response - plugins can modify this (like sectionhubs plugin)
-					await this.filterResponse('hubs', resData, { proxyRes, userReq, userRes });
+					await this.filterResponse('sectionHubs', resData, { proxyRes, userReq, userRes, sectionId });
 					// remap IDs if needed (since filters may have added hubs)
 					if(this.metadataIdMappings && resData.MediaContainer.Hub) {
 						for(const hub of resData.MediaContainer.Hub) {
