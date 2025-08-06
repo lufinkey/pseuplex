@@ -33,9 +33,10 @@ export default (class TemplatePlugin implements TemplatePluginDef, PseuplexPlugi
 		});*/
 	}
 
-	get basePath(): string {
+	// if you define custom routes or a metadata provider, its useful to have a common base path
+	/*get basePath(): string {
 		return `/${this.app.slug}/${this.slug}`;
-	}
+	}*/
 
 	get metadataProviders(): PseuplexMetadataProvider[] {
 		return [
