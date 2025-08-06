@@ -78,8 +78,6 @@ export default (class DashboardPlugin implements DashboardPluginDef, PseuplexPlu
 		];
 	}
 
-
-
 	getDashboardHubsConfigForContext(context: PseuplexRequestContext): (DashboardHubConfig[] | null) {
 		const dashboardEnabled = this.config.perUser?.[context.plexUserInfo.email]?.dashboard?.enabled
 			?? this.config.dashboard?.enabled;
@@ -95,19 +93,7 @@ export default (class DashboardPlugin implements DashboardPluginDef, PseuplexPlu
 	}
 
 	getDashboardHubsConfigForSection(sectionId: string | number, context: PseuplexRequestContext): (DashboardHubConfig[] | null) {
-		const sectionIdString = sectionId.toString();
-		
-		// Check if there's a specific configuration for this section ID
-		const sectionConfig = this.config.sections?.[sectionIdString];
-		if (sectionConfig && 
-			sectionConfig.enabled !== false &&
-			sectionConfig.hubs && 
-			Array.isArray(sectionConfig.hubs) &&
-			sectionConfig.hubs.length > 0) {
-			return sectionConfig.hubs;
-		}
-		
-		// No section-specific config found - return null (don't fall back to general dashboard)
+		// Dashboard plugin doesn't work per section, so return null
 		return null;
 	}
 

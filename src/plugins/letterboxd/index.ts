@@ -211,7 +211,7 @@ export default (class LetterboxdPlugin implements LetterboxdPluginDef, PseuplexP
 			relatedHubsProviders: [
 				this.hubs.similar,
 			],
-			plexGuidToInfoCache: this.app.plexGuidToInfoCache,
+			plexIdToInfoCache: this.app.plexIdToInfoCache,
 			requestExecutor,
 		});
 	}

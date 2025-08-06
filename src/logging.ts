@@ -108,51 +108,56 @@ export class Logger {
 		}
 	}
 
-	async logOutgoingRequestResponse(res: Response, reqOptions: RequestInit) {
+	async logOutgoingRequestResponse(res: Response, reqOptions: RequestInit): Promise<boolean> {
 		if(res.ok) {
-			if(this.options.logOutgoingResponses) {
-				let body: string | undefined;
-				let gotBody = false;
-				let bodyError: Error | undefined;
-				if(this.options.logOutgoingResponseBody) {
-					try {
-						body = await res.text();
-						gotBody = true;
-					} catch(error) {
-						bodyError = error;
-					}
+			if(!this.options.logOutgoingResponses) {
+				return false;
+			}
+			let body: string | undefined;
+			let gotBody = false;
+			let bodyError: Error | undefined;
+			if(this.options.logOutgoingResponseBody) {
+				try {
+					body = await res.text();
+					gotBody = true;
+				} catch(error) {
+					bodyError = error;
 				}
-				console.log(`Got response ${res.status} for ${reqOptions.method || 'GET'} ${res.url}: ${res.statusText}`);
-				if(bodyError) {
-					console.error(`Failed to fetch body for response: ${bodyError.message}`);
-				}
-				else if(gotBody && body) {
-					console.log(`Response body:\n${body}`);
-				}
+			}
+			console.log(`Got response ${res.status} for ${reqOptions.method || 'GET'} ${res.url}: ${res.statusText}`);
+			if(bodyError) {
+				console.error(`Failed to fetch body for response: ${bodyError.message}`);
+			} else if(gotBody && body) {
+				console.log(`Response body:\n${body}`);
 			}
 		} else {
-			if(this.options.logOutgoingRequestFailures ?? this.options.logOutgoingResponses) {
-				let body: string | undefined;
-				let gotBody = false;
-				let bodyError: Error | undefined;
-				if(this.options.logOutgoingResponseBody) {
-					try {
-						body = await res.text();
-						gotBody = true;
-					} catch(error) {
-						console.error(`Failed to fetch body for response to ${res.url} :`);
-						console.error(error);
-					}
-				}
-				console.error(`Got response ${res.status} for ${reqOptions.method || 'GET'} ${res.url}: ${res.statusText}`);
-				if(bodyError) {
-					console.error(`Failed to fetch body for response: ${bodyError.message}`);
-				}
-				else if(gotBody && body) {
-					console.log(`Response body:\n${body}`);
+			if(!(this.options.logOutgoingRequestFailures ?? this.options.logOutgoingResponses)) {
+				return false;
+			}
+			let body: string | undefined;
+			let gotBody = false;
+			let bodyError: Error | undefined;
+			if(this.options.logOutgoingResponseBody) {
+				try {
+					body = await res.text();
+					gotBody = true;
+				} catch(error) {
+					console.error(`Failed to fetch body for response to ${res.url} :`);
+					console.error(error);
 				}
 			}
+			console.error(`Got response ${res.status} for ${reqOptions.method || 'GET'} ${res.url}: ${res.statusText}`);
+			if(reqOptions.body && !(this.options.logOutgoingRequests && this.options.logOutgoingRequestBody)) {
+				console.error(`Request body: ${JSON.stringify(reqOptions.body)}`);
+			}
+			if(bodyError) {
+				console.error(`Failed to fetch body for response: ${bodyError.message}`);
+			}
+			else if(gotBody && body) {
+				console.log(`Response body:\n${body}`);
+			}
 		}
+		return true;
 	}
 
 	logIncomingUserRequest(userReq: express.Request) {
@@ -185,7 +190,7 @@ export class Logger {
 			}
 		}
 		if(shouldLogBody) {
-			console.log(JSON.stringify(bodyString));
+			console.log(bodyString);
 		}
 		console.log();
 	}

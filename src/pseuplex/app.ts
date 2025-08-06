@@ -13,7 +13,7 @@ import {
 	PlexServerAccountsStore
 } from '../plex/accounts';
 import {
-	PlexGuidToInfoCache,
+	PlexIdToInfoCache,
 	createPlexServerIdToGuidCache,
 } from '../plex/metadata';
 import {
@@ -173,6 +173,8 @@ export type PseuplexAppOptions = {
 	mapPseuplexMetadataIds?: boolean;
 };
 
+const overlayImageNameRegex = /^[a-z0-9 ._-]+$/i;
+
 export class PseuplexApp {
 	readonly slug: string;
 	readonly config: PseuplexAppConfig;
@@ -195,12 +197,12 @@ export class PseuplexApp {
 		[plexToken: string]: PseuplexPossiblyConfirmedClientWebSocketInfo[]
 	} = {};
 	readonly plexServerIdToGuidCache: CachedFetcher<string | null | undefined>;
-	readonly plexGuidToInfoCache?: PlexGuidToInfoCache;
+	readonly plexIdToInfoCache?: PlexIdToInfoCache;
 	readonly pluginMetadataAccessCache?: PseuplexMetadataAccessCache;
 	readonly plexMetadataClient: PlexClient;
 
 	readonly overlayedImageEndpoint?: string | undefined;
-	readonly overlayImageCache?: CachedFetcher<{image:sharp.Sharp}>;
+	readonly overlayImageCache?: CachedFetcher<Buffer>;
 	readonly overlayImageOverrides?: {
 		[imageName: string]: string
 	}
@@ -247,7 +249,7 @@ export class PseuplexApp {
 			authContext: this.plexAdminAuthContext,
 			logger: this.logger,
 		});
-		this.plexGuidToInfoCache = new PlexGuidToInfoCache({
+		this.plexIdToInfoCache = new PlexIdToInfoCache({
 			plexMetadataClient: this.plexMetadataClient
 		});
 		this.pluginMetadataAccessCache = this
@@ -504,65 +506,11 @@ export class PseuplexApp {
 		router.get('/hubs/sections/:sectionId', [
 			this.middlewares.plexAuthentication,
 			plexApiProxy(this.plexServerURL, plexProxyArgs, {
-				responseModifier: async (proxyRes, resData: plexTypes.PlexHubsPage, userReq: IncomingPlexAPIRequest, userRes) => {
+				responseModifier: async (proxyRes, resData: plexTypes.PlexLibraryHubsPage, userReq: IncomingPlexAPIRequest, userRes) => {
 					const context = this.contextForRequest(userReq);
-					const reqParams = userReq.plex.requestParams;
-					const sectionId = userReq.params.sectionId;
-					
-					// Get dashboard hubs to add to this section
-					const dashboardPlugin = this.plugins['dashboard'];
-					if (dashboardPlugin && dashboardPlugin.getSections) {
-						const dashboardSections = await dashboardPlugin.getSections(context);
-						if (dashboardSections.length > 0) {
-							const dashboardSection = dashboardSections[0]; // Get the first (and likely only) dashboard section
-							
-							// Check if this is actually a DashboardSection and has the method we need
-							if ('getHubsForSection' in dashboardSection) {
-								// Use the new method to get hubs for the specific section
-								const dashboardHubsWithPositions = await (dashboardSection as any).getHubsForSection(sectionId, reqParams, context);
-								
-								if (dashboardHubsWithPositions.length > 0) {
-									// Convert hubs to hub entries with position information
-									const hubEntriesWithPositions = await Promise.all(dashboardHubsWithPositions.map(async (hubWithPosition: any) => {
-										const hubPageParams = {
-											count: reqParams.count,
-											includeMeta: reqParams.includeMeta,
-											excludeFields: reqParams.excludeFields
-										};
-										const hubEntry = await hubWithPosition.hub.getHubListEntry(hubPageParams, context);
-										return {
-											hubEntry,
-											position: hubWithPosition.position
-										};
-									}));
-									
-									// Start with existing Plex hubs
-									let finalHubs = [...(resData.MediaContainer.Hub ?? [])];
-									
-									// Insert/append dashboard hubs based on their position
-									for (const {hubEntry, position} of hubEntriesWithPositions) {
-										if (position !== undefined && position >= 0) {
-											// Insert at specific position
-											const insertIndex = Math.min(position, finalHubs.length);
-											finalHubs.splice(insertIndex, 0, hubEntry);
-										} else {
-											// Append at the end
-											finalHubs.push(hubEntry);
-										}
-									}
-									
-									// Update the response
-									resData.MediaContainer.Hub = finalHubs;
-									resData.MediaContainer.size = finalHubs.length;
-									if (resData.MediaContainer.totalSize != null) {
-										resData.MediaContainer.totalSize = finalHubs.length;
-									}
-								}
-							}
-						}
-					}
-					
-					// remap IDs if needed (since we may have added hubs)
+					// filter response - plugins can modify this (like sectionhubs plugin)
+					await this.filterResponse('hubs', resData, { proxyRes, userReq, userRes });
+					// remap IDs if needed (since filters may have added hubs)
 					if(this.metadataIdMappings && resData.MediaContainer.Hub) {
 						for(const hub of resData.MediaContainer.Hub) {
 							this.remapHubMetadataIdsIfNeeded(hub);
@@ -889,81 +837,65 @@ export class PseuplexApp {
 			})
 		]);
 
-		router.use('/photo', ((req, res, next) => {
-			try {
-				// TODO implement a way to disallow local IPs that don't refer to the plex server
-				const urlPathParts = parseURLPath(req.url);
-				const queryItems = urlPathParts.queryItems;
-				if(queryItems) {
-					let urlQueryArg = queryItems['url'];
-					const urlsToRewrite = [
-						`http://127.0.0.1:${this.config.port}`,
-						`https://127.0.0.1:${this.config.port}`,
-						'http://127.0.0.1:32400',
-						'https://127.0.0.1:32400',
-					];
-					if(urlQueryArg) {
-						urlQueryArg = transformArrayOrSingle(urlQueryArg, (urlArg: string) => {
-							for(const urlToRewrite of urlsToRewrite) {
-								if(urlArg.startsWith(urlToRewrite) && urlArg[urlToRewrite.length] == '/') {
-									return urlArg.substring(urlToRewrite.length);
-								}
-							}
-							return urlArg;
-						});
-						queryItems['url'] = urlQueryArg;
-					}
-				}
-				req.url = stringifyURLPath(urlPathParts);
-			} catch(error) {
-				console.error(`Failed to transform photo url for request to url ${req.url} :`);
-				console.error(error);
-			}
-			next();
-		}));
-
 		const pathEndingChars = ['/','?',undefined];
 		const plexTokenInUrlRegex = /[?&]X-Plex-Token=/;
 
 		router.get('/photo/\\:/transcode', [
 			this.middlewares.plexAuthentication,
 			asyncRequestHandler(async (req: IncomingPlexAPIRequest, res) => {
-				let url = req.query['url'];
-				if(typeof url === 'string') {
-					if(this.overlayedImageEndpoint
-						&& url.startsWith(this.overlayedImageEndpoint)
-						&& pathEndingChars.indexOf(url[this.overlayedImageEndpoint.length]) !== -1) {
-						// photo transcode requests for the overlayed image endpoint should just get redirected
-						const width = req.query['width'];
-						const height = req.query['height'];
-						const queryArgs: {[key: string]: any} = {};
-						if(width != null) {
-							queryArgs['width'] = width;
+				try {
+					const urlParts = parseURLPath(req.url);
+					let photoUrl = urlParts.queryItems?.['url'];
+					if(photoUrl && typeof photoUrl === 'string') {
+						let changedUrl = false;
+						const urlsToRewrite = [
+							`http://127.0.0.1:${this.config.port}`,
+							`https://127.0.0.1:${this.config.port}`,
+							'http://127.0.0.1:32400',
+							'https://127.0.0.1:32400',
+						];
+						// rewrite 127.0.0.1 urls query params to absolute paths
+						for(const urlToRewrite of urlsToRewrite) {
+							if(photoUrl.startsWith(urlToRewrite) && photoUrl[urlToRewrite.length] == '/') {
+								const ogPhotoUrl = photoUrl;
+								photoUrl = photoUrl.substring(urlToRewrite.length);
+								changedUrl = true;
+								break;
+							}
 						}
-						if(height != null) {
-							queryArgs['height'] = height;
+						// replace photo url if it matches the overlay url
+						if(this.overlayedImageEndpoint
+							&& photoUrl.startsWith(this.overlayedImageEndpoint)
+							&& pathEndingChars.indexOf(photoUrl[this.overlayedImageEndpoint.length]) !== -1) {
+							// photo transcode requests for the overlayed image endpoint should just get redirected
+							const photoUrlParts = parseURLPath(photoUrl);
+							// replace url in photo transcode url with the url passed to the overlay endpoint
+							urlParts.queryItems ??= {};
+							urlParts.queryItems['url'] = photoUrlParts.queryItems?.['url'];
+							photoUrlParts.queryItems ??= {};
+							photoUrlParts.queryItems['url'] = stringifyURLPath(urlParts);
+							const newUrl = stringifyURLPath(photoUrlParts);
+							req.url = newUrl;
+							// handle overlayed image request
+							await this._handleOverlayedImageRequest(req, res);
+							this.logger?.logIncomingUserRequestResponse(req, res, undefined);
+							return true;
 						}
-						const plexToken = req.plex.authContext['X-Plex-Token'];
-						if(plexToken && !plexTokenInUrlRegex.test(url)) {
-							queryArgs['X-Plex-Token'] = plexToken;
+						if(changedUrl) {
+							urlParts.queryItems!['url'] = photoUrl;
+							req.url = stringifyURLPath(urlParts);
 						}
-						const queryStr = qs.stringify(queryArgs);
-						if(url.indexOf('?') == -1) {
-							url += '?' + queryStr;
-						} else {
-							url += '&' + queryStr;
-						}
-						res.redirect(url);
-						return true;
 					}
+				} catch(error) {
+					console.error(`Error rewriting plex photo url:`);
+					console.error(error);
 				}
 				return false;
 			})
 		]);
 
 		if(options.overlaysEnabled ?? true) {
-			const overlayImageNameRegex = /^[a-z0-9 ._-]+$/i;
-			this.overlayImageCache = new CachedFetcher<{image:sharp.Sharp}>(async (imageName: string) => {
+			this.overlayImageCache = new CachedFetcher<Buffer>(async (imageName: string) => {
 				let imagePath = this.overlayImageOverrides?.[imageName];
 				if(imagePath) {
 					if(!imagePath.startsWith('/') && !imagePath.startsWith('./') && !imagePath.startsWith('../')) {
@@ -972,59 +904,25 @@ export class PseuplexApp {
 				} else {
 					imagePath = `${require.main!.path}/../images/overlays/${imageName}.png`;
 				}
-				const image = await sharp(imagePath);
-				return {image};
+				const image = sharp(imagePath);
+				try {
+					return await image.toBuffer();
+				} finally {
+					try {
+						image.destroy();
+					} catch(error) {
+						console.error("Error destroying loaded image:");
+						console.error(error);
+					}
+				}
 			});
 			
 			this.overlayedImageEndpoint = `/${this.slug}/image/withoverlay`;
 			router.get(this.overlayedImageEndpoint, [
 				this.middlewares.plexAuthentication,
 				asyncRequestHandler(async (req, res) => {
-					// parse width
-					let width = req.query['width'];
-					if(width != null) {
-						width = Number.parseInt(width);
-						if(Number.isNaN(width)) {
-							throw httpError(500, "Invalid width");
-						}
-					}
-					// parse height
-					let height = req.query['height'];
-					if(height != null) {
-						height = Number.parseInt(height);
-						if(Number.isNaN(height)) {
-							throw httpError(500, "Invalid height");
-						}
-					}
-					// parse url
-					let url = req.query['url'];
-					if(url instanceof Array) {
-						url = url[0] as string;
-					}
-					// TODO validate url (disallow any local ips that aren't localhost:psport)
-					// parse overlay name
-					let overlayName = req.query['overlay'];
-					if(overlayName instanceof Array) {
-						overlayName = overlayName[0] as string;
-					}
-					if(!overlayName) {
-						throw httpError(400, "Missing overlay parameter");
-					}
-					if(!overlayName || !overlayImageNameRegex.test(overlayName)) {
-						throw httpError(400, "Invalid overlay");
-					}
-					// get overlay image
-					const overlayImage = (await this.overlayImageCache!.getOrFetch(overlayName)).image;
-					// get base image
-					const baseImageRes = await fetch(url);
-					const outputImage = await applyOverlayToImage(stream.Readable.fromWeb(baseImageRes.body!), overlayImage, (width != null && height != null) ? {
-						resize: {width,height}
-					} : undefined);
-					/*const contentType = baseImageRes.headers.get('Content-Type');
-					if(contentType) {
-						res.setHeader('Content-Type', contentType);
-					}*/
-					outputImage.image.pipe(res);
+					await this._handleOverlayedImageRequest(req, res);
+					this.logger?.logIncomingUserRequestResponse(req, res, undefined);
 					return true;
 				})
 			]);
@@ -1041,6 +939,11 @@ export class PseuplexApp {
 			plexGeneralProxy.web(req,res);
 		});
 		router.use(expressErrorHandler);
+		router.use((error: Error, req: express.Request, res: express.Response, next) => {
+			console.error(`Error cascaded past where it should've:`);
+			console.error(error);
+			next();
+		});
 		
 		// create http/https/http+https server
 		let server: (http.Server | https.Server);
@@ -1786,6 +1689,94 @@ export class PseuplexApp {
 			console.log(`Remapped play queue uri ${originalURI} to ${uri}`);
 		}
 		return uri;
+	}
+
+
+	private async _handleOverlayedImageRequest(req: express.Request, res: express.Response) {
+		if(!this.overlayImageCache) {
+			throw httpError(500, "Overlays are disabled");
+		}
+		// parse width
+		let width: any = req.query['width'];
+		if(typeof width === 'string') {
+			if(width) {
+				width = Number.parseInt(width);
+				if(Number.isNaN(width)) {
+					throw httpError(500, "Invalid width");
+				}
+			} else {
+				width = null;
+			}
+		}
+		if(width != null && typeof width !== 'number') {
+			throw httpError(400, "Invalid width");
+		}
+		// parse height
+		let height: any = req.query['height'];
+		if(typeof height === 'string') {
+			if(height) {
+				height = Number.parseInt(height);
+				if(Number.isNaN(height)) {
+					throw httpError(500, "Invalid height");
+				}
+			} else {
+				height = null;
+			}
+		}
+		if(height != null && typeof height !== 'number') {
+			throw httpError(400, "Invalid height");
+		}
+		// parse url
+		let url = req.query['url'];
+		if(url instanceof Array) {
+			url = url[0] as string;
+		}
+		if(!url) {
+			throw httpError(400, "Missing url parameter");
+		}
+		if(typeof url !== 'string') {
+			throw httpError(400, "Invalid url");
+		}
+		if(url.startsWith('/')) {
+			url = this.plexServerURL + url;
+		}
+		// TODO validate url (disallow any local ips that aren't localhost:psport)
+		// parse overlay name
+		let overlayName = req.query['overlay'];
+		if(overlayName instanceof Array) {
+			overlayName = overlayName[0] as string;
+		}
+		if(typeof overlayName !== 'string') {
+			throw httpError(400, `Invalid overlay ${overlayName}`);
+		}
+		if(!overlayName) {
+			throw httpError(400, "Missing overlay parameter");
+		}
+		if(!overlayName || !overlayImageNameRegex.test(overlayName)) {
+			throw httpError(400, "Invalid overlay");
+		}
+		// get overlay image
+		const overlayImage = await this.overlayImageCache.getOrFetch(overlayName);
+		// get base image
+		const baseImageRes = await fetch(url);
+		const outputImageBuffer = await applyOverlayToImage(stream.Readable.fromWeb(baseImageRes.body!), overlayImage, (width != null && height != null) ? {
+			resize: {width,height}
+		} : undefined);
+		const contentType = baseImageRes.headers.get('Content-Type');
+		if(contentType) {
+			res.setHeader('Content-Type', contentType);
+		}
+		const origin = req.headers['origin'];
+		if(origin) {
+			res.setHeader('Access-Control-Allow-Origin', origin);
+		}
+		const cacheControl = baseImageRes.headers.get('Cache-Control');
+		if(cacheControl) {
+			res.setHeader('Cache-Control', cacheControl);
+		}
+		res.setHeader('Content-Length', outputImageBuffer.length);
+		res.setHeader('X-Plex-Protocol', '1.0');
+		res.end(outputImageBuffer);
 	}
 
 

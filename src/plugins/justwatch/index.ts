@@ -1,0 +1,169 @@
+import express from 'express';
+import * as plexTypes from '../../plex/types';
+import { IncomingPlexAPIRequest } from '../../plex/requesthandling';
+import {
+	PseuplexApp,
+	PseuplexPlugin,
+	PseuplexPluginClass,
+	PseuplexHubProvider,
+	PseuplexRequestContext,
+	PseuplexMetadataProvider
+} from '../../pseuplex';
+import { JustWatchPluginConfig, JustWatchHubConfig } from './types';
+import { JustWatchHub } from './hub';
+import { JustWatchMetadataProvider } from './metadata';
+import { httpError } from '../../utils/error';
+
+export default (class JustWatchPlugin implements PseuplexPlugin {
+	static slug = 'justwatch';
+	readonly slug = JustWatchPlugin.slug;
+	readonly app: PseuplexApp;
+	readonly metadata: JustWatchMetadataProvider;
+	readonly hubs: {
+		readonly justwatch: PseuplexHubProvider;
+	};
+
+	constructor(app: PseuplexApp) {
+		this.app = app;
+		const self = this;
+
+		// Create metadata provider
+		this.metadata = new JustWatchMetadataProvider({
+			basePath: `${this.basePath}/metadata`,
+			plexMetadataClient: this.app.plexMetadataClient,
+			relatedHubsProviders: [],
+			//plexGuidToInfoCache: this.app.plexGuidToInfoCache,
+		});
+
+		// Create hub providers
+		this.hubs = {
+			justwatch: new class extends PseuplexHubProvider {
+				readonly basePath = `${self.basePath}/hubs/justwatch`;
+				
+				override async get(id: string | any): Promise<JustWatchHub> {
+					// Convert to string only if it's not already a string
+					const stringId = typeof id === 'string' ? id : JSON.stringify(id);
+					return super.get(stringId) as Promise<JustWatchHub>;
+				}
+				
+				override fetch(configInput: string | any): JustWatchHub {
+					// Parse the config from JSON string or object
+					let config: JustWatchHubConfig;
+					let configString: string;
+					
+					try {
+						// Handle both string and object inputs
+						if (typeof configInput === 'string') {
+							configString = configInput;
+							config = JSON.parse(configInput);
+						} else {
+							// configInput is actually a config object (dashboard case)
+							config = configInput as JustWatchHubConfig;
+							configString = JSON.stringify(config);
+						}
+					} catch (error) {
+						// Fallback to default config
+						config = {
+							first: 15,
+							objectType: 'MOVIE',
+							packages: ['NFX']
+						};
+						configString = JSON.stringify(config);
+					}
+					
+					const hub = new JustWatchHub({
+						hubPath: `${this.basePath}/${Buffer.from(configString).toString('base64')}`,
+						title: this._createTitle(config),
+						type: config.objectType === 'SHOW' ? plexTypes.PlexMediaItemType.TVShow : plexTypes.PlexMediaItemType.Movie,
+						style: plexTypes.PlexHubStyle.Shelf,
+						hubIdentifier: `custom.justwatch.${config.objectType?.toLowerCase() || 'movie'}.${config.packages?.join('-').toLowerCase() || 'all'}`,
+						context: 'hub.custom.justwatch.popular',
+						defaultItemCount: config.first || 15,
+						uniqueItemsOnly: false,
+						config: config,
+						justWatchMetadataProvider: self.metadata
+					});
+					return hub;
+				}
+
+				private _createTitle(config: JustWatchHubConfig): string {
+					const objectType = config.objectType === 'SHOW' ? 'Shows' : 'Movies';
+					const packages = config.packages?.join(', ') || 'All Platforms';
+					return `Popular ${objectType} on ${packages}`;
+				}
+			}()
+		};
+	}
+
+	get basePath(): string {
+		return `/${this.app.slug}/${this.slug}`;
+	}
+
+	get metadataProviders(): PseuplexMetadataProvider[] {
+		return [this.metadata];
+	}
+
+	get config(): JustWatchPluginConfig {
+		return this.app.config;
+	}
+
+	defineRoutes(router: express.Express) {
+		// Get metadata item(s)
+		router.get(`${this.metadata.basePath}/:id`, [
+			this.app.middlewares.plexAuthentication,
+			this.app.middlewares.plexRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexMetadataPage> => {
+				console.log(`\ngot request for justwatch item ${req.params.id}`);
+				const context = this.app.contextForRequest(req);
+				const params: plexTypes.PlexMetadataPageParams = req.plex.requestParams;
+				const itemIdsStr = req.params.id?.trim();
+				if(!itemIdsStr) {
+					throw httpError(400, "No title ID was provided");
+				}
+				const metadataIds = itemIdsStr.split(',');
+				// get metadatas from justwatch
+				const metadataProvider = this.metadata;
+				const resData = await metadataProvider.get(metadataIds, {
+					context: context,
+					includePlexDiscoverMatches: true,
+					includeUnmatched: true,
+					transformMatchKeys: true,
+					metadataBasePath: metadataProvider.basePath,
+					qualifiedMetadataIds: false,
+					plexParams: params,
+				});
+				// cache metadata access if needed
+				if(metadataIds.length == 1) {
+					this.app.pluginMetadataAccessCache?.cachePluginMetadataAccessIfNeeded(metadataProvider, metadataIds[0], req.path, resData.MediaContainer.Metadata, context);
+				}
+				return resData;
+			})
+		]);
+
+		// Get JustWatch popular titles as a hub with encoded config parameter
+		router.get(`${this.basePath}/hubs/justwatch/:config`, [
+			this.app.middlewares.plexAuthentication,
+			this.app.middlewares.plexRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexHubPage> => {
+				const context = this.app.contextForRequest(req);
+				const params = plexTypes.parsePlexHubPageParams(req, { fromListPage: false });
+				
+				// Decode config from URL parameter
+				let config: JustWatchHubConfig;
+				try {
+					const configString = Buffer.from(req.params.config, 'base64').toString();
+					config = JSON.parse(configString);
+				} catch (error) {
+					// Fallback to default config
+					config = {
+						first: 15,
+						objectType: 'MOVIE',
+						packages: ['NFX']
+					};
+				}
+				
+				const hub = await this.hubs.justwatch.get(JSON.stringify(config));
+				return await hub.getHubPage(params, context);
+			})
+		]);
+	}
+
+} as PseuplexPluginClass);

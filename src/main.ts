@@ -22,6 +22,8 @@ import { PseuplexApp } from './pseuplex';
 import LetterboxdPlugin from './plugins/letterboxd';
 import RequestsPlugin from './plugins/requests';
 import DashboardPlugin from './plugins/dashboard';
+import SectionHubsPlugin from './plugins/sectionhubs';
+import JustWatchPlugin from './plugins/justwatch';
 import {
 	calculatePlexP12Password,
 	getPlexP12Path,
@@ -33,6 +35,7 @@ import { Logger, LoggingOptions } from './logging';
 
 modConsoleColors();
 sharp.concurrency(1);
+sharp.cache(false);
 
 let plexPrefs: PlexPreferences | undefined = undefined;
 let cfg: Config;
@@ -129,6 +132,7 @@ const readPlexPrefsIfNeeded = async () => {
 		ipv4ForwardingMode: cfg.ipv4ForwardingMode ? IPv4NormalizeMode[cfg.ipv4ForwardingMode] : undefined,
 		forwardMetadataRefreshToPluginMetadata: cfg.forwardMetadataRefreshToPluginMetadata,
 		overwritePlexPrivatePort: cfg.plex.overwritePrivatePort,
+		mapPseuplexMetadataIds: cfg.remapMetadataIds,
 		serverOptions: {
 			...sslCertData
 		},
@@ -159,6 +163,8 @@ const readPlexPrefsIfNeeded = async () => {
 			LetterboxdPlugin,
 			RequestsPlugin,
 			DashboardPlugin,
+			SectionHubsPlugin,
+			JustWatchPlugin,
 		],
 		config: cfg
 	});
