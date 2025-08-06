@@ -33,6 +33,7 @@ import { Logger, LoggingOptions } from './logging';
 
 modConsoleColors();
 sharp.concurrency(1);
+sharp.cache(false);
 
 let plexPrefs: PlexPreferences | undefined = undefined;
 let cfg: Config;
