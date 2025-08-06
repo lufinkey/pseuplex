@@ -48,11 +48,11 @@ export default (class TemplatePlugin implements TemplatePluginDef, PseuplexPlugi
 	}
 
 	responseFilters?: PseuplexReadOnlyResponseFilters = {
-		//
+		// TODO define any functions to modify plex server responses
 	}
 
 	defineRoutes(router: express.Express) {
-		//
+		// TODO define any custom routes
 	}
 
 } as PseuplexPluginClass);
