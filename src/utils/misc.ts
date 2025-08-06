@@ -105,44 +105,19 @@ export const combinePathSegments = (part1: string, part2: string) => {
 export type URLPathParts = {
 	path: string;
 	query?: string;
-	hash?: string;
 };
 
 export type URLPath = {
 	path: string;
-	query?: string;
 	queryItems?: qs.ParsedUrlQuery;
-	hash?: string;
 };
 
 export const parseURLPathParts = (urlPath: string): URLPathParts => {
 	const queryIndex = urlPath.indexOf('?');
-	const hashIndex = urlPath.indexOf('#');
 	if(queryIndex != -1) {
-		if(hashIndex != -1) {
-			if(hashIndex < queryIndex) {
-				return {
-					path: urlPath.substring(0, hashIndex),
-					hash: urlPath.substring(hashIndex+1)
-				};
-			} else {
-				return {
-					path: urlPath.substring(0, queryIndex),
-					query: urlPath.substring(queryIndex+1, hashIndex),
-					hash: urlPath.substring(hashIndex+1)
-				};
-			}
-		} else {
-			return {
-				path: urlPath.substring(0, queryIndex),
-				query: urlPath.substring(queryIndex+1)
-			};
-		}
-	}
-	else if(hashIndex != -1) {
 		return {
-			path: urlPath.substring(0, hashIndex),
-			hash: urlPath.substring(hashIndex+1)
+			path: urlPath.substring(0, queryIndex),
+			query: urlPath.substring(queryIndex+1)
 		};
 	} else {
 		return {
@@ -156,9 +131,6 @@ export const stringifyURLPathParts = (urlPathObj: URLPathParts): string => {
 	if(urlPathObj.query != null) {
 		urlPath += `?${urlPathObj.query}`;
 	}
-	if(urlPathObj.hash != null) {
-		urlPath += `#${urlPathObj.hash}`;
-	}
 	return urlPath;
 };
 
@@ -167,6 +139,7 @@ export const parseURLPath = (urlPath: string): URLPath => {
 	const newParts = (parts as URLPath);
 	if(parts.query != null) {
 		newParts.queryItems = qs.parse(parts.query);
+		delete parts.query;
 	}
 	return newParts;
 };
@@ -175,9 +148,6 @@ export const stringifyURLPath = (urlPathObj: URLPath): string => {
 	let urlPath = urlPathObj.path;
 	if(urlPathObj.queryItems != null) {
 		urlPath += `?${qs.stringify(urlPathObj.queryItems)}`;
-	}
-	if(urlPathObj.hash != null) {
-		urlPath += `#${urlPathObj.hash}`;
 	}
 	return urlPath;
 };
@@ -193,13 +163,14 @@ export const parseQueryParams = (req: express.Request, includeParam: (key:string
 };
 
 export const addQueryArgumentToURLPath = (urlPath: string, queryEntry: string) => {
-	const parts = parseURLPathParts(urlPath);
-	if(!parts.query) {
-		parts.query = queryEntry;
+	const queryIndex = urlPath.indexOf('?');
+	if(queryIndex == -1) {
+		return urlPath + '?' + queryEntry;
+	} else if(queryIndex == urlPath.length-1) {
+		return urlPath + queryEntry;
 	} else {
-		parts.query += `&${queryEntry}`;
+		return urlPath + '&' + queryEntry;
 	}
-	return stringifyURLPathParts(parts);
 };
 
 export const forArrayOrSingle = <T>(item: T | T[], callback: (item: T) => void) => {

@@ -190,7 +190,7 @@ export class Logger {
 			}
 		}
 		if(shouldLogBody) {
-			console.log(JSON.stringify(bodyString));
+			console.log(bodyString);
 		}
 		console.log();
 	}
