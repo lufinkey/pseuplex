@@ -11,7 +11,7 @@ import {
 } from '../../pseuplex';
 import * as tmplTransform from './transform';
 
-
+// replace this object with the object from your custom metadata api
 export type TemplateMetadataItem = {
 	id: string;
 	type: 'movie' | 'tv'
@@ -22,7 +22,7 @@ export type TemplateMetadataItem = {
 
 export class TemplateMetadataProvider extends PseuplexMetadataProviderBase<TemplateMetadataItem> {
 	readonly sourceDisplayName = "Template";
-	readonly sourceSlug = '<metadata_source_name>';
+	readonly sourceSlug = 'templatesource'; // replace this with a slug for your source. For example: "letterboxd"
 
 	override async fetchMetadataItem(id: PseuplexPartialMetadataIDString): Promise<TemplateMetadataItem> {
 		// TODO fetch raw metadata item from id
@@ -36,10 +36,15 @@ export class TemplateMetadataProvider extends PseuplexMetadataProviderBase<Templ
 	}
 
 	override transformMetadataItem(metadataItem: TemplateMetadataItem, context: PseuplexRequestContext, transformOpts: PseuplexMetadataTransformOptions): PseuplexMetadataItem {
+		// transform your source's metadata item into a plex metadata item
 		return tmplTransform.templateItemToPlexMetadata(metadataItem, context, transformOpts);
 	}
 
 	override idFromMetadataItem(metadataItem: TemplateMetadataItem): PseuplexPartialMetadataIDString {
+		// Create a "partial metadata id" for your metadata item.
+		// This just means an ID thats only relevant to your provider
+		// For example: "film:legend"
+		// A "full" metadata id (not partial) would be something like "letterboxd:film:legend"
 		return tmplTransform.partialMetadataIdFromTemplateItem(metadataItem);
 	}
 
@@ -60,10 +65,12 @@ export class TemplateMetadataProvider extends PseuplexMetadataProviderBase<Templ
 				break;
 		}
 		return {
+			// title and year will be used as a fallback if guids can't be matched
 			title: metadataItem.title,
 			year: metadataItem.year,
 			types,
 			guids: [
+				// guids are the main mechanism for matching plex metadata from external sources
 				`tvdb://${metadataItem.tvdbId}`
 			]
 		};
