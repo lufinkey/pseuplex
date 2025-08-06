@@ -9,7 +9,7 @@ import {
 	PseuplexRequestContext,
 	PseuplexMetadataProvider
 } from '../../pseuplex';
-import { JustWatchPluginConfig, JustWatchHubConfig } from './types';
+import { JustWatchPluginConfig, JustWatchHubConfig, JustWatchObjectType } from './types';
 import { JustWatchHub } from './hub';
 import { JustWatchMetadataProvider } from './metadata';
 import { httpError } from '../../utils/error';
@@ -65,7 +65,7 @@ export default (class JustWatchPlugin implements PseuplexPlugin {
 						// Fallback to default config
 						config = {
 							first: 15,
-							objectType: 'MOVIE',
+							objectType: JustWatchObjectType.Movie,
 							packages: ['']
 						};
 						configString = JSON.stringify(config);
@@ -160,7 +160,7 @@ export default (class JustWatchPlugin implements PseuplexPlugin {
 					// Fallback to default config
 					config = {
 						first: 15,
-						objectType: 'MOVIE',
+						objectType: JustWatchObjectType.Movie,
 						packages: ['']
 					};
 				}

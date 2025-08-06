@@ -12,48 +12,10 @@ import {
 	PseuplexRequestContext,
 	PseuplexMetadataProviderItemMatchParams,
 } from '../../pseuplex';
-import { JustWatchTitle, JustWatchSingleTitleResponse, JustWatchQueryVariables } from './types';
+import { JustWatchTitle, JustWatchLanguage, JustWatchCountry } from './types';
+import { getTitle } from './api';
 
 export type JustWatchMetadataItem = JustWatchTitle;
-
-const JUSTWATCH_GRAPHQL_QUERY = `query GetTitle($country: Country!, $language: Language!, $titleId: ID!) {
-  node(id: $titleId) {
-    ... on MovieOrShow {
-      id
-      objectId
-      objectType
-      content(country: $country, language: $language) {
-        externalIds {
-          tmdbId
-          imdbId
-        }
-        title
-        fullPath
-        originalReleaseYear
-        shortDescription
-        scoring {
-          imdbVotes
-          imdbScore
-          tmdbPopularity
-          tmdbScore
-          tomatoMeter
-          certifiedFresh
-          jwRating
-        }
-        posterUrl(profile: S718, format: JPG)
-        backdrops(profile: S1920, format: JPG) {
-          backdropUrl
-        }
-        isReleased
-        runtime
-        genres {
-          translation(language: $language)
-          shortName
-        }
-      }
-    }
-  }
-}`;
 
 export class JustWatchMetadataProvider extends PseuplexMetadataProviderBase<JustWatchMetadataItem> {
 	readonly sourceDisplayName = "JustWatch";
@@ -65,36 +27,16 @@ export class JustWatchMetadataProvider extends PseuplexMetadataProviderBase<Just
 		// Extract the title ID from the metadata ID (format: "tm123456")
 		const titleId = id;
 		
-		const variables = {
-			titleId,
-			language: 'en',
-			country: 'NL'
-		};
-
-		const response = await fetch('https://apis.justwatch.com/graphql', {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-			},
-			body: JSON.stringify({
-				operationName: 'GetTitle',
-				variables,
-				query: JUSTWATCH_GRAPHQL_QUERY
-			})
+		const title = await getTitle(titleId, { 
+			language: JustWatchLanguage.English, 
+			country: JustWatchCountry.Netherlands 
 		});
-
-		if (!response.ok) {
-			throw new Error(`JustWatch API error: ${response.status} ${response.statusText}`);
-		}
-
-		const data = await response.json() as JustWatchSingleTitleResponse;
-		const title = data.data?.node;
 		
 		if (!title) {
 			throw new Error(`Title not found: ${titleId}`);
 		}
-
-		return title as JustWatchTitle;
+		
+		return title;
 	}
 
 	override transformMetadataItem(metadataItem: JustWatchMetadataItem, context: PseuplexRequestContext, transformOpts: PseuplexMetadataTransformOptions): PseuplexMetadataItem {

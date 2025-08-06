@@ -7,179 +7,14 @@ import {
 	PseuplexMetadataTransformOptions
 } from '../../pseuplex';
 import { LoadableListItemNode } from '../../fetching/LoadableListFragment';
-import { JustWatchHubConfig, JustWatchResponse, JustWatchTitle, JustWatchQueryVariables } from './types';
+import { JustWatchHubConfig, JustWatchTitle, JustWatchLanguage, JustWatchCountry, JustWatchSortBy } from './types';
 import { JustWatchMetadataProvider } from './metadata';
+import { getPopularTitles } from './api';
 
 export type JustWatchHubOptions = PseuplexFeedHubOptions & {
 	config: JustWatchHubConfig;
 	justWatchMetadataProvider?: JustWatchMetadataProvider;
 };
-
-const JUSTWATCH_GRAPHQL_QUERY = `query GetPopularTitles($backdropProfile: BackdropProfile, $country: Country!, $first: Int! = 70, $format: ImageFormat, $language: Language!, $after: String, $popularTitlesFilter: TitleFilter, $popularTitlesSortBy: PopularTitlesSorting! = POPULAR, $profile: PosterProfile, $sortRandomSeed: Int! = 0, $watchNowFilter: WatchNowOfferFilter!, $offset: Int = 0, $creditsRole: CreditRole! = DIRECTOR) {
-  popularTitles(
-    country: $country
-    filter: $popularTitlesFilter
-    first: $first
-    sortBy: $popularTitlesSortBy
-    sortRandomSeed: $sortRandomSeed
-    offset: $offset
-    after: $after
-  ) {
-    __typename
-    edges {
-      cursor
-      node {
-        ...PopularTitleGraphql
-        __typename
-      }
-      __typename
-    }
-    pageInfo {
-      startCursor
-      endCursor
-      hasPreviousPage
-      hasNextPage
-      __typename
-    }
-    totalCount
-  }
-}
-
-fragment PopularTitleGraphql on MovieOrShow {
-  __typename
-  id
-  objectId
-  objectType
-  content(country: $country, language: $language) {
-      externalIds {
-        tmdbId
-    imdbId
-      }
-   title
-    fullPath
-    originalReleaseYear
-    shortDescription
-    interactions {
-      likelistAdditions
-      dislikelistAdditions
-      __typename
-    }
-    scoring {
-      imdbVotes
-      imdbScore
-      tmdbPopularity
-      tmdbScore
-      tomatoMeter
-      certifiedFresh
-      jwRating
-      __typename
-    }
-    interactions {
-      votesNumber
-      __typename
-    }
-    dailymotionClips: clips(providers: [DAILYMOTION]) {
-      sourceUrl
-      externalId
-      provider
-      streamUrl
-      __typename
-    }
-    posterUrl(profile: $profile, format: $format)
-    ... on MovieOrShowOrSeasonContent {
-      backdrops(profile: $backdropProfile, format: $format) {
-        backdropUrl
-        __typename
-      }
-      __typename
-    }
-    isReleased
-    credits(role: $creditsRole) {
-      name
-      personId
-      __typename
-    }
-    runtime
-    genres {
-      translation(language: $language)
-      shortName
-      __typename
-    }
-    __typename
-  }
-  likelistEntry {
-    createdAt
-    __typename
-  }
-  dislikelistEntry {
-    createdAt
-    __typename
-  }
-  watchlistEntryV2 {
-    createdAt
-    __typename
-  }
-  customlistEntries {
-    createdAt
-    __typename
-  }
-  freeOffersCount: offerCount(
-    country: $country
-    platform: WEB
-    filter: {monetizationTypes: [FREE, ADS]}
-  )
-  watchNowOffer(country: $country, platform: WEB, filter: $watchNowFilter) {
-    ...WatchNowOffer
-    __typename
-  }
-  ... on Movie {
-    seenlistEntry {
-      createdAt
-      __typename
-    }
-    __typename
-  }
-  ... on Show {
-    tvShowTrackingEntry {
-      createdAt
-      __typename
-    }
-    seenState(country: $country) {
-      seenEpisodeCount
-      progress
-      __typename
-    }
-    __typename
-  }
-}
-
-fragment WatchNowOffer on Offer {
-  __typename
-  id
-  standardWebURL
-  preAffiliatedStandardWebURL
-  streamUrl
-  package {
-    id
-    icon
-    packageId
-    clearName
-    shortName
-    technicalName
-    iconWide(profile: S160)
-    hasRectangularIcon(country: $country, platform: WEB)
-    __typename
-  }
-  retailPrice(language: $language)
-  retailPriceValue
-  lastChangeRetailPriceValue
-  currency
-  presentationType
-  monetizationType
-  availableTo
-  dateCreated
-  newElementCount
-}`;
 
 type JustWatchHubChunk = PseuplexFeedHubChunk<JustWatchTitle, void, string>;
 
@@ -222,61 +57,32 @@ export class JustWatchHub extends PseuplexFeedHub<JustWatchTitle, void, string, 
 		const remainingItems = configMaxItems - this._totalItemsFetched;
 		const requestCount = Math.min(remainingItems, 15); // Request max 15 at a time
 		
-		const variables: JustWatchQueryVariables = {
-			first: requestCount,
-			popularTitlesSortBy: config.popularTitlesSortBy || 'POPULAR',
-			sortRandomSeed: 0,
-			offset: null,
-			creditsRole: 'DIRECTOR',
-			after: pageToken || '',
-			popularTitlesFilter: {
-				ageCertifications: [],
-				excludeGenres: config.excludeGenres || [],
-				excludeProductionCountries: [],
-				objectTypes: config.objectType ? [config.objectType] : ['MOVIE'],
-				productionCountries: [],
-				subgenres: [],
-				genres: config.genres || [],
-				packages: (config.packages || []).map(pkg => pkg.toLowerCase()),
-				excludeIrrelevantTitles: false,
-				presentationTypes: [],
-				monetizationTypes: config.monetizationTypes || [],
-				searchQuery: ''
-			},
-			watchNowFilter: {
-				packages: (config.packages || []).map(pkg => pkg.toLowerCase()),
-				monetizationTypes: config.monetizationTypes || []
-			},
-			language: config.language || 'en',
-			country: config.country || 'NL'
-		};
-
 		console.log(`Fetching JustWatch titles: ${JSON.stringify({
-			first: variables.first,
+			first: requestCount,
 			objectType: config.objectType,
 			packages: config.packages,
 			after: pageToken
 		})}`);
 
-		const response = await fetch('https://apis.justwatch.com/graphql', {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-			},
-			body: JSON.stringify({
-				operationName: 'GetPopularTitles',
-				variables,
-				query: JUSTWATCH_GRAPHQL_QUERY
-			})
+		const response = await getPopularTitles({
+			first: requestCount,
+			after: pageToken || undefined,
+			objectType: config.objectType,
+			packages: (config.packages || []).map(pkg => pkg.toLowerCase()),
+			country: config.country || JustWatchCountry.Netherlands,
+			language: config.language || JustWatchLanguage.English,
+			sortBy: config.popularTitlesSortBy || JustWatchSortBy.Popular,
+			genres: config.genres || [],
+			excludeGenres: config.excludeGenres || [],
+			monetizationTypes: config.monetizationTypes || []
 		});
 
-		if (!response.ok) {
-			throw new Error(`JustWatch API error: ${response.status} ${response.statusText}`);
+		if (!response) {
+			throw new Error('JustWatch API returned no data');
 		}
 
-		const data = await response.json() as JustWatchResponse;
-		const edges = data.data?.popularTitles?.edges || [];
-		const pageInfo = data.data?.popularTitles?.pageInfo;
+		const edges = response.popularTitles.edges || [];
+		const pageInfo = response.popularTitles.pageInfo;
 
 		console.log(`JustWatch API response for packages ${JSON.stringify(config.packages)}: ${edges.length} titles returned (requested: ${config.first || 15})`);
 		
