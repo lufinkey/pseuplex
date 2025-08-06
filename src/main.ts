@@ -130,6 +130,7 @@ const readPlexPrefsIfNeeded = async () => {
 		ipv4ForwardingMode: cfg.ipv4ForwardingMode ? IPv4NormalizeMode[cfg.ipv4ForwardingMode] : undefined,
 		forwardMetadataRefreshToPluginMetadata: cfg.forwardMetadataRefreshToPluginMetadata,
 		overwritePlexPrivatePort: cfg.plex.overwritePrivatePort,
+		mapPseuplexMetadataIds: cfg.remapMetadataIds,
 		serverOptions: {
 			...sslCertData
 		},

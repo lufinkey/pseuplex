@@ -19,6 +19,7 @@ export type Config = {
 		enabled?: boolean;
 		overrides?: {[overlayName: string]: string};
 	},
+	remapMetadataIds?: boolean;
 	plex: {
 		host?: string;
 		port?: number;
