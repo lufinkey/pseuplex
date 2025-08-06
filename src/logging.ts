@@ -108,53 +108,33 @@ export class Logger {
 		}
 	}
 
-	async logOutgoingRequestResponse(res: Response, reqOptions: RequestInit): Promise<boolean> {
+	logOutgoingRequestResponse(res: Response, reqOptions: RequestInit, resData: any): boolean {
 		if(res.ok) {
 			if(!this.options.logOutgoingResponses) {
 				return false;
 			}
-			let body: string | undefined;
-			let gotBody = false;
-			let bodyError: Error | undefined;
-			if(this.options.logOutgoingResponseBody) {
-				try {
-					body = await res.text();
-					gotBody = true;
-				} catch(error) {
-					bodyError = error;
-				}
-			}
 			console.log(`Got response ${res.status} for ${reqOptions.method || 'GET'} ${res.url}: ${res.statusText}`);
-			if(bodyError) {
-				console.error(`Failed to fetch body for response: ${bodyError.message}`);
-			} else if(gotBody && body) {
-				console.log(`Response body:\n${body}`);
+			if(resData && this.options.logOutgoingResponseBody) {
+				if(typeof resData === 'string') {
+					console.log(`Response body:\n${resData}`);
+				} else {
+					console.log(`Response body:\n${JSON.stringify(resData)}`);
+				}
 			}
 		} else {
-			if(!(this.options.logOutgoingRequestFailures ?? this.options.logOutgoingResponses)) {
+			if(!(this.options.logOutgoingRequestFailures || this.options.logOutgoingResponses)) {
 				return false;
-			}
-			let body: string | undefined;
-			let gotBody = false;
-			let bodyError: Error | undefined;
-			if(this.options.logOutgoingResponseBody) {
-				try {
-					body = await res.text();
-					gotBody = true;
-				} catch(error) {
-					console.error(`Failed to fetch body for response to ${res.url} :`);
-					console.error(error);
-				}
 			}
 			console.error(`Got response ${res.status} for ${reqOptions.method || 'GET'} ${res.url}: ${res.statusText}`);
 			if(reqOptions.body && !(this.options.logOutgoingRequests && this.options.logOutgoingRequestBody)) {
 				console.error(`Request body: ${JSON.stringify(reqOptions.body)}`);
 			}
-			if(bodyError) {
-				console.error(`Failed to fetch body for response: ${bodyError.message}`);
-			}
-			else if(gotBody && body) {
-				console.log(`Response body:\n${body}`);
+			if(resData) {
+				if(typeof resData === 'string') {
+					console.log(`Response body:\n${resData}`);
+				} else {
+					console.log(`Response body:\n${JSON.stringify(resData)}`);
+				}
 			}
 		}
 		return true;
