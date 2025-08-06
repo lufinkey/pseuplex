@@ -851,14 +851,12 @@ export class PseuplexApp {
 							&& pathEndingChars.indexOf(photoUrl[this.overlayedImageEndpoint.length]) !== -1) {
 							// photo transcode requests for the overlayed image endpoint should just get redirected
 							const photoUrlParts = parseURLPath(photoUrl);
-							urlParts.path = photoUrlParts.path;
+							// replace url in photo transcode url with the url passed to the overlay endpoint
 							urlParts.queryItems ??= {};
 							urlParts.queryItems['url'] = photoUrlParts.queryItems?.['url'];
-							const overlay = photoUrlParts.queryItems?.['overlay'];
-							if(overlay) {
-								urlParts.queryItems['overlay'] = overlay;
-							}
-							const newUrl = stringifyURLPath(urlParts);
+							photoUrlParts.queryItems ??= {};
+							photoUrlParts.queryItems['url'] = stringifyURLPath(urlParts);
+							const newUrl = stringifyURLPath(photoUrlParts);
 							req.url = newUrl;
 							// handle overlayed image request
 							await this._handleOverlayedImageRequest(req, res);
@@ -1721,6 +1719,9 @@ export class PseuplexApp {
 		if(typeof url !== 'string') {
 			throw httpError(400, "Invalid url");
 		}
+		if(url.startsWith('/')) {
+			url = this.plexServerURL + url;
+		}
 		// TODO validate url (disallow any local ips that aren't localhost:psport)
 		// parse overlay name
 		let overlayName = req.query['overlay'];
@@ -1747,7 +1748,14 @@ export class PseuplexApp {
 		if(contentType) {
 			res.setHeader('Content-Type', contentType);
 		}
-		res.setHeader('Accept-Ranges', 'bytes');
+		const origin = req.headers['origin'];
+		if(origin) {
+			res.setHeader('Access-Control-Allow-Origin', origin);
+		}
+		const cacheControl = baseImageRes.headers.get('Cache-Control');
+		if(cacheControl) {
+			res.setHeader('Cache-Control', cacheControl);
+		}
 		res.setHeader('Content-Length', outputImageBuffer.length);
 		res.setHeader('X-Plex-Protocol', '1.0');
 		res.end(outputImageBuffer);
