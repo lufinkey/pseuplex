@@ -33,12 +33,16 @@ export class JustWatchHub extends PseuplexFeedHub<JustWatchTitle, void, string, 
 	}
 
 	override parseItemTokenParam(itemToken: string | number): void | undefined {
-		// JustWatch doesn't use item tokens for pagination
+		// JustWatch uses cursor-based pagination via GraphQL, not item tokens
+		// Individual items don't need token-based comparison for pagination
 		return undefined;
 	}
 
-	override compareItemTokens(itemToken1: void, itemToken2: void) {
-		return 0;
+	override compareItemTokens(itemToken1: void, itemToken2: void): number {
+		// Since JustWatch popular lists can change over time (popularity shifts, new releases),
+		// we want to force reloading the entire list on each request rather than stopping early
+		// when items "match". Return -1 to assume new data always comes before old data.
+		return -1;
 	}
 
 	override async fetchPage(pageToken: string | null): Promise<JustWatchHubChunk> {

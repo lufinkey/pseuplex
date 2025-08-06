@@ -259,8 +259,22 @@ const justWatchFetch = async <T>(options: {
 	const responseData = await response.json() as JustWatchAPIResponse<T>;
 	
 	if (responseData.errors && responseData.errors.length > 0) {
-		const error = responseData.errors[0];
-		throw new Error(`JustWatch API error: ${error.message}`);
+		// Include all errors for better debugging
+		const errorMessages = responseData.errors.map(err => err.message).join('; ');
+		const errorDetails = {
+			message: `JustWatch API error(s): ${errorMessages}`,
+			errors: responseData.errors,
+			url: JUSTWATCH_API_URL,
+			errorCount: responseData.errors.length
+		};
+		
+		// Log all errors for debugging
+		console.error(`JustWatch GraphQL errors (${responseData.errors.length}):`, responseData.errors);
+		
+		const error = new Error(errorDetails.message);
+		// Attach error details for debugging
+		(error as any).details = errorDetails;
+		throw error;
 	}
 
 	if (!responseData.data) {

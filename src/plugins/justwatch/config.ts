@@ -1,17 +1,6 @@
 import { PseuplexConfigBase } from '../../pseuplex/configbase';
 
-export type JustWatchHubConfig = {
-	first?: number;
-	objectType?: 'MOVIE' | 'SHOW';
-	packages?: string[];
-	language?: string;
-	country?: string;
-	popularTitlesSortBy?: 'POPULAR' | 'RECENT';
-	monetizationTypes?: string[];
-	genres?: string[];
-	excludeGenres?: string[];
-};
-
+// Global JustWatch plugin configuration (for config.json)
 type JustWatchFlags = {
 	justwatch?: {
 		enabled?: boolean;

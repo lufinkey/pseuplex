@@ -92,9 +92,4 @@ export default (class DashboardPlugin implements DashboardPluginDef, PseuplexPlu
 		return hubsConfig;
 	}
 
-	getDashboardHubsConfigForSection(sectionId: string | number, context: PseuplexRequestContext): (DashboardHubConfig[] | null) {
-		// Dashboard plugin doesn't work per section, so return null
-		return null;
-	}
-
 } as PseuplexPluginClass);

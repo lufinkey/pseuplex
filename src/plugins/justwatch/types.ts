@@ -24,6 +24,7 @@ export {
 	JustWatchPopularTitlesVariables as JustWatchQueryVariables
 } from './apitypes';
 
+// Hub configuration type (used for individual hub instances, not global config)
 export type JustWatchHubConfig = {
 	title?: string;
 	first?: number;
