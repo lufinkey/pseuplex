@@ -1,6 +1,7 @@
 import { PseuplexConfigBase } from '../../pseuplex/configbase';
 
 export type JustWatchHubConfig = {
+	title?: string;
 	first?: number;
 	objectType?: 'MOVIE' | 'SHOW';
 	packages?: string[];

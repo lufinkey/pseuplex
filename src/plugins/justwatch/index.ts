@@ -66,7 +66,7 @@ export default (class JustWatchPlugin implements PseuplexPlugin {
 						config = {
 							first: 15,
 							objectType: 'MOVIE',
-							packages: ['NFX']
+							packages: ['']
 						};
 						configString = JSON.stringify(config);
 					}
@@ -87,6 +87,11 @@ export default (class JustWatchPlugin implements PseuplexPlugin {
 				}
 
 				private _createTitle(config: JustWatchHubConfig): string {
+					// Use custom title if provided, otherwise generate default title
+					if (config.title) {
+						return config.title;
+					}
+					
 					const objectType = config.objectType === 'SHOW' ? 'Shows' : 'Movies';
 					const packages = config.packages?.join(', ') || 'All Platforms';
 					return `Popular ${objectType} on ${packages}`;
@@ -156,7 +161,7 @@ export default (class JustWatchPlugin implements PseuplexPlugin {
 					config = {
 						first: 15,
 						objectType: 'MOVIE',
-						packages: ['NFX']
+						packages: ['']
 					};
 				}
 				
