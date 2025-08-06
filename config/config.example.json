@@ -1,44 +1,89 @@
 {
-	"port": 32397,
-	"plex": {
-		"host": "http://127.0.0.1:32400",
-		"token": "bxViLIUTBlbdow-iuBVT",
-		"appDataPath": "/var/lib/plexmediaserver/Library/Application Support/Plex Media Server"
-	},
-	"ssl": {
-		"p12Path": "/var/lib/plexmediaserver/Library/Application Support/Plex Media Server/Cache/cert-v2.p12",
-		"autoP12Path": false,
+    "port": 32397,
+    "plex": {
+        "host": "http://127.0.0.1:32400",
+        "token": "",
+        "appDataPath": "/Users/xxxx/Documents/plex/library/Library/Application Support/Plex Media Server"
+    },
+    "ssl": {
+		"p12Path": "/Users/xxx/Documents/plex/library/Library/Application Support/Plex Media Server/Cache/cert-v2.p12",
 		"autoP12Password": true,
-		"watchCertChanges": true
+        "watchCertChanges": true,
+        "autoP12Path": true
 	},
-	"perUser": {
-		"exampleuser@example.com": {
-			"letterboxd": {
-				"username": "letterboxdusername"
-			}
-		}
-	},
-	"dashboard": {
-		"enabled": true,
-		"hubs": [
-			{
+    "dashboard": {
+        "enabled": true,
+        "hubs": [
+            {
+                    "position": 1,
+                    "plugin": "justwatch",
+                    "hub": "justwatch",
+                    "arg": {
+                        "title": "Popular on Disney+ today [discovery]",
+                        "first": 10,
+                        "objectType": "MOVIE",
+                        "packages": [
+                            "DNP"
+                        ]
+                    }
+                },
+                {
+                    "position": 0,
+                    "plugin": "justwatch",
+                    "hub": "justwatch",
+                    "arg": {
+                        "title": "Popular on Netflix today [discovery]",
+                        "first": 8,
+                        "objectType": "MOVIE",
+                        "packages": [
+                            "NFX"
+                        ]
+                    }
+                },
+                {
 				"plugin": "letterboxd",
 				"hub": "userFollowingActivity",
 				"arg": "maisiediaz"
 			}
-		]
-	},
-	"sections": {
-		"1": {
-			"enabled": true,
-			"hubs": [
-				{
-					"position": 0,
-					"plugin": "letterboxd",
-					"hub": "userFollowingActivity",
-					"arg": "maisiediaz"
-				}
-			]
-		}
-	}
+            ]
+    },
+    "sections": {
+        "1": {
+            "enabled": true,
+            "hubs": [
+                {
+                    "position": 0,
+                    "plugin": "justwatch",
+                    "hub": "justwatch",
+                    "arg": {
+                        "title": "Popular on Netflix today",
+                        "first": 5,
+                        "objectType": "MOVIE",
+                        "packages": [
+                            "NFX"
+                        ]
+                    }
+                },
+                {
+                    "position": 1,
+                    "plugin": "justwatch",
+                    "hub": "justwatch",
+                    "arg": {
+                        "title": "Popular on Disney today",
+                        "first": 10,
+                        "objectType": "MOVIE",
+                        "packages": [
+                            "DNP"
+                        ]
+                    }
+                },
+                  {
+                                        "position": 2,
+				"plugin": "letterboxd",
+				"hub": "userFollowingActivity",
+				"arg": "maisiediaz"
+			}
+            ]
+        }
+    }
 }
