@@ -142,6 +142,13 @@ export class PlexRequestsHandler implements PseuplexMetadataProvider {
 			// no section specified for the request
 			return null;
 		}
+		// ensure librarySectionID is a number if it can be
+		if(typeof librarySectionID === 'string') {
+			const numericLibrarySectionID = Number.parseInt(librarySectionID);
+			if(!Number.isNaN(numericLibrarySectionID)) {
+				librarySectionID = numericLibrarySectionID;
+			}
+		}
 		// fetch metadata from guid
 		let metadataItem: plexTypes.PlexMetadataItem | undefined = undefined;
 		const guidParts = parsePlexMetadataGuidOrThrow(options.guid);
