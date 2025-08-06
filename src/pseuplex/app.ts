@@ -888,7 +888,17 @@ export class PseuplexApp {
 				} else {
 					imagePath = `${require.main!.path}/../images/overlays/${imageName}.png`;
 				}
-				return await sharp(imagePath).toBuffer();
+				const image = sharp(imagePath);
+				try {
+					return await image.toBuffer();
+				} finally {
+					try {
+						image.destroy();
+					} catch(error) {
+						console.error("Error destroying loaded image:");
+						console.error(error);
+					}
+				}
 			});
 			
 			this.overlayedImageEndpoint = `/${this.slug}/image/withoverlay`;
