@@ -19,8 +19,8 @@
 	"license": "Zlib",
 	"dependencies": {
 		"express": "^5.0.1",
-		"express-http-proxy": "^2.0.0",
-		"http-proxy": "^1.18.1",
+		"express-http-proxy": "https://github.com/lufinkey/express-http-proxy.git",
+		"http-proxy": "https://github.com/Jimbly/node-http-proxy.git",
 		"httpolyglot": "^0.1.2",
 		"letterboxd-retriever": "https://github.com/lufinkey/letterboxd-retriever.git",
 		"node-forge": "^1.3.1",
