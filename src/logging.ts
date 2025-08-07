@@ -127,7 +127,7 @@ export class Logger {
 			}
 			console.error(`Got response ${res.status} for ${reqOptions.method || 'GET'} ${res.url}: ${res.statusText}`);
 			if(reqOptions.body && !(this.options.logOutgoingRequests && this.options.logOutgoingRequestBody)) {
-				console.error(`Request body: ${JSON.stringify(reqOptions.body)}`);
+				console.error(`Request body: ${reqOptions.body}`);
 			}
 			if(resData) {
 				if(typeof resData === 'string') {
