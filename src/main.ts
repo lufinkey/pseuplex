@@ -1,4 +1,4 @@
-
+import './utils/polyfill';
 import https from 'https';
 import sharp from 'sharp';
 import * as constants from './constants';
