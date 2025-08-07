@@ -20,7 +20,7 @@
 	"dependencies": {
 		"express": "^5.0.1",
 		"express-http-proxy": "https://github.com/lufinkey/express-http-proxy.git",
-		"http-proxy": "https://github.com/Jimbly/node-http-proxy.git",
+		"http-proxy": "https://github.com/Jimbly/http-proxy-node16.git",
 		"httpolyglot": "^0.1.2",
 		"letterboxd-retriever": "https://github.com/lufinkey/letterboxd-retriever.git",
 		"node-forge": "^1.3.1",
