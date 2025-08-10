@@ -56,6 +56,7 @@ export type PlexMetadataItem = {
 	type: PlexMediaItemType; // 'episode'
 	title: string; // "Some Episode Name"
 	originalTitle?: string;
+	editionTitle?: string;
 	tagline?: string;
 	summary?: string;
 	thumb?: string; // "/library/metadata/20205/thumb/98535429"
