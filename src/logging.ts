@@ -1,15 +1,11 @@
 import http from 'http';
+import stream from 'stream';
 import express from 'express';
-import { urlFromClientRequest } from './utils/requests';
-import type { WebSocketEventMap } from './utils/websocket';
-import {
-	PseuplexClientNotificationWebSocketInfo,
-	PseuplexNotificationSocketType,
-	PseuplexNotificationSocketTypeToName
-} from './pseuplex/types/sockets';
 import type { PlexServerAccountInfo } from './plex/accounts';
-import * as overseerrTypes from './plugins/requests/providers/overseerr/apitypes';
+import { urlFromClientRequest } from './utils/requests';
 import { requestIsEncrypted } from './utils/requesthandling';
+import type { WebSocketEventMap } from './utils/websocket';
+import * as overseerrTypes from './plugins/requests/providers/overseerr/apitypes';
 
 export type GeneralLoggingOptions = {
 	logDebug?: boolean;
@@ -55,6 +51,10 @@ export type WebsocketLoggingOptions = {
 	logWebsocketErrors?: boolean;
 };
 
+export type EventSourceLoggingOptions = {
+	logEventSourceNotificationsToUser?: boolean;
+}
+
 export type OverseerrLoggingOptions = {
 	logOverseerrUsers?: boolean;
 	logOverseerrUserMatches?: boolean;
@@ -68,6 +68,7 @@ export type LoggingOptions =
 	& IncomingRequestsLoggingOptions
 	& ProxyRequestsLoggingOptions
 	& WebsocketLoggingOptions
+	& EventSourceLoggingOptions
 	& OverseerrLoggingOptions;
 
 export class Logger {
@@ -308,11 +309,19 @@ export class Logger {
 		return true;
 	}
 
-	logWebsocketNotificationToUser(socketInfo: PseuplexClientNotificationWebSocketInfo, dataString: string): boolean {
+	logWebsocketNotificationToUser(socketInfo: {token: string, socket: stream.Duplex}, dataString: string): boolean {
 		if(!this.options.logWebsocketMessagesToUser) {
 			return false;
 		}
-		console.log(`\nSending ${PseuplexNotificationSocketTypeToName[socketInfo.type]?.toLowerCase()} socket message to token ${socketInfo.plexToken}:\n${dataString}`);
+		console.log(`\nSending websocket notification to token ${socketInfo.token}:\n${dataString}`);
+		return true;
+	}
+
+	logEventSourceNotificationToUser(socketInfo: {token: string, response: http.ServerResponse}, dataString: string): boolean {
+		if(!this.options.logEventSourceNotificationsToUser) {
+			return false;
+		}
+		console.log(`\nSending eventsource notification to token ${socketInfo.token}:\n${dataString}`);
 		return true;
 	}
 

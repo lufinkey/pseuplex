@@ -38,6 +38,7 @@ import {
 	PlexAuthedRequestHandler
 } from '../plex/requesthandling';
 import { PlexClient } from '../plex/client';
+import { PlexNotificationSender, PlexNotificationSenderType, SendPlexNotificationOptions, sendPlexNotifications, WebsocketNotificationsEndpoint } from '../plex/notifications';
 import * as extPlexTransform from './externalplex/transform';
 import {
 	PseuplexMetadataPage,
@@ -63,9 +64,7 @@ import {
 	PseuplexRelatedHubsSource,
 } from './metadata';
 import {
-	PseuplexClientNotificationWebSocketInfo,
 	PseuplexClientWebSocketInfo,
-	PseuplexNotificationSocketType,
 	PseuplexPossiblyConfirmedClientWebSocketInfo,
 } from './types/sockets';
 import {
@@ -82,12 +81,8 @@ import {
 import { IDMappings } from './idmappings';
 import { PseuplexSection } from './section';
 import {
-	EventSourceNotificationsSocketEndpoint,
-	NotificationsWebSocketEndpoint,
-	PseuplexNotificationsOptions,
 	sendMediaUnavailableNotifications,
 	sendMetadataRefreshTimelineNotifications,
-	sendNotificationToSockets,
 } from './notifications';
 import { Logger } from '../logging';
 import { CachedFetcher } from '../fetching/CachedFetcher';
@@ -1223,7 +1218,7 @@ export class PseuplexApp {
 		}
 	}
 
-	private _notificationsOptions(): PseuplexNotificationsOptions {
+	private _plexSendNotificationOptions(): SendPlexNotificationOptions {
 		return {
 			logger: this.logger,
 		};
@@ -1886,37 +1881,27 @@ export class PseuplexApp {
 			.filter((si) => si.proxySocket) as PseuplexClientWebSocketInfo[];
 	}
 
-	getClientNotificationWebSockets(plexToken: string): PseuplexClientNotificationWebSocketInfo[] | undefined {
-		const sockets = this.clientWebSockets[plexToken];
-		if(!sockets) {
+	getClientNotificationSenders(plexToken: string): PlexNotificationSender[] | undefined {
+		const clientWebsockets = this.clientWebSockets[plexToken];
+		if(!clientWebsockets) {
 			return undefined;
 		}
-		const notifSockets: PseuplexClientNotificationWebSocketInfo[] = [];
-		for(const socketInfo of sockets) {
+		const senders: PlexNotificationSender[] = [];
+		for(const socketInfo of clientWebsockets) {
 			if(!socketInfo.proxySocket) {
+				// socket hasn't received a response from the server yet, so we shouldn't send any notifications
 				continue;
 			}
-			let type: PseuplexNotificationSocketType | undefined;
-			switch(socketInfo.endpoint) {
-				case NotificationsWebSocketEndpoint:
-					type = PseuplexNotificationSocketType.Notification;
-					break;
-
-				case EventSourceNotificationsSocketEndpoint:
-					type = PseuplexNotificationSocketType.EventSource;
-					break;
+			if(socketInfo.endpoint === WebsocketNotificationsEndpoint) {
+				senders.push({
+					type: PlexNotificationSenderType.Websocket,
+					token: plexToken,
+					socket: socketInfo.socket,
+				});
 			}
-			if(type == null) {
-				continue;
-			}
-			notifSockets.push({
-				plexToken,
-				type,
-				socket: socketInfo.socket,
-				proxySocket: socketInfo.proxySocket,
-			});
 		}
-		return notifSockets;
+		// TODO add eventsource senders
+		return senders;
 	}
 
 	sendPluginMetadataTimelineRefreshForItemIDsIfAble(itemIDs: string[]) {
@@ -1977,24 +1962,25 @@ export class PseuplexApp {
 					const mediaTypeNumeric = plexTypes.PlexMediaItemTypeToNumeric[guidParts.type] ?? guidParts.type;
 					const now = (new Date()).getTime() / 1000;
 					// get cached plugin metadata IDs for the guid
+					const sendNotifOptions = this._plexSendNotificationOptions();
 					this.pluginMetadataAccessCache!.forEachAccessorForGuid(guid, ({token,clientId,metadataIds,metadataIdsMap}) => {
 						setTimeout(() => {
 							try {
-								// get sockets for client
-								const notifSockets = this.getClientNotificationWebSockets(token);
-								if(!notifSockets || notifSockets.length == 0) {
+								// get notification senders for client
+								const notifSenders = this.getClientNotificationSenders(token);
+								if(!notifSenders || notifSenders.length == 0) {
 									return;
 								}
 								// send refresh notifications
 								for(const metadataId of metadataIds) {
-									console.log(`Sending metadata refresh timeline notifications for ${metadataId} on ${notifSockets.length} socket(s)`);
+									console.log(`Sending metadata refresh timeline notifications for ${metadataId} on ${notifSenders.length} socket(s)`);
 									try {
-										sendMetadataRefreshTimelineNotifications(notifSockets, [{
+										sendMetadataRefreshTimelineNotifications(notifSenders, [{
 											itemID: metadataId,
 											sectionID: "-1",
 											type: mediaTypeNumeric,
 											updatedAt: now,
-										}], this._notificationsOptions());
+										}], sendNotifOptions);
 									} catch(error) {
 										console.error(`Error sending notification to socket:`);
 										console.error(error);
@@ -2123,11 +2109,12 @@ export class PseuplexApp {
 				// send notifications for guids after delay
 				for(const guid of guids) {
 					const notification = guidsToNotifications[guid];
+					const sendNotifOptions = this._plexSendNotificationOptions();
 					this.pluginMetadataAccessCache!.forEachAccessorForGuid(guid, ({token,clientId,metadataIds,metadataIdsMap}) => {
 						setTimeout(() => {
-							// get sockets for client
-							const notifSockets = this.getClientNotificationWebSockets(token);
-							if(!notifSockets || notifSockets.length == 0) {
+							// get notification senders for client
+							const notifSenders = this.getClientNotificationSenders(token);
+							if(!notifSenders || notifSenders.length == 0) {
 								return;
 							}
 							// send refresh notifications
@@ -2135,9 +2122,9 @@ export class PseuplexApp {
 								const metadataKeys = metadataIdsMap[metadataId];
 								for(const metadataKey of metadataKeys) {
 									const uuid = crypto.randomUUID();
-									console.log(`Sending metadata refresh activity notifications for ${metadataKey} on ${notifSockets.length} socket(s)`);
+									console.log(`Sending metadata refresh activity notifications for ${metadataKey} on ${notifSenders.length} socket(s)`);
 									try {
-										sendNotificationToSockets(notifSockets, {
+										sendPlexNotifications(notifSenders, {
 											type: plexTypes.PlexNotificationType.Activity,
 											size: 1,
 											ActivityNotification: [
@@ -2155,7 +2142,7 @@ export class PseuplexApp {
 													}
 												}
 											]
-										}, this._notificationsOptions());
+										}, sendNotifOptions);
 									} catch(error) {
 										console.error(`Error sending notification to socket:`);
 										console.error(error);
@@ -2187,34 +2174,36 @@ export class PseuplexApp {
 				if(unavailableItems.length > 0) {
 					// send message after short delay, so that the page is already displayed when the message is received
 					setTimeout(() => {
-						// send unavailable message for all unavailable items, to all sockets for the token
+						// send unavailable message for all unavailable items, to all notification senders for the token
 						const plexToken = context.plexAuthContext['X-Plex-Token'];
-						const notifSockets = plexToken ? this.getClientNotificationWebSockets(plexToken) : null;
-						if(notifSockets) {
-							const childrenSuffix = '/children';
-							for(const metadataItem of unavailableItems) {
-								if(metadataItem.Pseuplex.unavailable) {
-									let metadataItemKey = metadataItem.key;
-									if(metadataItemKey.endsWith(childrenSuffix)) {
-										metadataItemKey = metadataItemKey.slice(0, metadataItemKey.length-childrenSuffix.length);
-										if(!metadataItemKey || metadataItemKey == '/library/metadata') {
-											if(metadataItem.ratingKey) {
-												metadataItemKey = `/library/metadata/${metadataItem.ratingKey}`;
-											} else {
-												metadataItemKey = metadataItem.key;
-											}
+						const notifSenders = plexToken ? this.getClientNotificationSenders(plexToken) : null;
+						if(!notifSenders || notifSenders.length == 0) {
+							return;
+						}
+						const childrenSuffix = '/children';
+						const sendNotifOptions = this._plexSendNotificationOptions();
+						for(const metadataItem of unavailableItems) {
+							if(metadataItem.Pseuplex.unavailable) {
+								let metadataItemKey = metadataItem.key;
+								if(metadataItemKey.endsWith(childrenSuffix)) {
+									metadataItemKey = metadataItemKey.slice(0, metadataItemKey.length-childrenSuffix.length);
+									if(!metadataItemKey || metadataItemKey == '/library/metadata') {
+										if(metadataItem.ratingKey) {
+											metadataItemKey = `/library/metadata/${metadataItem.ratingKey}`;
+										} else {
+											metadataItemKey = metadataItem.key;
 										}
 									}
-									console.log(`Sending unavailable notifications for ${metadataItemKey} on ${notifSockets.length} socket(s)`);
-									try {
-										sendMediaUnavailableNotifications(notifSockets, {
-											userID: context.plexUserInfo.serverUserID,
-											metadataKey: metadataItemKey,
-										}, this._notificationsOptions());
-									} catch(error) {
-										console.error(`Error sending notification to socket:`);
-										console.error(error);
-									}
+								}
+								console.log(`Sending unavailable notifications for ${metadataItemKey} on ${notifSenders.length} socket(s)`);
+								try {
+									sendMediaUnavailableNotifications(notifSenders, {
+										userID: context.plexUserInfo.serverUserID,
+										metadataKey: metadataItemKey,
+									}, sendNotifOptions);
+								} catch(error) {
+									console.error(`Error sending notification to socket:`);
+									console.error(error);
 								}
 							}
 						}
