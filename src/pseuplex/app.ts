@@ -71,7 +71,10 @@ import {
 import {
 	PseuplexClientWebSocketInfo,
 	PseuplexPossiblyConfirmedClientWebSocketInfo,
-} from './types/sockets';
+} from './types/websocket';
+import {
+	PseuplexEventSourceSubscriber
+} from './types/eventsource';
 import {
 	PseuplexPlugin,
 	PseuplexResponseFilterName,
@@ -80,8 +83,12 @@ import {
 import {
 	parseMetadataIdFromPathParam,
 	parseMetadataIdsFromPathParam,
+	PlexPrivateToPublicIDsMap,
 	pseuplexMetadataIdRequestMiddleware,
-	pseuplexMetadataIdsRequestMiddleware
+	pseuplexMetadataIdsRequestMiddleware,
+	PseuplexRemappedMetadataIdsRequest,
+	remapPublicToPrivateMetadataIdMiddleware,
+	remapPublicToPrivateMetadataIdsMiddleware
 } from './requesthandling';
 import { IDMappings } from './idmappings';
 import { PseuplexSection } from './section';
@@ -107,9 +114,6 @@ import {
 import { IPv4NormalizeMode } from '../utils/ip';
 import type { WebSocketEventMap } from '../utils/websocket';
 import { applyOverlayToImage } from '../utils/images';
-import {
-	PseuplexEventSourceSubscriber
-} from './types/eventsource';
 
 
 // plugins
@@ -364,13 +368,103 @@ export class PseuplexApp {
 		};
 		const router = express();
 
+		// log request if needed
 		router.use((req, res, next) => {
-			// log request if needed
 			this.logger?.logIncomingUserRequest(req);
 			next();
 		});
 
-		// TODO handle mapping metadata IDs from public to private IDs, if enabled
+		// handle remapping public to private metadata IDs, if enabled
+		if(this.metadataIdMappings) {
+			const getIdReplacer = (pathPrefix: string) => {
+				return (req: express.Request, newMetadataId: string) => {
+					const path = req.path;
+					if(!path.startsWith(pathPrefix)) {
+						console.warn(`Request path cannot be remapped because it doesn't start with ${pathPrefix}`);
+						return path;
+					}
+					const idsEndIndex = path.indexOf('/', pathPrefix.length);
+					const trailingPath = idsEndIndex != -1 ? path.slice(idsEndIndex) : '';
+					return `${pathPrefix}${newMetadataId}${trailingPath}`;
+				};
+			};
+
+			router.get('/library/metadata/:metadataId', [
+				remapPublicToPrivateMetadataIdsMiddleware(this.metadataIdMappings!, plexReqHandlerOpts, getIdReplacer('/library/metadata/'))
+			]);
+
+			router.get('/library/metadata/:metadataId/children', [
+				remapPublicToPrivateMetadataIdMiddleware(this.metadataIdMappings!, plexReqHandlerOpts, getIdReplacer('/library/metadata/'))
+			]);
+
+			for(const hubsSource of Object.values(PseuplexRelatedHubsSource)) {
+				const pathPrefix = `/${hubsSource}/metadata/`;
+				router.get(`/${hubsSource}/metadata/:metadataId/related`, [
+					remapPublicToPrivateMetadataIdMiddleware(this.metadataIdMappings!, plexReqHandlerOpts, getIdReplacer(pathPrefix))
+				]);
+			}
+
+			router.post('/playQueues', [
+				asyncRequestHandler(async (req, res) => {
+					// parse url path
+					const urlPathParts = parseURLPath(req.url);
+					const queryItems = urlPathParts.queryItems;
+					// TODO is very possible some platforms send the query in the body, so we should maybe handle that
+					if(!queryItems) {
+						return false;
+					}
+					// check for play queue uri
+					let uriProp = queryItems['uri'];
+					if(!uriProp) {
+						return false;
+					}
+					// resolve play queue uri
+					const plexMachineId = await this.plexServerProperties.getMachineIdentifier();
+					let urisChanged = false;
+					const libraryMetadataPrefix = '/library/metadata/';
+					uriProp = transformArrayOrSingle(uriProp, (uri) => {
+						const originalURI = uri;
+						const uriParts = plexTypes.parsePlayQueueURI(uri);
+						if(!uriParts.path) {
+							return uri;
+						}
+						const metadataKeyParts = parseMetadataIDFromKey(uriParts.path, libraryMetadataPrefix);
+						if(!metadataKeyParts) {
+							return uri;
+						}
+						let idsChanged = false;
+						// path is using /library/metadata
+						let metadataIdStrings = metadataKeyParts.id.split(',');
+						// remap if the path is using a mapped id
+						for(let i=0; i<metadataIdStrings.length; i++) {
+							const metadataIdString = metadataIdStrings[i];
+							const metadataIdParts = parseMetadataIdFromPathParam(metadataIdString);
+							if(!metadataIdParts.source) {
+								const privateId = this.metadataIdMappings!.getPrivateIDFromPublicID(metadataKeyParts.id);
+								if(privateId != null) {
+									const escapedPrivateId = qs.escape(privateId);
+									metadataIdStrings[i] = escapedPrivateId;
+									idsChanged = true;
+									console.log(`Remapped public metadata id ${metadataIdParts.id} to private id ${privateId}`);
+								}
+							}
+						}
+						// remake uri if ids changed
+						if(!idsChanged) {
+							return uri;
+						}
+						urisChanged = true;
+						uriParts.path = `${libraryMetadataPrefix}${metadataIdStrings.join(',')}${metadataKeyParts.relativePath ?? ''}`;
+						return plexTypes.stringifyPlayQueueURIParts(uriParts);
+					});
+					if(urisChanged) {
+						queryItems['uri'] = uriProp;
+						req.url = stringifyURLPath(urlPathParts);
+					}
+					return false;
+				})
+			]);
+		}
 
 		// define plugin routes early, so they can intercept requests
 		for(const pluginSlug of Object.keys(this.plugins)) {
@@ -533,10 +627,8 @@ export class PseuplexApp {
 
 		router.get(`/library/metadata/:metadataId`, [
 			this.middlewares.plexAuthentication,
-			pseuplexMetadataIdsRequestMiddleware({
-				...plexReqHandlerOpts,
-				metadataIdMappings: this.metadataIdMappings,
-			}, async (req: IncomingPlexAPIRequest, res, metadataIds, keysToIdsMap): Promise<PseuplexMetadataPage> => {
+			pseuplexMetadataIdsRequestMiddleware(plexReqHandlerOpts, async (req: PseuplexRemappedMetadataIdsRequest, res, metadataIds): Promise<PseuplexMetadataPage> => {
+				const privateToPublicIds = req.remappedPlexMetadataIds;
 				const context = this.contextForRequest(req);
 				const params: plexTypes.PlexMetadataPageParams = req.plex.requestParams;
 				// get metadatas
@@ -591,7 +683,7 @@ export class PseuplexApp {
 				// remap IDs if needed
 				if(this.metadataIdMappings) {
 					forArrayOrSingle(resData.MediaContainer.Metadata, (metadataItem) => {
-						this.remapMetadataIdIfNeeded(metadataItem, keysToIdsMap);
+						this.remapMetadataIdIfNeeded(metadataItem, privateToPublicIds);
 					});
 				}
 				// send unavailable notifications if needed
@@ -655,10 +747,8 @@ export class PseuplexApp {
 
 		router.get(`/library/metadata/:metadataId/children`, [
 			this.middlewares.plexAuthentication,
-			pseuplexMetadataIdRequestMiddleware({
-				...plexReqHandlerOpts,
-				metadataIdMappings: this.metadataIdMappings,
-			}, async (req: IncomingPlexAPIRequest, res, metadataId, privateToPublicIds): Promise<plexTypes.PlexMetadataPage | PseuplexMetadataPage> => {
+			pseuplexMetadataIdRequestMiddleware(plexReqHandlerOpts, async (req: PseuplexRemappedMetadataIdsRequest, res, metadataId): Promise<plexTypes.PlexMetadataPage | PseuplexMetadataPage> => {
+				const privateToPublicIds = req.remappedPlexMetadataIds;
 				const context = this.contextForRequest(req);
 				const plexParams: plexTypes.PlexMetadataChildrenPageParams = {
 					...req.plex.requestParams,
@@ -725,10 +815,8 @@ export class PseuplexApp {
 		for(const hubsSource of Object.values(PseuplexRelatedHubsSource)) {
 			router.get(`/${hubsSource}/metadata/:metadataId/related`, [
 				this.middlewares.plexAuthentication,
-				pseuplexMetadataIdRequestMiddleware({
-					...plexReqHandlerOpts,
-					metadataIdMappings: this.metadataIdMappings,
-				}, async (req: IncomingPlexAPIRequest, res, metadataId, privateToPublicIds): Promise<plexTypes.PlexHubsPage> => {
+				pseuplexMetadataIdRequestMiddleware(plexReqHandlerOpts, async (req: PseuplexRemappedMetadataIdsRequest, res, metadataId): Promise<plexTypes.PlexHubsPage> => {
+					const privateToPublicIds = req.remappedPlexMetadataIds;
 					const context = this.contextForRequest(req);
 					// get metadata
 					const resData = await this.getMetadataRelatedHubs(metadataId, {
@@ -743,7 +831,7 @@ export class PseuplexApp {
 						metadataId,
 						from: hubsSource,
 					});
-					// remap IDs if needed
+					// remap private IDs if needed
 					if(this.metadataIdMappings && resData.MediaContainer.Hub) {
 						for(const hub of resData.MediaContainer.Hub) {
 							this.remapHubMetadataIdsIfNeeded(hub, privateToPublicIds);
@@ -763,7 +851,7 @@ export class PseuplexApp {
 							metadataId,
 							from: hubsSource,
 						});
-						// remap IDs if needed (since filters may add hubs)
+						// remap private IDs if needed (since filters may modify hubs)
 						if(this.metadataIdMappings && resData.MediaContainer.Hub) {
 							for(const hub of resData.MediaContainer.Hub) {
 								this.remapHubMetadataIdsIfNeeded(hub);
@@ -788,7 +876,7 @@ export class PseuplexApp {
 				responseModifier: async (proxyRes, resData: plexTypes.PlexMetadataPage, userReq: IncomingPlexAPIRequest, userRes) => {
 					// filter metadata
 					await this.filterResponse('findGuidInLibrary', resData, { proxyRes, userReq, userRes });
-					// remap IDs if needed
+					// remap private IDs if needed
 					if(this.metadataIdMappings) {
 						forArrayOrSingle(resData.MediaContainer.Metadata, (metadataItem) => {
 							this.remapMetadataIdIfNeeded(metadataItem);
@@ -839,7 +927,17 @@ export class PseuplexApp {
 						context,
 					};
 					uriProp = await transformArrayOrSingleAsyncParallel(uriProp, async (uri) => {
-						return await this.resolvePlayQueueURI(uri, resolveOptions);
+						const uriParts = plexTypes.parsePlayQueueURI(uri);
+						if(!uriParts.path) {
+							return uri;
+						}
+						const uriChanged = await this.resolvePlayQueueURI(uriParts, resolveOptions);
+						if(!uriChanged) {
+							return uri;
+						}
+						const newUri = plexTypes.stringifyPlayQueueURIParts(uriParts);
+						console.log(`Remapped play queue uri ${uri} to ${newUri}`);
+						return newUri;
 					});
 					queryItems['uri'] = uriProp;
 					return stringifyURLPath(urlPathParts);
@@ -1587,38 +1685,21 @@ export class PseuplexApp {
 	}
 
 
-	async resolvePlayQueueURI(uri: string, options: PseuplexPlayQueueURIResolverOptions): Promise<string> {
-		const originalURI = uri;
-		const uriParts = plexTypes.parsePlayQueueURI(uri);
+	async resolvePlayQueueURI(uriParts: plexTypes.PlexPlayQueueURIParts, options: PseuplexPlayQueueURIResolverOptions): Promise<boolean> {
 		if(!uriParts.path) {
-			return uri;
+			return false;
 		}
 		const libraryMetadataPath = '/library/metadata';
 		const metadataKeyParts = parseMetadataIDFromKey(uriParts.path, libraryMetadataPath);
 		let uriChanged = false;
 		if(metadataKeyParts) {
 			// path is using /library/metadata
-			let metadataIds = metadataKeyParts.id.split(',');
-			let parsedMetadataIds = metadataIds.map((id) => parseMetadataID(id));
-			// remap if the path is using a mapped id
-			if(this.metadataIdMappings) {
-				for(let i=0; i<parsedMetadataIds.length; i++) {
-					const metadataIdParts = parsedMetadataIds[i];
-					if(!metadataIdParts.source) {
-						const privateId = this.metadataIdMappings.getPrivateIDFromPublicID(metadataKeyParts.id);
-						if(privateId != null) {
-							metadataIds[i] = privateId;
-							parsedMetadataIds[i] = parseMetadataID(privateId);
-							uriChanged = true;
-							console.log(`Remapped public metadata id ${metadataIds[i]} to private id ${privateId}`);
-						}
-					}
-				}
-			}
+			let metadataIdStrings = metadataKeyParts.id.split(',');
 			// remap metadata ids for custom providers to plex server items
 			const mappingTasks: {[index: number]: Promise<PseuplexMetadataPage>} = {};
-			for(let i=0; i<parsedMetadataIds.length; i++) {
-				const metadataIdParts = parsedMetadataIds[i];
+			for(let i=0; i<metadataIdStrings.length; i++) {
+				const metadataIdString = metadataIdStrings[i];
+				const metadataIdParts = parseMetadataIdFromPathParam(metadataIdString);
 				if(metadataIdParts.source && metadataIdParts.source != PseuplexMetadataSource.Plex) {
 					const metadataProvider = this.metadataProviders[metadataIdParts.source];
 					if(metadataProvider) {
@@ -1632,7 +1713,7 @@ export class PseuplexApp {
 							metadataBasePath: libraryMetadataPath,
 						});
 					} else {
-						console.error(`Cannot resolve metadata id ${metadataIds[i]} for play queue`);
+						console.error(`Cannot resolve metadata id ${metadataIdString} for play queue`);
 					}
 				}
 			}
@@ -1640,7 +1721,7 @@ export class PseuplexApp {
 			if(remappedIds.length > 0) {
 				// wait for all metadata tasks and return the resolved IDs
 				let caughtError;
-				metadataIds = (await Promise.all(metadataIds.map(async (id, index): Promise<string[]> => {
+				metadataIdStrings = (await Promise.all(metadataIdStrings.map(async (id, index): Promise<string[]> => {
 					try {
 						const mappingTask = mappingTasks[index];
 						if(!mappingTask) {
@@ -1680,18 +1761,15 @@ export class PseuplexApp {
 						return [];
 					}
 				}))).flat();
-				if(metadataIds.length == 0) {
+				if(metadataIdStrings.length == 0) {
 					if(caughtError) {
 						throw caughtError;
 					}
 					throw httpError(500, "Failed to resolve custom metadata ids for play queue");
 				}
+				// rebuild path and uri from metadata ids
+				uriParts.path = `${libraryMetadataPath}/${metadataIdStrings.join(',')}${metadataKeyParts.relativePath ?? ''}`;
 				uriChanged = true;
-			}
-			// rebuild path and uri from metadata ids
-			if(uriChanged) {
-				uriParts.path = `${libraryMetadataPath}/${metadataIds.join(',')}${metadataKeyParts.relativePath ?? ''}`;
-				uri = plexTypes.stringifyPlayQueueURIParts(uriParts);
 			}
 		} else {
 			// using an unknown metadata base path
@@ -1736,15 +1814,11 @@ export class PseuplexApp {
 				const newMetadataKey = `${libraryMetadataPath}/${newMetadataIds.join(',')}${metadataIds.relativePath ?? ''}`;
 				console.log(`Remapped metadata key ${uriParts.path} to ${newMetadataKey}`);
 				uriParts.path = newMetadataKey;
-				uri = plexTypes.stringifyPlayQueueURIParts(uriParts);
 				uriChanged = true;
 				break;
 			}
 		}
-		if(uriChanged) {
-			console.log(`Remapped play queue uri ${originalURI} to ${uri}`);
-		}
-		return uri;
+		return uriChanged;
 	}
 
 
@@ -1861,7 +1935,7 @@ export class PseuplexApp {
 	}
 
 	// remaps private IDs (such as "letterboxd:film:mission-impossible") to plex-acceptable IDs (such as "-2")
-	remapHubMetadataIdsIfNeeded(hub: plexTypes.PlexHubWithItems, privateToPublicIds?: {[key: string]: (number | string)}) {
+	remapHubMetadataIdsIfNeeded(hub: plexTypes.PlexHubWithItems, privateToPublicIds?: PlexPrivateToPublicIDsMap) {
 		if(!this.metadataIdMappings) {
 			return;
 		}
@@ -1891,7 +1965,7 @@ export class PseuplexApp {
 	}
 
 	// remaps private IDs (such as "letterboxd:film:mission-impossible") to plex-acceptable IDs (such as "-2")
-	remapMetadataIdIfNeeded(metadataItem: plexTypes.PlexMetadataItem, privateToPublicIds?: {[key: string]: (number | string)}) {
+	remapMetadataIdIfNeeded(metadataItem: plexTypes.PlexMetadataItem, privateToPublicIds?: PlexPrivateToPublicIDsMap) {
 		if(!this.metadataIdMappings) {
 			return;
 		}
