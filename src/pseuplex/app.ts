@@ -953,8 +953,8 @@ export class PseuplexApp {
 						console.error(`Couldn't find notification eventsource subscriber to remove`);
 					}
 				};
-				userRes.on('finish', onResponseDone);
-				userRes.on('close', onResponseDone);
+				userRes.once('finish', onResponseDone);
+				userRes.once('close', onResponseDone);
 			},
 		});
 		router.get('/\\:/eventsource/notifications', [
@@ -1038,7 +1038,7 @@ export class PseuplexApp {
 					return innerSocketPipe.call(this, ...args);
 				};
 				// remove on close
-				socket.on('close', () => {
+				socket.once('close', () => {
 					const socketIndex = sockets.indexOf(socketInfo);
 					if(socketIndex != -1) {
 						sockets.splice(socketIndex, 1);

@@ -348,7 +348,7 @@ export const plexHttpProxy = (serverURL: string, args: PlexProxyOptions, events?
 					proxyRes.on('data', (chunk) => {
 						datas.push(chunk);
 					});
-					proxyRes.on('end', () => {
+					proxyRes.once('end', () => {
 						// TODO decode gzip encoding?
 						const fullData = Buffer.concat(datas);
 						if(encoding == 'gzip') {
@@ -388,7 +388,7 @@ export const plexHttpProxy = (serverURL: string, args: PlexProxyOptions, events?
 					events?.onProxyResponse?.(proxyReq, proxyRes, userReq, userRes);
 					// log user response when finished
 					if(args.logger?.options.logUserResponses) {
-						userRes.on('close', () => {
+						userRes.once('close', () => {
 							args?.logger?.logIncomingUserRequestResponse(userReq, userRes, undefined);
 						});
 					}
