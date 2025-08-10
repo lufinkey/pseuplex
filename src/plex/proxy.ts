@@ -292,7 +292,6 @@ export const plexApiProxy = (serverURL: string, args: PlexProxyOptions, opts: {
 
 
 
-
 export const plexHttpProxy = (serverURL: string, args: PlexProxyOptions, events?: {
 	onProxyResponse?: (proxyReq: http.ClientRequest, proxyRes: http.IncomingMessage, userReq: express.Request, userRes: express.Response) => void,
 }) => {

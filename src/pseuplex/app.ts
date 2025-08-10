@@ -454,7 +454,7 @@ export class PseuplexApp {
 					}
 					// filter response
 					await this.filterResponse('hubs', resData, { proxyRes, userReq, userRes });
-					// remap IDs if needed (since filters may add hubs)
+					// remap IDs if needed (since filters may modify hubs)
 					if(this.metadataIdMappings && resData.MediaContainer.Hub) {
 						for(const hub of resData.MediaContainer.Hub) {
 							this.remapHubMetadataIdsIfNeeded(hub);
@@ -501,7 +501,26 @@ export class PseuplexApp {
 					}
 					// filter response
 					await this.filterResponse('promotedHubs', resData, { proxyRes, userReq, userRes });
-					// remap IDs if needed (since filters may add hubs)
+					// remap IDs if needed (since filters may modify hubs)
+					if(this.metadataIdMappings && resData.MediaContainer.Hub) {
+						for(const hub of resData.MediaContainer.Hub) {
+							this.remapHubMetadataIdsIfNeeded(hub);
+						}
+					}
+					return resData;
+				}
+			})
+		]);
+
+		router.get('/hubs/sections/:sectionId', [
+			this.middlewares.plexAuthentication,
+			// TODO handle custom sections
+			plexApiProxy(this.plexServerURL, plexProxyArgs, {
+				responseModifier: async (proxyRes, resData: plexTypes.PlexSectionHubsPage, userReq: IncomingPlexAPIRequest, userRes) => {
+					const sectionId = userReq.params.sectionId;
+					// filter response
+					await this.filterResponse('sectionHubs', resData, { proxyRes, userReq, userRes, sectionId });
+					// remap IDs if needed (since filters may modify hubs)
 					if(this.metadataIdMappings && resData.MediaContainer.Hub) {
 						for(const hub of resData.MediaContainer.Hub) {
 							this.remapHubMetadataIdsIfNeeded(hub);
