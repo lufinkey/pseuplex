@@ -1,4 +1,3 @@
-
 import url from 'url';
 import http from 'http';
 import zlib from 'zlib';
@@ -334,6 +333,7 @@ export const plexHttpProxy = (serverURL: string, args: PlexProxyOptions) => {
 	});
 	if(shouldHandleProxyResponse) {
 		plexGeneralProxy.on('proxyRes', (proxyRes, userReq: express.Request, userRes: express.Response) => {
+			const encoding = proxyRes.headers['content-encoding'];
 			const proxyReq = (userRes as ProxyingUserResponse).___proxyReq;
 			delete (userRes as Partial<ProxyingUserResponse>).___proxyReq;
 			const logHeaders = args.logger?.options.logProxyResponseHeaders || args.logger?.options.logUserResponseHeaders;
@@ -346,7 +346,23 @@ export const plexHttpProxy = (serverURL: string, args: PlexProxyOptions) => {
 				proxyRes.on('end', () => {
 					// TODO decode gzip encoding?
 					const fullData = Buffer.concat(datas);
-					const fullDataString = fullData?.toString('utf8');
+					if(encoding == 'gzip') {
+						zlib.gunzip(fullData, (error, decodedFullData) => {
+							if(error) {
+								console.error(`Error calling gunzip for response:`);
+								console.error(error);
+							}
+							if(decodedFullData) {
+								const fullDataString = decodedFullData.toString('utf8');
+								if(fullDataString) {
+									console.log(fullDataString);
+								}
+							}
+							callback?.();
+						});
+						return;
+					}
+					const fullDataString = fullData.toString('utf8');
 					if(fullDataString) {
 						console.log(fullDataString);
 					}

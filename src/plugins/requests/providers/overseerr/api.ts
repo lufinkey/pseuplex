@@ -65,17 +65,12 @@ const overseerrFetch = async (options: {
 	};
 	options.logger?.logOutgoingRequest(url, reqOpts);
 	const res = await fetch(url, reqOpts);
-	await options.logger?.logOutgoingRequestResponse(res, reqOpts);
+	const resData = (await res.json()) as any;
+	options.logger?.logOutgoingRequestResponse(res, reqOpts, resData);
 	if (!res.ok) {
-		res.body?.cancel();
 		throw httpResponseError(url, res);
 	}
 	// parse response
-	const resBody = await res.text();
-	if (!resBody) {
-		return undefined;
-	}
-	const resData = JSON.parse(resBody);
 	if(res.status != 200 && resData.message && Object.keys(resData).length == 1) {
 		throw httpResponseError(url, res, resData.message);
 	}

@@ -1,4 +1,3 @@
-
 import qs from 'querystring';
 import { PlexAuthContext } from '../types';
 import { parseHttpContentType, plexXMLToJS } from '../serialization';
@@ -19,7 +18,6 @@ export type PlexServerFetchOptions = PlexAPIRequestOptions & {
 };
 
 export const plexServerFetch = async <TResult>(options: PlexServerFetchOptions): Promise<TResult> => {
-	const method = options.method || 'GET';
 	// build URL
 	let serverURL = options.serverURL;
 	if(serverURL.indexOf('://') == -1) {
@@ -31,6 +29,31 @@ export const plexServerFetch = async <TResult>(options: PlexServerFetchOptions):
 	} else {
 		url = `${serverURL}/${options.endpoint}`;
 	}
+	// perform http request
+	return await plexHttpRequest(url, {
+		method: options.method,
+		params: options.params,
+		headers: {
+			'Accept': 'application/json',
+			...options.headers,
+		},
+		authContext: options.authContext,
+		logger: options.logger,
+	});
+};
+
+
+
+export type PlexHttpRequestOptions = {
+	method?: 'GET' | 'POST' | 'PUT' | 'DELETE',
+	params?: {[key: string]: string | number | boolean | string[] | number[]} | null,
+	headers?: {[key: string]: string},
+	authContext?: PlexAuthContext | null,
+	logger?: Logger,
+};
+
+export const plexHttpRequest = async <TResult>(url: string, options: PlexHttpRequestOptions) => {
+	const method = options.method || 'GET';
 	// process params
 	let params = options.params;
 	if(params) {
@@ -71,30 +94,41 @@ export const plexServerFetch = async <TResult>(options: PlexServerFetchOptions):
 	// send request
 	const reqOpts: RequestInit = {
 		method,
-		headers: {
-			'Accept': 'application/json',
-			...options.headers
-		}
+		headers: options.headers,
 	};
 	options.logger?.logOutgoingRequest(url, reqOpts);
 	const res = await fetch(url, reqOpts);
-	await options.logger?.logOutgoingRequestResponse(res, reqOpts);
+	// handle failure
 	if(!res.ok) {
-		res.body?.cancel();
-		throw httpResponseError(url, res);
+		const resText = await res.text(); // we need to dequeue the response text to prevent a possible memory leak
+		options?.logger?.logOutgoingRequestResponse(res, reqOpts, resText);
+		throw httpResponseError(url, res, resText);
 	}
-	// parse response
-	const responseText = await res.text();
-	if(!responseText) {
-		return undefined!;
-	}
+	// get response data
 	const contentType = parseHttpContentType(res.headers.get('content-type')).contentTypes[0];
-	//console.log(`Response (${contentTypeInfo.contentType}):\n${responseText}`);
-	if(contentType == 'application/json') {
-		return JSON.parse(responseText);
-	} else if(contentType == 'application/xml' || contentType == 'text/xml' || responseText.startsWith('<')) {
-		return await plexXMLToJS(responseText);
-	} else {
-		return JSON.parse(responseText);
+	let resData: TResult;
+	if(res.status == 204) {
+		// no content response
+		await res.text(); // clear the response data to avoid any potential memory leaks
+		resData = undefined!;
 	}
+	else if(contentType == 'application/json') {
+		// json response
+		resData = (await res.json()) as any;
+	}
+	else {
+		const resText = await res.text();
+		if(!resText) {
+			// empty response
+			resData = undefined!;
+		} else if(contentType == 'application/xml' || contentType == 'text/xml' || resText.startsWith('<')) {
+			// xml response
+			resData = await plexXMLToJS(resText);
+		} else {
+			// fallback on json response
+			resData = JSON.parse(resText);
+		}
+	}
+	options.logger?.logOutgoingRequestResponse(res, reqOpts, resData);
+	return resData;
 };

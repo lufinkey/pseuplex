@@ -1787,9 +1787,11 @@ export class PseuplexApp {
 		const overlayImage = await this.overlayImageCache.getOrFetch(overlayName);
 		// get base image
 		const baseImageRes = await fetch(url);
-		const outputImageBuffer = await applyOverlayToImage(stream.Readable.fromWeb(baseImageRes.body!), overlayImage, (width != null && height != null) ? {
-			resize: {width,height}
-		} : undefined);
+		const baseImageData = await baseImageRes.arrayBuffer();
+		const outputImageBuffer = await applyOverlayToImage(baseImageData, overlayImage, {
+			resize: (width != null && height != null) ? {width,height} : undefined,
+			keepAspectRatio: true,
+		});
 		const contentType = baseImageRes.headers.get('Content-Type');
 		if(contentType) {
 			res.setHeader('Content-Type', contentType);
