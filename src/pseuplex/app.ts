@@ -1565,6 +1565,33 @@ export class PseuplexApp {
 			for(let i=0; i<parsedMetadataIds.length; i++) {
 				const metadataIdParts = parsedMetadataIds[i];
 				if(metadataIdParts.source && metadataIdParts.source != PseuplexMetadataSource.Plex) {
+					// Check if PlayRedirect plugin wants to redirect this metadata ID
+					const playRedirectPlugin = this.plugins['playRedirect'] as any;
+					if (playRedirectPlugin) {
+						let redirectToMetadataId: string | null = null;
+						
+						// Use async version for JustWatch items to check availability
+						if (metadataIds[i].startsWith('justwatch:') && typeof playRedirectPlugin.getPlayQueueRedirectAsync === 'function') {
+							try {
+								redirectToMetadataId = await playRedirectPlugin.getPlayQueueRedirectAsync(metadataIds[i], options.context);
+							} catch (error) {
+								console.warn(`PlayRedirect: Error in async redirect check for ${metadataIds[i]}:`, error);
+							}
+						} 
+						// Use sync version for other plugins
+						else if (typeof playRedirectPlugin.getPlayQueueRedirect === 'function') {
+							redirectToMetadataId = playRedirectPlugin.getPlayQueueRedirect(metadataIds[i]);
+						}
+
+						if (redirectToMetadataId) {
+							// Replace the metadata ID with the redirect target
+							metadataIds[i] = redirectToMetadataId;
+							parsedMetadataIds[i] = parseMetadataID(redirectToMetadataId);
+							uriChanged = true;
+							continue; // Skip normal metadata provider resolution
+						}
+					}
+
 					const metadataProvider = this.metadataProviders[metadataIdParts.source];
 					if(metadataProvider) {
 						const partialMetadataId = stringifyPartialMetadataID(metadataIdParts);

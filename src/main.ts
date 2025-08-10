@@ -24,6 +24,7 @@ import RequestsPlugin from './plugins/requests';
 import DashboardPlugin from './plugins/dashboard';
 import SectionHubsPlugin from './plugins/sectionhubs';
 import JustWatchPlugin from './plugins/justwatch';
+import PlayRedirectPlugin from './plugins/playredirect';
 import {
 	calculatePlexP12Password,
 	getPlexP12Path,
@@ -165,6 +166,7 @@ const readPlexPrefsIfNeeded = async () => {
 			DashboardPlugin,
 			SectionHubsPlugin,
 			JustWatchPlugin,
+			PlayRedirectPlugin,
 		],
 		config: cfg
 	});
