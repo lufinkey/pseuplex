@@ -21,7 +21,9 @@ export const asyncRequestHandler = <TRequest extends express.Request = express.R
 export const expressErrorHandler = (error: Error, req: express.Request, res: express.Response, next) => {
 	if(error) {
 		console.error(`Got error while handling request:`);
+		console.error(`\ttimestamp: ${(new Date()).toString()}`);
 		console.error(`\turl: ${req.originalUrl}`);
+		console.error(`\tip: ${req.connection?.remoteAddress || req.socket?.remoteAddress}`);
 		console.error(`\theaders:\n`);
 		const reqHeaderList = req.rawHeaders;
 		for(let i=0; i<reqHeaderList.length; i++) {
