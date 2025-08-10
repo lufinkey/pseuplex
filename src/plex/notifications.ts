@@ -100,6 +100,9 @@ export const sendPlexNotification = (
 						})
 					});
 				});
+				if(notifDataCache) {
+					notifDataCache.sseData = messages;
+				}
 			}
 			for(const message of messages) {
 				options.logger?.logEventSourceNotificationToUser(sender, message);
@@ -121,6 +124,9 @@ export const sendPlexNotification = (
 				const dataString = JSON.stringify(data);
 				const frame = createWebSocketFrame(dataString);
 				message = {frame, dataString};
+				if(notifDataCache) {
+					notifDataCache.websocketData = message;
+				}
 			}
 			options.logger?.logWebsocketNotificationToUser(sender, message.dataString);
 			sender.socket.write(message.frame);
