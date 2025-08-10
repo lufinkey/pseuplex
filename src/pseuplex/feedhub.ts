@@ -25,6 +25,7 @@ import {
 } from './hub';
 import { PseuplexSection } from './section';
 import { Logger } from '../logging';
+import { unleakStringsInObject } from '../utils/strings';
 
 export type PseuplexFeedHubOptions = {
 	title: string;
@@ -65,7 +66,8 @@ export abstract class PseuplexFeedHub<
 		this._options = options;
 		this._itemList = new LoadableList<TItem,TItemToken,TPageToken>({
 			loader: (pageToken) => {
-				return this.fetchPage(pageToken);
+				const page = this.fetchPage(pageToken);
+				return unleakStringsInObject(page);
 			},
 			tokenComparer: (itemToken1, itemToken2) => {
 				return this.compareItemTokens(itemToken1, itemToken2);

@@ -1,5 +1,5 @@
 
-import { CachedFetcher } from '../fetching/CachedFetcher';
+import { CachedFetcher, CachedFetcherOptions } from '../fetching/CachedFetcher';
 import * as plexTypes from './types';
 import * as plexServerAPI from './api';
 import { PlexClient } from './client';
@@ -19,7 +19,7 @@ export const createPlexServerIdToGuidCache = (options: plexServerAPI.PlexAPIRequ
 			throw httpError(404, "Not Found");
 		}
 		return metadata.guid;
-	});
+	}, {fixStringLeaks:true});
 };
 
 
@@ -34,6 +34,9 @@ export type PlexIdCachedInfo = {
 	Guid?: plexTypes.PlexGuid[];
 };
 
+export type PlexIdToInfoCacheOptions = CachedFetcherOptions & {
+	plexMetadataClient: PlexClient;
+};
 
 export class PlexIdToInfoCache extends CachedFetcher<PlexIdCachedInfo | null> {
 	static fields: (keyof PlexIdCachedInfo)[] = [
@@ -45,9 +48,7 @@ export class PlexIdToInfoCache extends CachedFetcher<PlexIdCachedInfo | null> {
 	static elements: (keyof PlexIdCachedInfo)[] = ['Guid'];
 	plexMetadataClient: PlexClient;
 
-	constructor(options: {
-		plexMetadataClient: PlexClient;
-	}) {
+	constructor(options: PlexIdToInfoCacheOptions) {
 		super(async (plexId: string) => {
 			let metadatas = (await this.plexMetadataClient.getMetadata(plexId))?.MediaContainer?.Metadata;
 			let metadataItem: plexTypes.PlexMetadataItem;
@@ -60,6 +61,11 @@ export class PlexIdToInfoCache extends CachedFetcher<PlexIdCachedInfo | null> {
 				return null;
 			}
 			return this.metadataToInfo(metadataItem);
+		}, {
+			fixStringLeaks: options.fixStringLeaks ?? true,
+			itemLifetime: options.itemLifetime,
+			accessResetsLifetime: options.accessResetsLifetime,
+			autoCleanLimit: options.autoCleanLimit,
 		});
 		this.plexMetadataClient = options.plexMetadataClient;
 	}

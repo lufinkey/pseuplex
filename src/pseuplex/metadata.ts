@@ -157,10 +157,10 @@ export abstract class PseuplexMetadataProviderBase<TMetadataItem> implements Pse
 		this.relatedHubsProviders = options.relatedHubsProviders;
 		this.idToPlexGuidCache = new CachedFetcher(async (id: string) => {
 			throw new Error("Cannot fetch guid from cache");
-		});
+		}, {fixStringLeaks:true});
 		this.plexGuidToIDCache = new CachedFetcher(async (id: string) => {
 			throw new Error("Cannot fetch id from cache");
-		});
+		}, {fixStringLeaks:true});
 		this.plexIdToInfoCache = options.plexIdToInfoCache;
 	}
 	

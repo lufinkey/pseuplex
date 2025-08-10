@@ -1,3 +1,4 @@
+import { unleakStringsInObject } from "../utils/strings";
 
 export type Fetcher<ItemType> = (id: string | number) => Promise<ItemType>;
 
@@ -8,6 +9,8 @@ export type CacheItemNode<ItemType> = {
 };
 
 export type CachedFetcherOptions = {
+	// v8 substrings cause memory leaks. While some geniuses on reddit say this is expected behavior, i say this is dumb as fuck and should be fixed.
+	fixStringLeaks?: boolean;
 	/// How long an item can exist in the cache, in seconds
 	itemLifetime?: number | null;
 	/// Controls whether accessing an item resets its lifetime
@@ -32,6 +35,13 @@ export class CachedFetcher<ItemType> {
 		this._fetcher = fetcher;
 	}
 
+	private _unleakObjectIfNeeded(item) {
+		if(this.options?.fixStringLeaks && item && typeof item === 'object') {
+			return unleakStringsInObject(item);
+		}
+		return item;
+	}
+
 	private _itemNodeAccessed(id: string | number, itemNode: CacheItemNode<ItemType>) {
 		if(this.options.itemLifetime && this.options.accessResetsLifetime) {
 			// move this item to the end, since it was just accessed
@@ -54,7 +64,7 @@ export class CachedFetcher<ItemType> {
 			const now = process.uptime();
 			delete this._cache[id]; // ensure new ID is added to the end
 			this._cache[id] = {
-				item: item,
+				item: this._unleakObjectIfNeeded(item),
 				updatedAt: now,
 				accessedAt: now
 			};
@@ -115,7 +125,7 @@ export class CachedFetcher<ItemType> {
 		const now = process.uptime();
 		delete this._cache[id]; // ensure new ID is added to the end
 		this._cache[id] = {
-			item: result,
+			item: this._unleakObjectIfNeeded(result),
 			updatedAt: now,
 			accessedAt: now
 		};
