@@ -293,7 +293,9 @@ export const plexApiProxy = (serverURL: string, args: PlexProxyOptions, opts: {
 
 
 
-export const plexHttpProxy = (serverURL: string, args: PlexProxyOptions) => {
+export const plexHttpProxy = (serverURL: string, args: PlexProxyOptions, events?: {
+	onProxyResponse?: (proxyReq: http.ClientRequest, proxyRes: http.IncomingMessage, userReq: express.Request, userRes: express.Response) => void,
+}) => {
 	const plexGeneralProxy = httpProxy.createProxyServer({
 		target: serverURL,
 		ws: true,
@@ -302,7 +304,7 @@ export const plexHttpProxy = (serverURL: string, args: PlexProxyOptions) => {
 		//changeOrigin: false,
 		//autoRewrite: true,
 	});
-	const shouldHandleProxyResponse = (args.logger?.options.logProxyResponses || args.logger?.options.logUserResponses || args.logger?.options.logProxyErrorResponseBody);
+	const shouldHandleProxyResponse = (events?.onProxyResponse || args.logger?.options.logProxyResponses || args.logger?.options.logUserResponses || args.logger?.options.logProxyErrorResponseBody);
 	plexGeneralProxy.on('proxyReq', (proxyReq, userReq: express.Request, userRes: express.Response) => {
 		const ipv4Mode = ((args.ipv4Mode instanceof Function) ? args.ipv4Mode() : args.ipv4Mode)
 			?? IPv4NormalizeMode.DontChange;
@@ -336,64 +338,75 @@ export const plexHttpProxy = (serverURL: string, args: PlexProxyOptions) => {
 			const encoding = proxyRes.headers['content-encoding'];
 			const proxyReq = (userRes as ProxyingUserResponse).___proxyReq;
 			delete (userRes as Partial<ProxyingUserResponse>).___proxyReq;
-			const logHeaders = args.logger?.options.logProxyResponseHeaders || args.logger?.options.logUserResponseHeaders;
-			const logProxyResponseBody = (callback?: () => void) => {
-				// log proxy response body
-				const datas: Buffer[] = [];
-				proxyRes.on('data', (chunk) => {
-					datas.push(chunk);
-				});
-				proxyRes.on('end', () => {
-					// TODO decode gzip encoding?
-					const fullData = Buffer.concat(datas);
-					if(encoding == 'gzip') {
-						zlib.gunzip(fullData, (error, decodedFullData) => {
-							if(error) {
-								console.error(`Error calling gunzip for response:`);
-								console.error(error);
-							}
-							if(decodedFullData) {
-								const fullDataString = decodedFullData.toString('utf8');
-								if(fullDataString) {
-									console.log(fullDataString);
-								}
-							}
-							callback?.();
-						});
-						return;
-					}
-					const fullDataString = fullData.toString('utf8');
-					if(fullDataString) {
-						console.log(fullDataString);
-					}
-					callback?.();
-				});
-			};
-			const isProxyResError = (!proxyRes.statusCode || proxyRes.statusCode < 200 || proxyRes.statusCode >= 300);
-			if(logHeaders || proxyReq.path != userReq.originalUrl) {
-				// log proxy response if needed
-				if(args.logger?.logProxyResponse(userReq, userRes, proxyReq, proxyRes, undefined)) {
-					if(args.logger.options?.logProxyErrorResponseBody && isProxyResError) {
-						logProxyResponseBody();
-					}
-				}
-				// log user response when finished
-				if(args.logger?.options.logUserResponses) {
-					userRes.on('close', () => {
-						args?.logger?.logIncomingUserRequestResponse(userReq, userRes, undefined);
+			// log if needed
+			const logOpts = args.logger?.options;
+			if(logOpts && (logOpts.logProxyResponses || logOpts.logProxyErrorResponseBody || logOpts.logUserResponses)) {
+				const logHeaders = logOpts.logProxyResponseHeaders || logOpts.logUserResponseHeaders;
+				const logProxyResponseBody = (callback?: () => void) => {
+					// log proxy response body
+					const datas: Buffer[] = [];
+					proxyRes.on('data', (chunk) => {
+						datas.push(chunk);
 					});
+					proxyRes.on('end', () => {
+						// TODO decode gzip encoding?
+						const fullData = Buffer.concat(datas);
+						if(encoding == 'gzip') {
+							zlib.gunzip(fullData, (error, decodedFullData) => {
+								if(error) {
+									console.error(`Error calling gunzip for response:`);
+									console.error(error);
+								}
+								if(decodedFullData) {
+									const fullDataString = decodedFullData.toString('utf8');
+									if(fullDataString) {
+										console.log(fullDataString);
+									}
+								}
+								callback?.();
+							});
+							return;
+						}
+						const fullDataString = fullData.toString('utf8');
+						if(fullDataString) {
+							console.log(fullDataString);
+						}
+						callback?.();
+					});
+				};
+				const isProxyResError = (!proxyRes.statusCode || proxyRes.statusCode < 200 || proxyRes.statusCode >= 300);
+				if(logHeaders || events?.onProxyResponse || proxyReq.path != userReq.originalUrl) {
+					// log proxy response if needed
+					if(args.logger?.logProxyResponse(userReq, userRes, proxyReq, proxyRes, undefined)) {
+						if(args.logger.options?.logProxyErrorResponseBody && isProxyResError) {
+							logProxyResponseBody(() => {
+								console.log();
+							});
+						}
+					}
+					// handle proxy response
+					events?.onProxyResponse?.(proxyReq, proxyRes, userReq, userRes);
+					// log user response when finished
+					if(args.logger?.options.logUserResponses) {
+						userRes.on('close', () => {
+							args?.logger?.logIncomingUserRequestResponse(userReq, userRes, undefined);
+						});
+					}
+				} else {
+					// log response if needed
+					if(args.logger?.logProxyAndUserResponse(userReq, userRes, proxyRes, undefined, undefined)) {
+						if(args.logger?.options.logProxyErrorResponseBody && isProxyResError) {
+							logProxyResponseBody(() => {
+								console.log();
+							});
+						} else {
+							console.log();
+						}
+					}
 				}
 			} else {
-				// log response if needed
-				if(args.logger?.logProxyAndUserResponse(userReq, userRes, proxyRes, undefined, undefined)) {
-					if(args.logger?.options.logProxyErrorResponseBody && isProxyResError) {
-						logProxyResponseBody(() => {
-							console.log();
-						});
-					} else {
-						console.log();
-					}
-				}
+				// handle proxy response
+				events?.onProxyResponse?.(proxyReq, proxyRes, userReq, userRes);
 			}
 		});
 	}

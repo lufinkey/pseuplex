@@ -38,7 +38,13 @@ import {
 	PlexAuthedRequestHandler
 } from '../plex/requesthandling';
 import { PlexClient } from '../plex/client';
-import { PlexNotificationSender, PlexNotificationSenderType, SendPlexNotificationOptions, sendPlexNotifications, WebsocketNotificationsEndpoint } from '../plex/notifications';
+import {
+	PlexNotificationSender,
+	PlexNotificationSenderType,
+	SendPlexNotificationOptions,
+	sendPlexNotifications,
+	WebsocketNotificationsEndpoint,
+} from '../plex/notifications';
 import * as extPlexTransform from './externalplex/transform';
 import {
 	PseuplexMetadataPage,
@@ -56,7 +62,6 @@ import {
 	parseMetadataID,
 } from './metadataidentifier';
 import {
-	PseuplexMetadataChildrenProviderParams,
 	PseuplexMetadataProvider,
 	PseuplexMetadataProviderParams,
 	PseuplexMetadataTransformOptions,
@@ -102,6 +107,9 @@ import {
 import { IPv4NormalizeMode } from '../utils/ip';
 import type { WebSocketEventMap } from '../utils/websocket';
 import { applyOverlayToImage } from '../utils/images';
+import {
+	PseuplexEventSourceSubscriber
+} from './types/eventsource';
 
 
 // plugins
@@ -188,13 +196,17 @@ export class PseuplexApp {
 	readonly plexAdminAuthContext: plexTypes.PlexAuthContext;
 	readonly plexServerProperties: PlexServerPropertiesStore;
 	readonly plexServerAccounts: PlexServerAccountsStore;
-	readonly clientWebSockets: {
-		[plexToken: string]: PseuplexPossiblyConfirmedClientWebSocketInfo[]
-	} = {};
 	readonly plexServerIdToGuidCache: CachedFetcher<string | null | undefined>;
 	readonly plexIdToInfoCache?: PlexIdToInfoCache;
 	readonly pluginMetadataAccessCache?: PseuplexMetadataAccessCache;
 	readonly plexMetadataClient: PlexClient;
+
+	readonly clientWebSockets: {
+		[plexToken: string]: PseuplexPossiblyConfirmedClientWebSocketInfo[]
+	} = {};
+	readonly eventSourceSubscribers: {
+		[plexToken: string]: PseuplexEventSourceSubscriber[]
+	} = {};
 
 	readonly overlayedImageEndpoint?: string | undefined;
 	readonly overlayImageCache?: CachedFetcher<Buffer>;
@@ -357,6 +369,8 @@ export class PseuplexApp {
 			this.logger?.logIncomingUserRequest(req);
 			next();
 		});
+
+		// TODO handle mapping metadata IDs from public to private IDs, if enabled
 
 		// define plugin routes early, so they can intercept requests
 		for(const pluginSlug of Object.keys(this.plugins)) {
@@ -815,7 +829,6 @@ export class PseuplexApp {
 		]);
 
 		const pathEndingChars = ['/','?',undefined];
-		const plexTokenInUrlRegex = /[?&]X-Plex-Token=/;
 
 		router.get('/photo/\\:/transcode', [
 			this.middlewares.plexAuthentication,
@@ -836,6 +849,7 @@ export class PseuplexApp {
 							if(photoUrl.startsWith(urlToRewrite) && photoUrl[urlToRewrite.length] == '/') {
 								const ogPhotoUrl = photoUrl;
 								photoUrl = photoUrl.substring(urlToRewrite.length);
+								// TODO log photo url rewrite
 								changedUrl = true;
 								break;
 							}
@@ -905,6 +919,51 @@ export class PseuplexApp {
 			]);
 		}
 
+		// handle eventsource requests
+		const plexSSEProxy = plexHttpProxy(this.plexServerURL, plexProxyArgs, {
+			onProxyResponse: (proxyReq, proxyRes, userReq: IncomingPlexAPIRequest, userRes) => {
+				// save subscriber list per plex token
+				const plexToken = userReq.plex.authContext['X-Plex-Token']!;
+				let subscribers = this.eventSourceSubscribers[plexToken];
+				const subscriberInfo: PseuplexEventSourceSubscriber = {
+					response: userRes,
+					proxyResponse: proxyRes,
+				};
+				if(subscribers) {
+					subscribers.push(subscriberInfo);
+				} else {
+					subscribers = [subscriberInfo];
+					this.eventSourceSubscribers[plexToken] = subscribers;
+				}
+				// remove subscriber when response ends
+				let done = false;
+				const onResponseDone = () => {
+					if(done) {
+						return;
+					}
+					done = true;
+					// remove subscriber
+					const subscriberIndex = subscribers.indexOf(subscriberInfo);
+					if(subscriberIndex != -1) {
+						subscribers.splice(subscriberIndex, 1);
+						if(subscribers.length == 0) {
+							delete this.eventSourceSubscribers[plexToken];
+						}
+					} else {
+						console.error(`Couldn't find notification eventsource subscriber to remove`);
+					}
+				};
+				userRes.on('finish', onResponseDone);
+				userRes.on('close', onResponseDone);
+			},
+		});
+		router.get('/\\:/eventsource/notifications', [
+			this.middlewares.plexAuthentication,
+			(req, res) => {
+				plexSSEProxy.web(req,res);
+			},
+		]);
+
 		// proxy requests to plex
 		const plexGeneralProxy = plexHttpProxy(this.plexServerURL, plexProxyArgs);
 		plexGeneralProxy.on('error', (error) => {
@@ -965,6 +1024,7 @@ export class PseuplexApp {
 					this.clientWebSockets[plexToken] = sockets;
 				}
 				// `pipe` is called on this socket once the proxy socket succeeds
+				//  so we want to listen for this function call to "confirm" the websocket as being accepted by the plex server
 				const innerSocketPipe = socket.pipe;
 				let piped = false;
 				socket.pipe = function(...args) {
@@ -1878,29 +1938,53 @@ export class PseuplexApp {
 			return undefined;
 		}
 		return sockets
-			.filter((si) => si.proxySocket) as PseuplexClientWebSocketInfo[];
+			.filter((s) => s.proxySocket) as PseuplexClientWebSocketInfo[];
+	}
+
+	getEventSourceSubscribers(plexToken: string): PseuplexEventSourceSubscriber[] | undefined {
+		const subscribers = this.eventSourceSubscribers[plexToken];
+		if(!subscribers) {
+			return undefined;
+		}
+		return subscribers
+			.filter((s) => s.proxyResponse) as PseuplexEventSourceSubscriber[];
 	}
 
 	getClientNotificationSenders(plexToken: string): PlexNotificationSender[] | undefined {
 		const clientWebsockets = this.clientWebSockets[plexToken];
-		if(!clientWebsockets) {
+		const eventSubscribers = this.eventSourceSubscribers[plexToken];
+		if(!clientWebsockets && !eventSubscribers) {
 			return undefined;
 		}
 		const senders: PlexNotificationSender[] = [];
-		for(const socketInfo of clientWebsockets) {
-			if(!socketInfo.proxySocket) {
-				// socket hasn't received a response from the server yet, so we shouldn't send any notifications
-				continue;
+		if(clientWebsockets) {
+			for(const socketInfo of clientWebsockets) {
+				if(!socketInfo.proxySocket) {
+					// socket hasn't received a response from the server yet, so we shouldn't send any notifications
+					continue;
+				}
+				if(socketInfo.endpoint === WebsocketNotificationsEndpoint) {
+					senders.push({
+						type: PlexNotificationSenderType.Websocket,
+						token: plexToken,
+						socket: socketInfo.socket,
+					});
+				}
 			}
-			if(socketInfo.endpoint === WebsocketNotificationsEndpoint) {
+		}
+		if(eventSubscribers) {
+			for(const subscriber of eventSubscribers) {
+				if(!subscriber.proxyResponse) {
+					// request hasn't received a response from the server yet, so we shouldn't send any notifications
+					continue;
+				}
 				senders.push({
-					type: PlexNotificationSenderType.Websocket,
+					type: PlexNotificationSenderType.EventSource,
 					token: plexToken,
-					socket: socketInfo.socket,
+					response: subscriber.response
 				});
 			}
 		}
-		// TODO add eventsource senders
 		return senders;
 	}
 
