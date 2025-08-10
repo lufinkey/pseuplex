@@ -1141,7 +1141,7 @@ export class PseuplexApp {
 	}
 
 	private _handlePlexServerNotification(event: WebSocketEventMap['message']) {
-		this.logger?.logWebsocketMessageFromServer(event);
+		this.logger?.logAdminWebsocketMessageFromServer(event);
 		// parse data
 		let data: plexTypes.PlexNotificationMessage;
 		try {

@@ -20,8 +20,8 @@ export const PlexNotificationSenderToEndpointSlug: {[type in PlexNotificationSen
 	[PlexNotificationSenderType.Websocket]: 'websockets',
 };
 
-export const PlexNotificationSenderTypeToName: {[key: number]: string} = {};
-for(const key of Object.keys(PlexNotificationSenderType)) {
+export const PlexNotificationSenderTypeToName: {[key: number]: (keyof typeof PlexNotificationSenderType)} = {};
+for(const key of Object.keys(PlexNotificationSenderType) as (keyof typeof PlexNotificationSenderType)[]) {
 	const val = PlexNotificationSenderType[key];
 	PlexNotificationSenderTypeToName[val] = key;
 }
@@ -105,7 +105,7 @@ export const sendPlexNotification = (
 				}
 			}
 			for(const message of messages) {
-				options.logger?.logEventSourceNotificationToUser(sender, message);
+				options.logger?.logSentPlexNotificationToUser(sender, message);
 				sender.response.write(message);
 			}
 			return messages.length > 0;
@@ -128,7 +128,7 @@ export const sendPlexNotification = (
 					notifDataCache.websocketData = message;
 				}
 			}
-			options.logger?.logWebsocketNotificationToUser(sender, message.dataString);
+			options.logger?.logSentPlexNotificationToUser(sender, message.dataString);
 			sender.socket.write(message.frame);
 			return true;
 		}

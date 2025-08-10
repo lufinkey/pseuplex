@@ -2,6 +2,7 @@ import http from 'http';
 import stream from 'stream';
 import express from 'express';
 import type { PlexServerAccountInfo } from './plex/accounts';
+import { PlexNotificationSender, PlexNotificationSenderTypeToName } from './plex/notifications';
 import { urlFromClientRequest } from './utils/requests';
 import { requestIsEncrypted } from './utils/requesthandling';
 import type { WebSocketEventMap } from './utils/websocket';
@@ -44,16 +45,14 @@ export type ProxyRequestsLoggingOptions = {
 };
 
 export type WebsocketLoggingOptions = {
-	logWebsocketMessagesFromUser?: boolean;
-	logWebsocketMessagesToUser?: boolean;
-	logWebsocketMessagesFromServer?: boolean;
-	logWebsocketMessagesToServer?: boolean;
+	logWebsocketConnections?: boolean;
 	logWebsocketErrors?: boolean;
 };
 
-export type EventSourceLoggingOptions = {
-	logEventSourceNotificationsToUser?: boolean;
-}
+export type NotificationLoggingOptions = {
+	logAdminNotificationsFromServer?: boolean;
+	logSentPlexNotifications?: boolean;
+};
 
 export type OverseerrLoggingOptions = {
 	logOverseerrUsers?: boolean;
@@ -68,7 +67,7 @@ export type LoggingOptions =
 	& IncomingRequestsLoggingOptions
 	& ProxyRequestsLoggingOptions
 	& WebsocketLoggingOptions
-	& EventSourceLoggingOptions
+	& NotificationLoggingOptions
 	& OverseerrLoggingOptions;
 
 export class Logger {
@@ -259,9 +258,9 @@ export class Logger {
 		return true;
 	}
 
-	logIncomingUserUpgradeRequest(userReq: http.IncomingMessage) {
-		if(!this.options.logUserRequests && !this.options.logWebsocketMessagesFromUser) {
-			return;
+	logIncomingUserUpgradeRequest(userReq: http.IncomingMessage): boolean {
+		if(!(this.options.logUserRequests || this.options.logWebsocketConnections)) {
+			return false;
 		}
 		console.log(`\n\x1b[104mupgrade ws ${userReq.url}\x1b[0m`);
 		if(this.options.logUserRequestHeaders) {
@@ -273,13 +272,14 @@ export class Logger {
 				console.log(`\t${headerKey}: ${headerVal}`);
 			}
 		}
+		return true;
 	}
 
 	logIncomingWebsocketClosed(req: http.IncomingMessage): boolean {
-		if(!(this.options.logUserRequests || this.options.logWebsocketMessagesFromUser || this.options.logWebsocketMessagesFromServer)) {
+		if(!(this.options.logUserRequests || this.options.logWebsocketConnections)) {
 			return false;
 		}
-		console.log(`closed socket ${req.url}`);
+		console.log(`\nclosed socket ${req.url}`);
 		return true;
 	}
 
@@ -301,27 +301,20 @@ export class Logger {
 		return true;
 	}
 
-	logWebsocketMessageFromServer(event: WebSocketEventMap['message']): boolean {
-		if(!(this.options.logWebsocketMessagesFromServer)) {
+	logAdminWebsocketMessageFromServer(event: WebSocketEventMap['message']): boolean {
+		if(!this.options.logAdminNotificationsFromServer) {
 			return false;
 		}
 		console.log(`\nGot websocket message from server:\n${event.data}`);
 		return true;
 	}
 
-	logWebsocketNotificationToUser(socketInfo: {token: string, socket: stream.Duplex}, dataString: string): boolean {
-		if(!this.options.logWebsocketMessagesToUser) {
+	logSentPlexNotificationToUser(socketInfo: PlexNotificationSender, dataString: string): boolean {
+		if(!this.options.logSentPlexNotifications) {
 			return false;
 		}
-		console.log(`\nSending websocket notification to token ${socketInfo.token}:\n${dataString}`);
-		return true;
-	}
-
-	logEventSourceNotificationToUser(socketInfo: {token: string, response: http.ServerResponse}, dataString: string): boolean {
-		if(!this.options.logEventSourceNotificationsToUser) {
-			return false;
-		}
-		console.log(`\nSending eventsource notification to token ${socketInfo.token}:\n${dataString}`);
+		const sourceName = PlexNotificationSenderTypeToName[socketInfo.type];
+		console.log(`\nSending ${sourceName.toLowerCase()} notification to token ${socketInfo.token}:\n${dataString}`);
 		return true;
 	}
 

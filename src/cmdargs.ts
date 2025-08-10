@@ -25,10 +25,9 @@ enum CmdFlag {
 	logProxyResponseBody = '--log-proxy-response-body',
 	logProxyErrorResponseBody = '--log-proxy-response-body',
 	logWebsocketErrors = '--log-websocket-errors',
-	logWebsocketFromUser = '--log-websocket-from-user',
-	logWebsocketToUser = '--log-websocket-to-user',
-	logWebsocketFromServer = '--log-websocket-from-server',
-	logWebsocketToServer = '--log-websocket-to-server',
+	logWebsocketConnections = '--log-websocket-connections',
+	logSentNotifications = '--log-sent-notifications',
+	logAdminNotifications = '--log-admin-notifications',
 	logOverseerrUsers = '--log-overseerr-users',
 	verbose = '--verbose',
 	verboseHttpTraffic = '--verbose-http-traffic',
@@ -135,24 +134,20 @@ export const parseCmdArgs = (args: string[]): CommandArguments => {
 					parsedArgs.logProxyErrorResponseBody = true;
 					break;
 
-				case CmdFlag.logWebsocketFromUser:
-					parsedArgs.logWebsocketMessagesFromUser = true;
-					break;
-
-				case CmdFlag.logWebsocketToUser:
-					parsedArgs.logWebsocketMessagesToUser = true;
-					break;
-
-				case CmdFlag.logWebsocketFromServer:
-					parsedArgs.logWebsocketMessagesFromServer = true;
-					break;
-
-				case CmdFlag.logWebsocketToServer:
-					parsedArgs.logWebsocketMessagesToServer = true;
+				case CmdFlag.logWebsocketConnections:
+					parsedArgs.logWebsocketConnections = true;
 					break;
 
 				case CmdFlag.logWebsocketErrors:
 					parsedArgs.logWebsocketErrors = true;
+					break;
+
+				case CmdFlag.logSentNotifications:
+					parsedArgs.logSentPlexNotifications = true;
+					break;
+
+				case CmdFlag.logAdminNotifications:
+					parsedArgs.logAdminNotificationsFromServer = true;
 					break;
 
 				case CmdFlag.logOverseerrUsers:
@@ -189,16 +184,15 @@ export const parseCmdArgs = (args: string[]): CommandArguments => {
 				case CmdFlag.verboseWsTraffic:
 					parsedArgs.verboseWsTraffic = true;
 					parsedArgs.logFullURLs = true;
-					parsedArgs.logWebsocketMessagesFromUser = true;
-					parsedArgs.logWebsocketMessagesToUser = true;
-					parsedArgs.logWebsocketMessagesFromServer = true;
-					parsedArgs.logWebsocketMessagesToServer = true;
+					parsedArgs.logWebsocketConnections = true;
 					parsedArgs.logWebsocketErrors = true;
+					parsedArgs.logAdminNotificationsFromServer = true;
+					parsedArgs.logSentPlexNotifications = true;
 					break;
 
 				case CmdFlag.verboseTraffic:
-					parsedArgs.verboseHttpTraffic = true;
 					parsedArgs.logFullURLs = true;
+					parsedArgs.verboseHttpTraffic = true;
 					parsedArgs.logOutgoingRequests = true;
 					parsedArgs.logUserRequests = true;
 					parsedArgs.logUserRequestHeaders = true;
@@ -213,11 +207,10 @@ export const parseCmdArgs = (args: string[]): CommandArguments => {
 					//parsedArgs.logProxyResponseBody = true;
 					parsedArgs.logProxyErrorResponseBody = true;
 					parsedArgs.verboseWsTraffic = true;
-					parsedArgs.logWebsocketMessagesFromUser = true;
-					parsedArgs.logWebsocketMessagesToUser = true;
-					parsedArgs.logWebsocketMessagesFromServer = true;
-					parsedArgs.logWebsocketMessagesToServer = true;
+					parsedArgs.logWebsocketConnections = true;
 					parsedArgs.logWebsocketErrors = true;
+					parsedArgs.logAdminNotificationsFromServer = true;
+					parsedArgs.logSentPlexNotifications = true;
 					break;
 				
 				default:
