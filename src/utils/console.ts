@@ -1,5 +1,12 @@
 
+let includedTracesForWarnAndError = false;
 export const includeTracesForConsoleWarnAndError = () => {
+	if(includedTracesForWarnAndError) {
+		console.warn("Already including traces for console.warn and console.error. Skipping...");
+		return;
+	}
+	includedTracesForWarnAndError = true;
+	
 	const newlineRegex = /\r?\n/;
 	const traceDividerString = "\n    ----";
 	const errorTraceString = (ignoreDepth: number): string => {
@@ -34,13 +41,13 @@ export const includeTracesForConsoleWarnAndError = () => {
 	};
 };
 
-let modded = false;
+let moddedColors = false;
 export const modConsoleColors = () => {
-	if(modded) {
+	if(moddedColors) {
 		console.warn("Console colors are already modded. Skipping...");
 		return;
 	}
-	modded = true;
+	moddedColors = true;
 
 	const innerConsoleError = console.error;
 	console.error = function (...args) {
