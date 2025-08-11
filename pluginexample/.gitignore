@@ -131,3 +131,8 @@ dist
 
 # macOS
 .DS_Store
+
+# Since module packages won't get locked, ignore any package locks (sorry)
+/package-lock.json
+/yarn.lock
+/pnpm-lock.yaml

@@ -1,7 +1,8 @@
 {
+	"private": true,
 	"name": "pseuplex-plugin-example",
 	"version": "1.0.0",
-	"description": "An example pseudo metadata plugin",
+	"description": "An example plugin for the pseudo metadata proxy for plex",
 	"license": "Zlib",
 	"type": "module",
 	"main": "dist/index.js",

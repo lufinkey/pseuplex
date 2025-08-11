@@ -6,6 +6,8 @@ Inspired by [Replex](https://github.com/lostb1t/replex)
 
 This project is still very much a WIP. While I've tried to do my due diligence in terms of security ([middleware](src/plex/requesthandling.ts#L73) prevents unauthorized requests from tokens not listed in the shared account list), I'm really the only contributor right now. Use at your own risk.
 
+This is an unofficial project that is **NOT** endorsed by or associated with Plexinc.
+
 ## Features
 
 - ### Customizable "Dashboard" Section
@@ -107,6 +109,7 @@ Create a `config.json` file with the following structure, and fill in the config
 	- **autoP12Password**: Automatically determine the password of your plex server's SSL p12 file.
 	- **watchCertChanges**: Automatically reload the SSL certificate/key whenever your cert/key/p12 file changes
 	- **certReloadDelay**: The time in milliseconds to wait after your cert/key/p12 file changes before reloading SSL (if `ssl.watchCertChanges` is `true`). Default is `1000`.
+- **plugins**: A map of plugin ids to their source or version. This accepts the same format as [`dependencies` in node's package.json](https://docs.npmjs.com/cli/v11/configuring-npm/package-json#dependencies). The plugins will be loaded in the order that they're defined.
 - **letterboxd**:
 	- **similarItemsEnabled**: Display similar items from letterboxd on plex media item pages for all users
 	- **friendsActivityHubEnabled**: Display the letterboxd friends activity hub on the home page for all users with a letterboxd username configured
@@ -114,7 +117,7 @@ Create a `config.json` file with the following structure, and fill in the config
 - **dashboard**:
 	- **enabled**: Controls whether to show a pseudo "Dashboard" section for all users, which will show custom hubs
 	- **title**: The title to display for the section
-	- **hubs**: An array of hubs to show on the dashboard section for all users. For a list of hubs that can be configured, see [here](docs/Dashboard.md#hubs).
+	- **hubs**: An array of hubs to show on the dashboard section for all users. For a list of built-in hubs that can be configured, see [here](docs/Dashboard.md#hubs).
 		- **plugin**: The name of the plugin that this hub comes from (for example, `letterboxd` for letterboxd hubs)
 		- **hub**: The name of the hub within the plugin (for example, `userFollowingActivity` the activity feed of users that a given user is following)
 		- **arg**: The argument to pass to the hub provider for this hub. (for `letterboxd`.`userFollowingActivity` hub, this would be a letterboxd username slug, for example `crew`)

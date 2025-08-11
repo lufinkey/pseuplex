@@ -1,24 +1,29 @@
 {
+	"private": true,
 	"name": "pseuplex",
 	"version": "0.2.0",
 	"description": "A middleware for the plex server API",
-	"main": "dist/pseuplex/index.js",
+	"bin": {
+		"pseuplex": "bin/main.js"
+	},
+	"main": "dist/index.js",
+	"types": "dist/index.d.ts",
 	"repository": {
 		"type": "git",
 		"url": "https://github.com/lufinkey/pseuplex.git"
 	},
 	"scripts": {
-		"build": "tsc",
-		"setup-dev-modules": "rm -rf node_modules/letterboxd-retriever && ln -s \"$PWD/../letterboxd-retriever\" node_modules/letterboxd-retriever",
+		"build": "npm install && tsc && npm link pseuplex@file:./",
+		"clean": "rm -rf dist node_modules plugindeps/node_modules pluginexample/node_modules pluginexample/dist pluginexample/package-lock.json",
+		"prepare": "tsc",
 		"start": "npm run build && node --enable-source-maps dist/main.js",
 		"start_test": "npm run build && node --enable-source-maps --trace-deprecation dist/main.js --config=config/config.json --verbose --verbose-traffic",
-		"debug": "npm run build && node --inspect dist/main.js --config=config/config.json --verbose"
+		"debug": "npm run build && node --enable-source-maps --inspect dist/main.js --config=config/config.json --verbose"
 	},
 	"author": "Luis Finke (luisfinke@gmail.com)",
 	"license": "Zlib",
 	"dependencies": {
-		"pseuplex": "file:./",
-		"express": "^5.0.1",
+		"express": "^5.1.0",
 		"express-http-proxy": "https://github.com/lufinkey/express-http-proxy.git",
 		"http-proxy": "https://github.com/Jimbly/http-proxy-node16.git",
 		"httpolyglot": "^0.1.2",
@@ -29,7 +34,7 @@
 		"xml2js": "^0.6.2"
 	},
 	"devDependencies": {
-		"@types/express": "^4.17.21",
+		"@types/express": "^5.0.3",
 		"@types/express-http-proxy": "1.6.6",
 		"@types/http-proxy": "^1.17.15",
 		"@types/node": "^22.16.5",

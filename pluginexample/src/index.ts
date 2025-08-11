@@ -1,11 +1,10 @@
-
-import express from 'express';
 import type {
 	PseuplexApp,
 	PseuplexPlugin,
 	PseuplexPluginClass,
-	PseuplexReadOnlyResponseFilters
+	PseuplexReadOnlyResponseFilters,
 } from 'pseuplex';
+import express from 'express';
 
 export default (class ExamplePlugin implements PseuplexPlugin {
 	static slug = 'example';
@@ -31,7 +30,7 @@ export default (class ExamplePlugin implements PseuplexPlugin {
 	}
 
 	defineRoutes(router: express.Express) {
-		// define any custom routes
+		// define any custom routes here
 	}
 
 } satisfies PseuplexPluginClass);
