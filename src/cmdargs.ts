@@ -10,7 +10,6 @@ export type CommandArguments = {
 enum CmdFlag {
 	configPath = '--config',
 	logPlexTokenInfo = '--log-plex-tokens',
-	logPlexFuckery = '--log-plex-fuckery',
 	logOutgoingRequests = '--log-outgoing-requests',
 	logUserRequests = '--log-user-requests',
 	logUserRequestHeaders = '--log-user-request-headers',
@@ -76,10 +75,6 @@ export const parseCmdArgs = (args: string[]): CommandArguments => {
 
 				case CmdFlag.logPlexTokenInfo:
 					parsedArgs.logPlexTokenInfo = true;
-					break;
-
-				case CmdFlag.logPlexFuckery:
-					parsedArgs.logPlexStillLivingDangerously = true;
 					break;
 				
 				case CmdFlag.logOutgoingRequests:

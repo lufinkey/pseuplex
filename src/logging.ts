@@ -1,5 +1,4 @@
 import http from 'http';
-import stream from 'stream';
 import express from 'express';
 import type { PlexServerAccountInfo } from './plex/accounts';
 import { PlexNotificationSender, PlexNotificationSenderTypeToName } from './plex/notifications';
@@ -14,7 +13,6 @@ export type GeneralLoggingOptions = {
 };
 
 export type PlexLoggingOptions = {
-	logPlexStillLivingDangerously?: boolean;
 	logPlexTokenInfo?: boolean;
 };
 
@@ -321,15 +319,6 @@ export class Logger {
 	logPlexRequestHandlerFailed(userReq: express.Request, userRes: express.Response, error: Error): boolean {
 		const logsAnyUrls = this.options.logUserRequests || this.options.logProxyRequests || this.options.logProxyResponses;
 		console.error(`Plex request handler failed${!logsAnyUrls ? ` for ${userReq.originalUrl} :` : ':'}`);
-		console.error(error);
-		return true;
-	}
-
-	logPlexStillLivingDangerously(message: string, error: Error): boolean {
-		if(!this.options.logPlexStillLivingDangerously) {
-			return false;
-		}
-		console.error(message);
 		console.error(error);
 		return true;
 	}

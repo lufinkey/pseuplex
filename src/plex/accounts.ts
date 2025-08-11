@@ -72,11 +72,13 @@ export class PlexServerAccountsStore {
 						}
 					});
 				} catch(error) {
-					// 401 means the token isn't authorized as the server owner
-					if((error as HttpResponseError).httpResponse?.status == 401) {
+					// 401 or 403 means the token isn't authorized as the server owner
+					//  (this changed from 401 to 403 in a version update)
+					const httpResponse = (error as HttpResponseError).httpResponse;
+					if(httpResponse?.status == 401 || httpResponse?.status == 403) {
 						return null;
 					}
-					// all non-401 errors should still get thrown
+					// all non 401/403 errors should still get thrown
 					throw error;
 				}
 				// check that required data exists
@@ -96,8 +98,11 @@ export class PlexServerAccountsStore {
 						},
 					});
 				} catch (error) {
-					if((error as HttpResponseError).httpResponse?.status == 401) {
-						this._logger?.logPlexStillLivingDangerously("The plex server owner wasn't able to fetch account info:", error);
+					const httpResponse = (error as HttpResponseError).httpResponse;
+					if(httpResponse?.status == 401 || httpResponse?.status == 403) {
+						// this shouldn't hit, but since there was a past version of plex where it did (as a bug), we should log here and handle gracefully
+						console.error("The plex server owner wasn't able to fetch account info:");
+						console.error(error);
 						return null;
 					}
 					throw error;

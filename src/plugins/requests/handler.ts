@@ -246,7 +246,7 @@ export class PlexRequestsHandler implements PseuplexMetadataProvider {
 		// ensure user is allowed to make requests to this request provider
 		const userToken = context.plexAuthContext['X-Plex-Token'];
 		if(!userToken || !(await reqProvider.canPlexUserMakeRequests(userToken, context.plexUserInfo))) {
-			throw httpError(401, `User is not allowed to make ${reqProvider.slug} requests`);
+			throw httpError(403, `User is not allowed to make ${reqProvider.slug} requests`);
 		}
 		// get numeric media type
 		let numericMediaType = plexTypes.PlexMediaItemTypeToNumeric[id.mediaType];

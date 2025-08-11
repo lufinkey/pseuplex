@@ -288,7 +288,7 @@ export class PseuplexApp {
 					return;
 				}
 				if (!req.plex.userInfo.isServerOwner) {
-					next(httpError(401, "Get out of here you sussy baka"));
+					next(httpError(403, "Get out of here you sussy baka"));
 					return;
 				}
 				next();

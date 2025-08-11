@@ -233,7 +233,7 @@ export default (class OverseerrRequestsProvider implements RequestsProvider {
 		const userToken = options.context.plexAuthContext['X-Plex-Token'];
 		const overseerrUser = userToken ? await this._getOverseerrUserFromPlexUser(userToken, options.context.plexUserInfo) : null;
 		if(!overseerrUser) {
-			throw httpError(401, `User is not allowed to request media from ${this.slug}`);
+			throw httpError(403, `User is not allowed to request media from ${this.slug}`);
 		}
 		const reqItem = await this._getRequestableItem(plexItem);
 		if(reqItem.season == null && options.season != null) {

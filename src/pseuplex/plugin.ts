@@ -6,7 +6,10 @@ import { IncomingPlexAPIRequest } from '../plex/requesthandling';
 import { PseuplexMetadataChildrenPage, PseuplexMetadataPage, PseuplexRequestContext } from './types';
 import { PseuplexHubProvider } from './hub';
 import { PseuplexMetadataProvider, PseuplexRelatedHubsSource } from './metadata';
-import { PseuplexMetadataIDParts, PseuplexPartialMetadataIDParts } from './metadataidentifier';
+import {
+	PseuplexMetadataIDParts,
+	PseuplexPartialMetadataIDString
+} from './metadataidentifier';
 import { PseuplexSection } from './section';
 
 
@@ -31,12 +34,12 @@ export type PseuplexMetadataRelatedHubsResponseFilterContext = PseuplexResponseF
 };
 
 export type PseuplexMetadataFromProviderResponseFilterContext = PseuplexResponseFilterContext & {
-	metadataIds: string[];
+	metadataIds: PseuplexPartialMetadataIDString[];
 	metadataProvider: PseuplexMetadataProvider;
 };
 
 export type PseuplexMetadataRelatedHubsFromProviderResponseFilterContext = PseuplexResponseFilterContext & {
-	metadataId: string;
+	metadataId: PseuplexPartialMetadataIDString;
 	metadataProvider: PseuplexMetadataProvider;
 	from: PseuplexRelatedHubsSource;
 };
