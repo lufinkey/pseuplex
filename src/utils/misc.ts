@@ -254,6 +254,28 @@ export const isNullOrEmpty = (obj: any) => {
 	return (!obj || (obj instanceof Array && obj.length === 0));
 };
 
+const emptyOrWhitespaceRegex = /^\s*$/;
+
+export const isStringNullOrWhitespace = (str: string | undefined | null) => {
+	if(!str) {
+		return true;
+	}
+	return emptyOrWhitespaceRegex.test(str);
+};
+
+const newlineRegex = /\r?\n/;
+
+export const getFirstLineOfString = (str: string) => {
+	if(!str) {
+		return str;
+	}
+	let lineEndIndex = newlineRegex.exec(str)?.index;
+	if (lineEndIndex == null) {
+		lineEndIndex = str.length;
+	}
+	return str.substring(0, lineEndIndex);
+};
+
 export const mergeObjects = <T1 extends {[key: (string | number)]: any}, T2 extends {[key: (string | number)]: any}>(obj1: T1, obj2: T2 | null | undefined): (T1 & T2) => {
 	const newObj: any = {...obj1};
 	if(obj2) {

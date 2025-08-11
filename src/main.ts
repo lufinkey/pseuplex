@@ -20,6 +20,7 @@ import {
 	includeTracesForConsoleWarnAndError,
 	modConsoleColors,
 } from './utils/console';
+import { getAppVersionString } from './utils/version';
 import { RequestExecutor } from './fetching/RequestExecutor';
 import { PseuplexApp } from './pseuplex';
 import LetterboxdPlugin from './plugins/letterboxd';
@@ -52,6 +53,9 @@ const readPlexPrefsIfNeeded = async () => {
 };
 
 (async () => {
+	const appVersionString = await getAppVersionString();
+	console.log(`${constants.APP_NAME} ${appVersionString}`);
+
 	// parse command line arguments
 	args = parseCmdArgs(process.argv.slice(2));
 	if(!args.configPath) {
