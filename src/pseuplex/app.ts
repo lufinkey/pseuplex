@@ -432,7 +432,7 @@ export class PseuplexApp {
 					uriProp = transformArrayOrSingle(uriProp, (uri) => {
 						const originalURI = uri;
 						const uriParts = plexTypes.parsePlayQueueURI(uri);
-						if(!uriParts.path) {
+						if(!uriParts.path || (uriParts.machineIdentifier != plexMachineId && uriParts.machineIdentifier != "x")) {
 							return uri;
 						}
 						const metadataKeyParts = parseMetadataIDFromKey(uriParts.path, libraryMetadataPrefix);
@@ -1715,6 +1715,9 @@ export class PseuplexApp {
 
 	async resolvePlayQueueURI(uriParts: plexTypes.PlexPlayQueueURIParts, options: PseuplexPlayQueueURIResolverOptions): Promise<boolean> {
 		if(!uriParts.path) {
+			return false;
+		}
+		if(uriParts.machineIdentifier != options.plexMachineIdentifier && uriParts.machineIdentifier != "x") {
 			return false;
 		}
 		const libraryMetadataPath = '/library/metadata';
