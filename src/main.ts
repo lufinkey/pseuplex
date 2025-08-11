@@ -16,7 +16,10 @@ import {
 	watchSSLCertAndKeyChanges
 } from './utils/ssl';
 import { IPv4NormalizeMode } from './utils/ip';
-import { modConsoleColors } from './utils/console';
+import {
+	includeTracesForConsoleWarnAndError,
+	modConsoleColors,
+} from './utils/console';
 import { RequestExecutor } from './fetching/RequestExecutor';
 import { PseuplexApp } from './pseuplex';
 import LetterboxdPlugin from './plugins/letterboxd';
@@ -31,6 +34,9 @@ import { PlexPreferences } from './plex/types/preferences';
 import { PlexClient } from './plex/client';
 import { Logger, LoggingOptions } from './logging';
 
+if(process.env.NODE_ENV !== 'production') {
+	includeTracesForConsoleWarnAndError();
+}
 modConsoleColors();
 sharp.concurrency(1);
 sharp.cache(false);
