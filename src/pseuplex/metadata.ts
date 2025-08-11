@@ -58,6 +58,8 @@ export type PseuplexMetadataProviderParams = {
 	metadataBasePath?: string;
 	// Whether to use full metadata IDs in the transformed metadata keys
 	qualifiedMetadataIds?: boolean;
+	// Whether to include the "unavailable" status on the metadata if it's not available
+	includeMetadataUnavailability: boolean;
 	// Parameters to use when sending plex metadata requests
 	plexParams?: plexTypes.PlexMetadataPageParams;
 };
@@ -73,6 +75,8 @@ export type PseuplexMetadataChildrenProviderParams = {
 	metadataBasePath?: string;
 	// Whether to use full metadata IDs in the transformed metadata keys
 	qualifiedMetadataIds?: boolean;
+	// Whether to include the "unavailable" status on the metadata if it's not available
+	includeMetadataUnavailability: boolean;
 };
 
 export enum PseuplexRelatedHubsSource {
@@ -115,9 +119,13 @@ export type PseuplexMetadataProviderOptions = {
 	requestExecutor?: RequestExecutor;
 };
 
-export type PseuplexMetadataTransformOptions = {
+export type PseuplexMetadataPathTransformOptions = {
 	metadataBasePath: string;
-	qualifiedMetadataId: boolean;
+	qualifiedMetadataIds: boolean;
+}
+
+export type PseuplexMetadataTransformOptions = PseuplexMetadataPathTransformOptions & {
+	includeMetadataUnavailability: boolean;
 };
 
 export type PseuplexMetadataListPage<TMetadataItem> = {
@@ -321,12 +329,14 @@ export abstract class PseuplexMetadataProviderBase<TMetadataItem> implements Pse
 		const plexMatches: {[id: PseuplexPartialMetadataIDString]: (Promise<plexTypes.PlexMetadataItem | null> | plexTypes.PlexMetadataItem | null)} = {};
 		const providerItems: {[id: PseuplexPartialMetadataIDString]: TMetadataItem | Promise<TMetadataItem>} = {};
 		const transformOpts: PseuplexMetadataTransformOptions = {
-			qualifiedMetadataId: options.qualifiedMetadataIds ?? false,
+			qualifiedMetadataIds: options.qualifiedMetadataIds ?? false,
 			metadataBasePath: options.metadataBasePath ?? this.basePath,
+			includeMetadataUnavailability: options.includeMetadataUnavailability,
 		};
 		const externalPlexTransformOpts: PseuplexMetadataTransformOptions = {
-			qualifiedMetadataId: true,
-			metadataBasePath: '/library/metadata'
+			qualifiedMetadataIds: true,
+			metadataBasePath: '/library/metadata',
+			includeMetadataUnavailability: options.includeMetadataUnavailability,
 		};
 		const plextvMetadataParams = removeFileParamsFromMetadataParams(plexParams ?? {});
 		// process each id
@@ -494,7 +504,7 @@ export abstract class PseuplexMetadataProviderBase<TMetadataItem> implements Pse
 					});
 					// transform keys back to the original key used to fetch this item
 					let metadataId: string;
-					if(transformOpts.qualifiedMetadataId) {
+					if(transformOpts.qualifiedMetadataIds) {
 						metadataId = fullMetadataId;
 					} else {
 						metadataId = id;
@@ -549,21 +559,11 @@ export abstract class PseuplexMetadataProviderBase<TMetadataItem> implements Pse
 				// fetch the children from plex discover
 				const extPlexTransformOpts: PseuplexMetadataTransformOptions = {
 					metadataBasePath: options.metadataBasePath || '/library/metadata',
-					qualifiedMetadataId: options.qualifiedMetadataIds ?? true,
+					qualifiedMetadataIds: options.qualifiedMetadataIds ?? true,
+					includeMetadataUnavailability: options.includeMetadataUnavailability,
 				};
 				// get the guid for the given id
-				let guid = this.idToPlexGuidCache.get(id);
-				if(guid) {
-					guid = await guid;
-				} else {
-					const metadataItemsPage = await this.get([id], {
-						context,
-						includePlexDiscoverMatches: true,
-						includeUnmatched: false
-					});
-					const metadataItem = firstOrSingle(metadataItemsPage.MediaContainer?.Metadata);
-					guid = metadataItem?.guid;
-				}
+				const guid = await this.getPlexGUIDForID(id, context);
 				if(guid) {
 					// fetch the children from plex discover
 					const plexGuidParts = parsePlexMetadataGuidOrThrow(guid);
@@ -583,8 +583,9 @@ export abstract class PseuplexMetadataProviderBase<TMetadataItem> implements Pse
 		}
 		// we have the fetchMetadataItemChildren method, so we can call it
 		const transformOpts: PseuplexMetadataTransformOptions = {
-			qualifiedMetadataId: false,
-			metadataBasePath: this.basePath,
+			metadataBasePath: options.metadataBasePath || this.basePath,
+			qualifiedMetadataIds: options.qualifiedMetadataIds ?? false,
+			includeMetadataUnavailability: options.includeMetadataUnavailability,
 		};
 		const childItemsPage = await this.fetchMetadataItemChildren(id, {
 			plexParams,

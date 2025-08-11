@@ -28,7 +28,7 @@ import {
 	PseuplexRelatedHubsSource,
 	getPlexRelatedHubsEndpoints,
 	PseuplexMetadataRelatedHubsResponseFilterContext,
-	PseuplexMetadataItem
+	PseuplexMetadataItem,
 } from '../../pseuplex';
 import { LetterboxdPluginConfig } from './config';
 import {
@@ -89,17 +89,12 @@ export default (class LetterboxdPlugin implements LetterboxdPluginDef, PseuplexP
 				override fetch(letterboxdUsername: string): PseuplexHub | Promise<PseuplexHub> {
 					// TODO validate that the profile exists
 					return createUserFollowingFeedHub(letterboxdUsername, {
+						...app.requiredHubMetadataTransformOptions(),
 						hubPath: `${this.basePath}/${letterboxdUsername}`,
 						style: plexTypes.PlexHubStyle.Shelf,
 						promoted: true,
 						uniqueItemsOnly: true,
 						letterboxdMetadataProvider: self.metadata,
-						...(app.alwaysUseLibraryMetadataPath ? {
-							metadataTransformOptions: {
-								metadataBasePath: '/library/metadata',
-								qualifiedMetadataId: true,
-							},
-						} : undefined),
 						//section: section,
 						//matchToPlexServerMetadata: true
 						logger: app.logger,
@@ -120,17 +115,12 @@ export default (class LetterboxdPlugin implements LetterboxdPluginDef, PseuplexP
 
 				override fetch(metadataId: PseuplexPartialMetadataIDString): PseuplexHub | Promise<PseuplexHub> {
 					return createSimilarItemsHub(metadataId, {
+						...app.requiredHubMetadataTransformOptions(),
 						relativePath: this.relativePath,
 						title: "Similar Films on Letterboxd",
 						style: plexTypes.PlexHubStyle.Shelf,
 						//promoted: true,
 						letterboxdMetadataProvider: self.metadata,
-						...(app.alwaysUseLibraryMetadataPath ? {
-							metadataTransformOptions: {
-								metadataBasePath: '/library/metadata',
-								qualifiedMetadataId: true,
-							},
-						} : undefined),
 						defaultCount: 12,
 						logger: app.logger,
 						requestExecutor,
@@ -185,16 +175,11 @@ export default (class LetterboxdPlugin implements LetterboxdPluginDef, PseuplexP
 
 				override fetch(listId: lbTransform.PseuplexLetterboxdListID): PseuplexHub | Promise<PseuplexHub> {
 					return createListHub(listId, {
+						...app.requiredHubMetadataTransformOptions(),
 						path: `${this.basePath}/${listId}`,
 						style: plexTypes.PlexHubStyle.Shelf,
 						promoted: true,
 						letterboxdMetadataProvider: self.metadata,
-						...(app.alwaysUseLibraryMetadataPath ? {
-							metadataTransformOptions: {
-								metadataBasePath: '/library/metadata',
-								qualifiedMetadataId: true,
-							},
-						} : undefined),
 						defaultCount: 12,
 						logger: app.logger,
 						requestExecutor,
@@ -263,7 +248,7 @@ export default (class LetterboxdPlugin implements LetterboxdPluginDef, PseuplexP
 		router.get(`${this.metadata.basePath}/:id`, [
 			this.app.middlewares.plexAuthentication,
 			this.app.middlewares.plexRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexMetadataPage> => {
-				console.log(`\ngot request for letterboxd item ${req.params.id}`);
+				console.log(`Got request for letterboxd item ${req.params.id}`);
 				const context = this.app.contextForRequest(req);
 				const params: plexTypes.PlexMetadataPageParams = req.plex.requestParams;
 				const itemIdsStr = req.params.id?.trim();
@@ -279,6 +264,7 @@ export default (class LetterboxdPlugin implements LetterboxdPluginDef, PseuplexP
 					includeUnmatched: true,
 					transformMatchKeys: true,
 					metadataBasePath: metadataProvider.basePath,
+					includeMetadataUnavailability: this.app.sendsMetadataUnavailability,
 					qualifiedMetadataIds: false,
 					plexParams: params,
 				});

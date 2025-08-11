@@ -14,6 +14,7 @@ export type Config = {
 	host?: string;
 	port: number;
 	ipv4ForwardingMode?: IPv4NormalizeModeKey;
+	sendMetadataUnavailability?: boolean;
 	forwardMetadataRefreshToPluginMetadata?: boolean;
 	imageOverlays?: {
 		enabled?: boolean;

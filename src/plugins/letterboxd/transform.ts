@@ -20,6 +20,7 @@ import {
 } from '../../utils/misc';
 import { LetterboxdMetadataProvider } from './metadata';
 import { booleanQueryParam } from '../../plex/api/serialization';
+import { nonexistantMediaItems } from '../../pseuplex/media';
 
 export const partialMetadataIdFromFilmInfo = (filmInfo: letterboxd.FilmPage): PseuplexPartialMetadataIDString => {
 	return stringifyPartialMetadataID({
@@ -56,7 +57,7 @@ export const filmInfoToPlexMetadata = (filmInfo: letterboxd.FilmPage, context: P
 	const fullMetadataId = fullMetadataIdFromFilmInfo(filmInfo,{asUrl:false});
 	return {
 		// guid: fullMetadataIdFromFilmInfo(filmInfo, {asUrl:true}),
-		key: combinePathSegments(options.metadataBasePath, options.qualifiedMetadataId ? fullMetadataId : partialMetadataId),
+		key: combinePathSegments(options.metadataBasePath, options.qualifiedMetadataIds ? fullMetadataId : partialMetadataId),
 		ratingKey: fullMetadataId,
 		type: plexTypes.PlexMediaItemType.Movie,
 		title: filmInfo.ldJson.name,
@@ -99,18 +100,9 @@ export const filmInfoToPlexMetadata = (filmInfo: letterboxd.FilmPage, context: P
 			return viewingToPlexReview(viewing);
 		}),
 		// dont include this for the older (non react native) Android app
-		Media: (!plexTypes.plexUserIsNativeAndroidMobileAppPre2025(context.plexAuthContext)) ? [
-			{
-				id: 'nonexistant' as any,
-				Part: [
-					{
-						id: 'nonexistant' as any,
-						accessible: false,
-						exists: false,
-					} as plexTypes.PlexMediaPart
-				]
-			} as plexTypes.PlexMedia
-		] : undefined,
+		Media: nonexistantMediaItems({
+			unavailable: options.includeMetadataUnavailability,
+		}, context)
 	};
 };
 
@@ -145,7 +137,7 @@ export const fullMetadataIdFromFilm = (film: letterboxd.Film, opts:{asUrl:boolea
 
 export const filmToPlexMetadata = (film: letterboxd.Film, options: PseuplexMetadataTransformOptions): plexTypes.PlexMetadataItem => {
 	const fullMetadataId = fullMetadataIdFromFilm(film, {asUrl:false});
-	const metadataId = options.qualifiedMetadataId ? fullMetadataId : partialMetadataIdFromFilm(film);
+	const metadataId = options.qualifiedMetadataIds ? fullMetadataId : partialMetadataIdFromFilm(film);
 	return {
 		// guid: fullMetadataIdFromFilm(film, {asUrl:true}),
 		key: combinePathSegments(options.metadataBasePath, metadataId),

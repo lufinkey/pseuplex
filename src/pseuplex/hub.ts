@@ -1,7 +1,11 @@
 import * as plexTypes from '../plex/types';
 import { parseMetadataIDFromKey } from '../plex/metadataidentifier';
 import { CachedFetcher } from '../fetching/CachedFetcher';
-import { PseuplexMetadataTransformOptions } from './metadata';
+import type {
+	PseuplexMetadataPathTransformOptions,
+	PseuplexMetadataTransformOptions,
+	PseuplexMetadataProvider,
+} from './metadata';
 import type { PseuplexRequestContext } from './types';
 import { parseMetadataID, stringifyPartialMetadataID } from './metadataidentifier';
 
@@ -21,7 +25,23 @@ export type PseuplexHubSectionInfo = {
 	id: string;
 	title: string;
 	uuid: string;
-}
+};
+
+export type PseuplexHubMetadataTransformOptions = {
+	metadataTransformOptions?: PseuplexMetadataPathTransformOptions;
+	includeMetadataUnavailability: boolean;
+};
+
+export const getMetadataTransformOptionsForHub = (metadataProviderBasePath: string, options: PseuplexHubMetadataTransformOptions): PseuplexMetadataTransformOptions => {
+	return options.metadataTransformOptions ? {
+		...options.metadataTransformOptions,
+		includeMetadataUnavailability: options.includeMetadataUnavailability,
+	} : {
+		metadataBasePath: metadataProviderBasePath,
+		qualifiedMetadataIds: false,
+		includeMetadataUnavailability: options.includeMetadataUnavailability,
+	};
+};
 
 export abstract class PseuplexHub {
 	abstract readonly metadataTransformOptions: PseuplexMetadataTransformOptions;
@@ -71,7 +91,7 @@ export abstract class PseuplexHub {
 				let metadataId = parseMetadataIDFromKey(item.key, metadataBasePath)?.id;
 				if (!metadataId) {
 					metadataId = item.ratingKey;
-					if(metadataId && !transformOpts.qualifiedMetadataId) {
+					if(metadataId && !transformOpts.qualifiedMetadataIds) {
 						// unqualify metadata id
 						const fullMetadataIdParts = parseMetadataID(metadataId);
 						metadataId = stringifyPartialMetadataID(fullMetadataIdParts);

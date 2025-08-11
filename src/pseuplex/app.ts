@@ -62,6 +62,7 @@ import {
 	parseMetadataID,
 } from './metadataidentifier';
 import {
+	PseuplexMetadataPathTransformOptions,
 	PseuplexMetadataProvider,
 	PseuplexMetadataProviderParams,
 	PseuplexMetadataTransformOptions,
@@ -114,6 +115,7 @@ import {
 import { IPv4NormalizeMode } from '../utils/ip';
 import type { WebSocketEventMap } from '../utils/websocket';
 import { applyOverlayToImage } from '../utils/images';
+import { PseuplexHubMetadataTransformOptions } from './hub';
 
 
 // plugins
@@ -161,6 +163,7 @@ export type PseuplexAppOptions = {
 	port: number;
 	ipv4ForwardingMode?: IPv4NormalizeMode;
 	forwardMetadataRefreshToPluginMetadata?: boolean;
+	sendMetadataUnavailability?: boolean;
 	overwritePlexPrivatePort?: number | boolean;
 	alwaysUseLibraryMetadataPath?: boolean;
 	serverOptions: https.ServerOptions;
@@ -186,7 +189,8 @@ export class PseuplexApp {
 	readonly slug: string;
 	readonly config: PseuplexAppConfig;
 	readonly port: number;
-	readonly forwardMetadataRefreshToPluginMetadata: boolean;
+	readonly forwardsMetadataRefreshToPluginMetadata: boolean;
+	readonly sendsMetadataUnavailability: boolean;
 	readonly overwritePlexPrivatePort: number | boolean;
 	readonly logger?: Logger;
 	readonly plexServerNotificationsOptions: PseuplexPlexServerNotificationsOptions;
@@ -233,9 +237,10 @@ export class PseuplexApp {
 		this.slug = options.slug ?? 'pseuplex';
 		this.config = options.config;
 		this.port = options.port;
-		this.forwardMetadataRefreshToPluginMetadata = options.forwardMetadataRefreshToPluginMetadata ?? true;
+		this.forwardsMetadataRefreshToPluginMetadata = options.forwardMetadataRefreshToPluginMetadata ?? true;
+		this.sendsMetadataUnavailability = options.sendMetadataUnavailability ?? true;
 		this.overwritePlexPrivatePort = options.overwritePlexPrivatePort ?? true;
-		this.alwaysUseLibraryMetadataPath = (options.mapPseuplexMetadataIds || this.forwardMetadataRefreshToPluginMetadata || options.alwaysUseLibraryMetadataPath) ?? false;
+		this.alwaysUseLibraryMetadataPath = (options.mapPseuplexMetadataIds || this.forwardsMetadataRefreshToPluginMetadata || options.alwaysUseLibraryMetadataPath) ?? false;
 		this.plexServerNotificationsOptions = options.plexServerNotifications ?? {};
 		this.logger = options.logger;
 		if(options.mapPseuplexMetadataIds) {
@@ -1191,7 +1196,7 @@ export class PseuplexApp {
 
 
 	shouldListenToPlexServerNotifications(): boolean {
-		if(this.forwardMetadataRefreshToPluginMetadata) {
+		if(this.forwardsMetadataRefreshToPluginMetadata) {
 			return true;
 		}
 		for(const pluginSlug of Object.keys(this.plugins)) {
@@ -1350,7 +1355,7 @@ export class PseuplexApp {
 	private onPlexServerNotification(data: plexTypes.PlexNotificationMessage) {
 		const notification = data.NotificationContainer;
 		// forward metadata refresh if needed
-		if(this.forwardMetadataRefreshToPluginMetadata && this.pluginMetadataAccessCache) {
+		if(this.forwardsMetadataRefreshToPluginMetadata && this.pluginMetadataAccessCache) {
 			// if activity or timeline notification finishes refreshing
 			//  then we should try to forward that notification to plugin metadata ids or keys
 			switch(notification.type) {
@@ -1395,9 +1400,26 @@ export class PseuplexApp {
 		}
 	}
 
-	private _plexSendNotificationOptions(): SendPlexNotificationOptions {
+	plexSendNotificationOptions(): SendPlexNotificationOptions {
 		return {
 			logger: this.logger,
+		};
+	}
+
+	requiredMetadataPathTransformOptions(): (PseuplexMetadataPathTransformOptions | undefined) {
+		if(this.alwaysUseLibraryMetadataPath) {
+			return {
+				metadataBasePath: '/library/metadata',
+				qualifiedMetadataIds: true,
+			};
+		}
+		return undefined;
+	}
+
+	requiredHubMetadataTransformOptions(): PseuplexHubMetadataTransformOptions {
+		return {
+			metadataTransformOptions: this.requiredMetadataPathTransformOptions(),
+			includeMetadataUnavailability: this.sendsMetadataUnavailability,
 		};
 	}
 
@@ -1425,7 +1447,8 @@ export class PseuplexApp {
 		// create provider params
 		const transformOpts: PseuplexMetadataTransformOptions = {
 			metadataBasePath: '/library/metadata',
-			qualifiedMetadataId: true
+			qualifiedMetadataIds: true,
+			includeMetadataUnavailability: this.sendsMetadataUnavailability,
 		};
 		const providerParams: PseuplexMetadataProviderParams = {
 			...options,
@@ -1433,7 +1456,8 @@ export class PseuplexApp {
 			includeUnmatched: true,
 			transformMatchKeys: true,
 			metadataBasePath: transformOpts.metadataBasePath,
-			qualifiedMetadataIds: transformOpts.qualifiedMetadataId
+			qualifiedMetadataIds: transformOpts.qualifiedMetadataIds,
+			includeMetadataUnavailability: transformOpts.includeMetadataUnavailability,
 		};
 		// get metadata for each id
 		const metadataPages = (await Promise.all(metadataIds.map(async (metadataId) => {
@@ -1559,7 +1583,8 @@ export class PseuplexApp {
 		// create provider params
 		const transformOpts: PseuplexMetadataTransformOptions = {
 			metadataBasePath: '/library/metadata',
-			qualifiedMetadataId: true
+			qualifiedMetadataIds: true,
+			includeMetadataUnavailability: this.sendsMetadataUnavailability,
 		};
 		// get metadata for each id
 		let source = metadataId.source;
@@ -1613,7 +1638,8 @@ export class PseuplexApp {
 			const page = await metadataProvider.getChildren(partialId, {
 				...options,
 				metadataBasePath: transformOpts.metadataBasePath,
-				qualifiedMetadataIds: transformOpts.qualifiedMetadataId,
+				qualifiedMetadataIds: transformOpts.qualifiedMetadataIds,
+				includeMetadataUnavailability: transformOpts.includeMetadataUnavailability,
 			});
 			// cache metadata access if needed
 			if(options.cachePluginMetadataAccess && this.pluginMetadataAccessCache) {
@@ -1710,6 +1736,7 @@ export class PseuplexApp {
 							includeUnmatched: false,
 							transformMatchKeys: false, // keep the key from the plex server
 							qualifiedMetadataIds: true,
+							includeMetadataUnavailability: this.sendsMetadataUnavailability,
 							metadataBasePath: libraryMetadataPath,
 						});
 					} else {
@@ -1786,6 +1813,7 @@ export class PseuplexApp {
 					includeUnmatched: false,
 					transformMatchKeys: false, // keep the key from the plex server
 					qualifiedMetadataIds: true,
+					includeMetadataUnavailability: this.sendsMetadataUnavailability,
 					metadataBasePath: libraryMetadataPath,
 				})).MediaContainer.Metadata || [];
 				if(!(metadatas instanceof Array)) {
@@ -1940,21 +1968,23 @@ export class PseuplexApp {
 			return;
 		}
 		// check if hub key needs to be mapped
-		let metadataKeyParts = parseMetadataIDFromKey(hub.hubKey, '/library/metadata/');
-		let metadataIds: (string | number)[] | undefined = metadataKeyParts?.id.split(',');
-		if(metadataIds) {
-			for(let i=0; i<metadataIds.length; i++) {
-				const metadataIdString = `${metadataIds[i]}`;
-				const metadataId = parseMetadataID(metadataIdString);
-				if(!metadataId.source || metadataId.source == PseuplexMetadataSource.Plex) {
-					// don't map plex IDs
-					continue;
+		if(hub.hubKey) {
+			let metadataKeyParts = parseMetadataIDFromKey(hub.hubKey, '/library/metadata/');
+			let metadataIds: (string | number)[] | undefined = metadataKeyParts?.id.split(',');
+			if(metadataIds) {
+				for(let i=0; i<metadataIds.length; i++) {
+					const metadataIdString = `${metadataIds[i]}`;
+					const metadataId = parseMetadataID(metadataIdString);
+					if(!metadataId.source || metadataId.source == PseuplexMetadataSource.Plex) {
+						// don't map plex IDs
+						continue;
+					}
+					// map the ID
+					const publicId = privateToPublicIds?.[metadataIdString] ?? this.metadataIdMappings.getPublicIDFromPrivateID(metadataIdString);
+					metadataIds[i] = publicId;
 				}
-				// map the ID
-				const publicId = privateToPublicIds?.[metadataIdString] ?? this.metadataIdMappings.getPublicIDFromPrivateID(metadataIdString);
-				metadataIds[i] = publicId;
+				hub.hubKey = `/library/metadata/${metadataIds.join(',')}` + (metadataKeyParts?.relativePath ?? '');
 			}
-			hub.hubKey = `/library/metadata/${metadataIds.join(',')}` + (metadataKeyParts?.relativePath ?? '');
 		}
 		// remap metadata items if needed
 		if(hub.Metadata) {
@@ -2139,7 +2169,7 @@ export class PseuplexApp {
 					const mediaTypeNumeric = plexTypes.PlexMediaItemTypeToNumeric[guidParts.type] ?? guidParts.type;
 					const now = (new Date()).getTime() / 1000;
 					// get cached plugin metadata IDs for the guid
-					const sendNotifOptions = this._plexSendNotificationOptions();
+					const sendNotifOptions = this.plexSendNotificationOptions();
 					this.pluginMetadataAccessCache!.forEachAccessorForGuid(guid, ({token,clientId,metadataIds,metadataIdsMap}) => {
 						setTimeout(() => {
 							try {
@@ -2286,7 +2316,7 @@ export class PseuplexApp {
 				// send notifications for guids after delay
 				for(const guid of guids) {
 					const notification = guidsToNotifications[guid];
-					const sendNotifOptions = this._plexSendNotificationOptions();
+					const sendNotifOptions = this.plexSendNotificationOptions();
 					this.pluginMetadataAccessCache!.forEachAccessorForGuid(guid, ({token,clientId,metadataIds,metadataIdsMap}) => {
 						setTimeout(() => {
 							// get notification senders for client
@@ -2337,6 +2367,9 @@ export class PseuplexApp {
 	}
 
 	sendMetadataUnavailableNotificationsIfNeeded(resData: PseuplexMetadataPage, params: plexTypes.PlexMetadataPageParams, context: PseuplexRequestContext) {
+		if(!this.sendsMetadataUnavailability) {
+			return;
+		}
 		if(resData?.MediaContainer?.Metadata) {
 			let metadataItems = resData.MediaContainer.Metadata;
 			if(!(metadataItems instanceof Array)) {
@@ -2358,7 +2391,7 @@ export class PseuplexApp {
 							return;
 						}
 						const childrenSuffix = '/children';
-						const sendNotifOptions = this._plexSendNotificationOptions();
+						const sendNotifOptions = this.plexSendNotificationOptions();
 						for(const metadataItem of unavailableItems) {
 							if(metadataItem.Pseuplex.unavailable) {
 								let metadataItemKey = metadataItem.key;

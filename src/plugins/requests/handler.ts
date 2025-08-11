@@ -433,7 +433,8 @@ export class PlexRequestsHandler implements PseuplexMetadataProvider {
 		resData.MediaContainer.Metadata = transformArrayOrSingle(resData.MediaContainer.Metadata, (metadataItem) => {
 			return extPlexTransform.transformExternalPlexMetadata(metadataItem, this.plexMetadataClient.serverURL, context, {
 				metadataBasePath: `/library/metadata`,
-				qualifiedMetadataId: true,
+				qualifiedMetadataIds: true,
+				includeMetadataUnavailability: this.plugin.app.sendsMetadataUnavailability,
 			});
 		});
 		// update response content

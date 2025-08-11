@@ -35,7 +35,7 @@ export const templateItemToPlexMetadata = (item: any, context: PseuplexRequestCo
 	const fullMetadataId = fullMetadataIdFromTemplateItem(item, {asUrl:false});
 	return {
 		// guid: fullMetadataIdFromTemplateItem(item, {asUrl:true}),
-		key: combinePathSegments(options.metadataBasePath, options.qualifiedMetadataId ? fullMetadataId : partialMetadataId),
+		key: combinePathSegments(options.metadataBasePath, options.qualifiedMetadataIds ? fullMetadataId : partialMetadataId),
 		ratingKey: fullMetadataId,
 		type: plexTypes.PlexMediaItemType.Movie,
 		//slug: item.slug,
