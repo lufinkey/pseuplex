@@ -27,6 +27,7 @@ export const installPlugins = async (cfg: Config) => {
 	console.log(`Installing plugins: ${JSON.stringify(cfg.plugins, null, '\t')}`);
 	const pluginArgs = pluginIds.map((id) => `${getPluginModuleName(id)}@${cfg.plugins![id]}`);
 	const pkgMgrName = process.env.NODE_PACKAGEMANAGER || "npm";
+	// TODO run install differently depending on process.env.npm_lifecycle_event
 	await executeAsync(pkgMgrName, ["install", "--prefix", "./plugindeps", "--no-save", ...pluginArgs], {
 		cwd: `${require.main!.path}/../`,
 	});
