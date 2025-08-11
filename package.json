@@ -4,7 +4,7 @@
 	"version": "0.2.0",
 	"description": "A middleware for the plex server API",
 	"bin": {
-		"pseuplex": "bin/main.js"
+		"pseuplex": "dist/main.js"
 	},
 	"main": "dist/index.js",
 	"types": "dist/index.d.ts",
