@@ -10,8 +10,8 @@
 	"scripts": {
 		"build": "tsc",
 		"setup-dev-modules": "rm -rf node_modules/letterboxd-retriever && ln -s \"$PWD/../letterboxd-retriever\" node_modules/letterboxd-retriever",
-		"start": "tsc && node dist/main.js",
-		"start_test": "tsc && node --trace-deprecation dist/main.js --config=config/config.json --verbose --verbose-traffic",
+		"start": "tsc && node --enable-source-maps dist/main.js",
+		"start_test": "tsc && node --enable-source-maps --trace-deprecation dist/main.js --config=config/config.json --verbose --verbose-traffic",
 		"debug": "tsc && node --inspect dist/main.js --config=config/config.json --verbose",
 		"lint": "eslint . --ext .ts"
 	},
