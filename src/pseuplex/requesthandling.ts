@@ -9,7 +9,10 @@ import {
 	parseMetadataID,
 	PseuplexMetadataIDParts
 } from './metadataidentifier';
-import { IDMappings } from './idmappings';
+import {
+	PseuplexIDRemappings,
+	PseuplexPrivateToPublicIDsMap
+} from './idmappings';
 import {
 	asyncRequestHandler,
 } from '../utils/requesthandling';
@@ -36,16 +39,12 @@ export const parseMetadataIdFromPathParam = (metadataIdString: string): Pseuplex
 	return parseMetadataID(metadataIdString);
 };
 
-export type PlexPrivateToPublicIDsMap = {
-	[privateId: string]: (number | string)
-};
-
 export type PseuplexRemappedMetadataIdsRequest = IncomingPlexAPIRequest & {
-	remappedPlexMetadataIds: PlexPrivateToPublicIDsMap;
+	remappedPlexMetadataIds: PseuplexPrivateToPublicIDsMap;
 };
 
 export const remapPublicToPrivateMetadataIdMiddleware = (
-	metadataIdMappings: IDMappings,
+	metadataIdMappings: PseuplexIDRemappings,
 	options: PlexAPIRequestHandlerOptions,
 	replaceIdInPath: (req: express.Request, newMetadataId: string) => string,
 ) => {
@@ -75,7 +74,7 @@ export const remapPublicToPrivateMetadataIdMiddleware = (
 };
 
 export const remapPublicToPrivateMetadataIdsMiddleware = (
-	metadataIdMappings: IDMappings,
+	metadataIdMappings: PseuplexIDRemappings,
 	options: PlexAPIRequestHandlerOptions,
 	replaceIdInPath: (req: express.Request, newMetadataIds: string) => string,
 ) => {

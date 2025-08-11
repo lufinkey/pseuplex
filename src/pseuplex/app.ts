@@ -84,14 +84,17 @@ import {
 import {
 	parseMetadataIdFromPathParam,
 	parseMetadataIdsFromPathParam,
-	PlexPrivateToPublicIDsMap,
 	pseuplexMetadataIdRequestMiddleware,
 	pseuplexMetadataIdsRequestMiddleware,
 	PseuplexRemappedMetadataIdsRequest,
 	remapPublicToPrivateMetadataIdMiddleware,
 	remapPublicToPrivateMetadataIdsMiddleware
 } from './requesthandling';
-import { IDMappings } from './idmappings';
+import { PseuplexHubMetadataTransformOptions } from './hub';
+import {
+	PseuplexIDRemappings,
+	PseuplexPrivateToPublicIDsMap,
+} from './idmappings';
 import { PseuplexSection } from './section';
 import {
 	sendMediaUnavailableNotifications,
@@ -115,7 +118,6 @@ import {
 import { IPv4NormalizeMode } from '../utils/ip';
 import type { WebSocketEventMap } from '../utils/websocket';
 import { applyOverlayToImage } from '../utils/images';
-import { PseuplexHubMetadataTransformOptions } from './hub';
 
 
 // plugins
@@ -198,7 +200,7 @@ export class PseuplexApp {
 	readonly metadataProviders: { [sourceSlug: string]: PseuplexMetadataProvider } = {};
 	readonly responseFilters: PseuplexResponseFilterLists = {};
 	readonly alwaysUseLibraryMetadataPath: boolean;
-	readonly metadataIdMappings?: IDMappings;
+	readonly metadataIdMappings?: PseuplexIDRemappings;
 
 	readonly plexServerURL: string;
 	readonly plexAdminAuthContext: plexTypes.PlexAuthContext;
@@ -244,7 +246,7 @@ export class PseuplexApp {
 		this.plexServerNotificationsOptions = options.plexServerNotifications ?? {};
 		this.logger = options.logger;
 		if(options.mapPseuplexMetadataIds) {
-			this.metadataIdMappings = IDMappings.create();
+			this.metadataIdMappings = PseuplexIDRemappings.create();
 		}
 		
 		// define properties
@@ -688,7 +690,7 @@ export class PseuplexApp {
 				// remap IDs if needed
 				if(this.metadataIdMappings) {
 					forArrayOrSingle(resData.MediaContainer.Metadata, (metadataItem) => {
-						this.remapMetadataIdIfNeeded(metadataItem, privateToPublicIds);
+						this.remapMetadataIdsIfNeeded(metadataItem, privateToPublicIds);
 					});
 				}
 				// send unavailable notifications if needed
@@ -775,7 +777,7 @@ export class PseuplexApp {
 				// remap IDs if needed
 				if(this.metadataIdMappings) {
 					forArrayOrSingle(resData.MediaContainer.Metadata, (metadataItem) => {
-						this.remapMetadataIdIfNeeded(metadataItem, privateToPublicIds);
+						this.remapMetadataIdsIfNeeded(metadataItem, privateToPublicIds);
 					});
 				}
 				// send unavailable notifications if needed
@@ -884,7 +886,7 @@ export class PseuplexApp {
 					// remap private IDs if needed
 					if(this.metadataIdMappings) {
 						forArrayOrSingle(resData.MediaContainer.Metadata, (metadataItem) => {
-							this.remapMetadataIdIfNeeded(metadataItem);
+							this.remapMetadataIdsIfNeeded(metadataItem);
 						});
 					}
 					return resData;
@@ -1963,7 +1965,7 @@ export class PseuplexApp {
 	}
 
 	// remaps private IDs (such as "letterboxd:film:mission-impossible") to plex-acceptable IDs (such as "-2")
-	remapHubMetadataIdsIfNeeded(hub: plexTypes.PlexHubWithItems, privateToPublicIds?: PlexPrivateToPublicIDsMap) {
+	remapHubMetadataIdsIfNeeded(hub: plexTypes.PlexHubWithItems, privateToPublicIds?: PseuplexPrivateToPublicIDsMap) {
 		if(!this.metadataIdMappings) {
 			return;
 		}
@@ -1989,36 +1991,34 @@ export class PseuplexApp {
 		// remap metadata items if needed
 		if(hub.Metadata) {
 			for(const metadataItem of hub.Metadata) {
-				this.remapMetadataIdIfNeeded(metadataItem, privateToPublicIds);
+				this.remapMetadataIdsIfNeeded(metadataItem, privateToPublicIds);
 			}
 		}
 	}
 
 	// remaps private IDs (such as "letterboxd:film:mission-impossible") to plex-acceptable IDs (such as "-2")
-	remapMetadataIdIfNeeded(metadataItem: plexTypes.PlexMetadataItem, privateToPublicIds?: PlexPrivateToPublicIDsMap) {
+	remapMetadataIdsIfNeeded(metadataItem: plexTypes.PlexMetadataItem, privateToPublicIds?: PseuplexPrivateToPublicIDsMap) {
 		if(!this.metadataIdMappings) {
 			return;
 		}
-		// check if ID needs to be mapped
-		let metadataKeyParts = parseMetadataIDFromKey(metadataItem.key, '/library/metadata/');
-		let metadataIdString = metadataKeyParts?.id;
-		if(!metadataIdString) {
-			metadataIdString = metadataItem.ratingKey;
-			if(!metadataIdString) {
-				// failed to find the ID of the item
-				return;
-			}
+		if(metadataItem.key) {
+			metadataItem.key = this.metadataIdMappings.getPublicSanitizedMetadataKey(metadataItem.key, metadataItem.ratingKey, privateToPublicIds);
 		}
-		const metadataId = parseMetadataID(metadataIdString);
-		if(!metadataId.source || metadataId.source == PseuplexMetadataSource.Plex) {
-			// don't map plex IDs
-			return;
+		if(metadataItem.ratingKey) {
+			metadataItem.ratingKey = this.metadataIdMappings.getPublicSanitizedMetadataRatingKey(metadataItem.ratingKey, privateToPublicIds);
 		}
-		// map the ID
-		const publicId = privateToPublicIds?.[metadataIdString] ?? this.metadataIdMappings.getPublicIDFromPrivateID(metadataIdString);
-		const publicPath = `/library/metadata/${publicId}` + (metadataKeyParts?.relativePath ?? '');
-		metadataItem.ratingKey = `${publicId}`;
-		metadataItem.key = publicPath;
+		if(metadataItem.parentKey) {
+			metadataItem.parentKey = this.metadataIdMappings.getPublicSanitizedMetadataKey(metadataItem.parentKey, metadataItem.parentRatingKey, privateToPublicIds);
+		}
+		if(metadataItem.parentRatingKey) {
+			metadataItem.parentRatingKey = this.metadataIdMappings.getPublicSanitizedMetadataRatingKey(metadataItem.parentRatingKey, privateToPublicIds);
+		}
+		if(metadataItem.grandparentKey) {
+			metadataItem.grandparentKey = this.metadataIdMappings.getPublicSanitizedMetadataKey(metadataItem.grandparentKey, metadataItem.grandparentRatingKey, privateToPublicIds);
+		}
+		if(metadataItem.grandparentRatingKey) {
+			metadataItem.grandparentRatingKey = this.metadataIdMappings.getPublicSanitizedMetadataRatingKey(metadataItem.grandparentRatingKey, privateToPublicIds);
+		}
 		// map related items if needed
 		if(metadataItem.Related?.Hub) {
 			for(const hub of metadataItem.Related.Hub) {
