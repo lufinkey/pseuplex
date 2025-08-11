@@ -129,4 +129,4 @@ export const doesRequestIncludeFirstPinnedContentDirectory = (params: {
 	}
 	return (!pinnedContentDirIds || pinnedContentDirIds.length == 0 || !contentDirIds || contentDirIds.length == 0
 		|| contentDirIds[0] == pinnedContentDirIds[0]);
-}
+};
