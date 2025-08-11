@@ -1,4 +1,3 @@
-
 import https from 'https';
 import sharp from 'sharp';
 import * as constants from './constants';
@@ -33,6 +32,7 @@ import {
 import { PlexPreferences } from './plex/types/preferences';
 import { PlexClient } from './plex/client';
 import { Logger, LoggingOptions } from './logging';
+import { importPlugins, installPlugins } from './pluginload';
 
 if(process.env.NODE_ENV !== 'production') {
 	includeTracesForConsoleWarnAndError();
@@ -126,6 +126,11 @@ const readPlexPrefsIfNeeded = async () => {
 		}
 		sslConfig.p12Password = calculatePlexP12Password({ProcessedMachineIdentifier:plexMachineId});
 	}
+
+	// install and import plugins
+	await installPlugins(cfg);
+	const plugins = await importPlugins(cfg);
+
 	// read SSL certificates, if any
 	const sslCertData = await readSSLCertAndKey(sslConfig);
 
@@ -168,6 +173,7 @@ const readPlexPrefsIfNeeded = async () => {
 			LetterboxdPlugin,
 			RequestsPlugin,
 			DashboardPlugin,
+			...plugins,
 		],
 		config: cfg
 	});

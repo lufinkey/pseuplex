@@ -38,6 +38,9 @@ export type Config = {
 		certReloadDelay?: number;
 	},
 	logging?: LoggingOptions;
+	plugins?: {
+		[id: string]: string
+	}
 } & PseuplexConfigBase<{}>
 	& LetterboxdPluginConfig
 	& RequestsPluginConfig

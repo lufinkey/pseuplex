@@ -56,4 +56,4 @@ export default (class TemplatePlugin implements TemplatePluginDef, PseuplexPlugi
 		// TODO define any custom routes
 	}
 
-} as PseuplexPluginClass);
+} satisfies PseuplexPluginClass);

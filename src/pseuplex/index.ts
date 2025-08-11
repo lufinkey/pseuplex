@@ -8,5 +8,6 @@ export * from './metadata';
 export * from './hub';
 export * from './feedhub';
 export * from './matching';
+export * from './media';
 export * from './notifications';
 export * from './section';

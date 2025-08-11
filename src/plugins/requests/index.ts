@@ -250,4 +250,4 @@ export default (class RequestsPlugin implements RequestsPluginDef, PseuplexPlugi
 		}
 	}
 
-} as PseuplexPluginClass);
+} satisfies PseuplexPluginClass);

@@ -1,15 +1,20 @@
 {
 	"compilerOptions": {
+		"rootDir": "./src",
+		"outDir": "./dist",
 		"module": "commonjs",
 		"esModuleInterop": true,
 		"target": "es6",
 		"lib": ["ES2021"],
 		"moduleResolution": "node",
+		"declaration": true,
+		"declarationMap": true,
 		"sourceMap": true,
-		"outDir": "dist",
-		"strictNullChecks": true,
-		"plugins": [
-			{ "transform": "ts-transformer-keys/transformer" }
-		]
-	}
+		"strictNullChecks": true
+	},
+	"exclude": [
+		"dist",
+		"node_modules",
+		"pluginexample"
+    ]
 }

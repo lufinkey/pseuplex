@@ -520,4 +520,4 @@ export default (class LetterboxdPlugin implements LetterboxdPluginDef, PseuplexP
 			});
 		}
 	}
-} as PseuplexPluginClass);
+} satisfies PseuplexPluginClass);

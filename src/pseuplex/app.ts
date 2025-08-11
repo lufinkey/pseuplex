@@ -305,7 +305,19 @@ export class PseuplexApp {
 				console.error(`Ignoring duplicate plugin slug '${pluginClass.slug}'`);
 				continue;
 			}
-			const plugin = new pluginClass(this);
+			if(!pluginClass.slug) {
+				console.error(`Skipping plugin with no defined slug`);
+				continue;
+			}
+			
+			console.log(`Initializing ${pluginClass.slug} plugin`);
+			let plugin: PseuplexPlugin;
+			try {
+				plugin = new pluginClass(this);
+			} catch(error) {
+				console.error(`Failed to initialize ${pluginClass.slug} plugin`);
+				throw error;
+			}
 
 			// add plugin metadata providers
 			const metadataProviders = plugin.metadataProviders;
