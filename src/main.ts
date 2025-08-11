@@ -1,3 +1,4 @@
+#!/usr/bin/env node --enable-source-maps
 import https from 'https';
 import sharp from 'sharp';
 import * as constants from './constants';
