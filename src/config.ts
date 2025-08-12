@@ -17,6 +17,7 @@ export type Config = {
 	ipv4ForwardingMode?: IPv4NormalizeModeKey;
 	sendMetadataUnavailability?: boolean;
 	forwardMetadataRefreshToPluginMetadata?: boolean;
+	redirectPlexStreams?: boolean;
 	imageOverlays?: {
 		enabled?: boolean;
 		overrides?: {[overlayName: string]: string};
@@ -25,6 +26,8 @@ export type Config = {
 	plex: {
 		host?: string;
 		secureHost?: string;
+		redirectHost?: string;
+		secureRedirectHost?: string;
 		token: string;
 		processedMachineIdentifier?: string;
 		appDataPath?: string;

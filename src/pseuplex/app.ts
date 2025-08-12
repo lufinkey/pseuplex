@@ -177,6 +177,9 @@ export type PseuplexAppOptions = {
 	serverOptions: https.ServerOptions;
 	plexServerHost: string;
 	plexServerHostSecure?: string;
+	plexServerRedirectHost?: string;
+	plexServerRedirectHostSecure?: string;
+	redirectPlexStreams?: boolean;
 	plexAdminAuthContext: plexTypes.PlexAuthContext;
 	plexMetadataClient: PlexClient;
 	pluginMetadataAccessCacheOptions?: PseuplexMetadataAccessCacheOptions;
@@ -212,6 +215,9 @@ export class PseuplexApp {
 
 	readonly plexServerHost: string;
 	readonly plexServerHostSecure?: string;
+	readonly plexServerRedirectHost?: string;
+	readonly plexServerRedirectHostSecure?: string;
+	readonly redirectPlexStreams: boolean;
 	readonly plexAdminAuthContext: plexTypes.PlexAuthContext;
 	readonly plexServerProperties: PlexServerPropertiesStore;
 	readonly plexServerAccounts: PlexServerAccountsStore;
@@ -275,6 +281,9 @@ export class PseuplexApp {
 		this.plexServerHost = options.plexServerHost;
 		this.plexServerHostSecure = options.plexServerHostSecure;
 		const plexServerHostSecureIsDifferent = (this.plexServerHostSecure && this.plexServerHostSecure != this.plexServerHost);
+		this.plexServerRedirectHost = options.plexServerRedirectHost;
+		this.plexServerRedirectHostSecure = options.plexServerRedirectHostSecure;
+		this.redirectPlexStreams = options.redirectPlexStreams ?? false;
 		this.plexAdminAuthContext = options.plexAdminAuthContext;
 		this.plexServerProperties = new PlexServerPropertiesStore({
 			serverURL: this.plexServerHostForAdmin,
@@ -1004,6 +1013,34 @@ export class PseuplexApp {
 
 		const pathEndingChars = ['/','?',undefined];
 
+		// redirect streams if needed
+		if(this.redirectPlexStreams && (this.plexServerRedirectHost || this.plexServerRedirectHostSecure)) {
+			router.use([
+				'/video/\\:/transcode/universal/session',
+				'/library/parts',
+			], [
+				(req: express.Request, res: express.Response, next) => {
+					// get redirect url, if any
+					let redirectUrl: (string | undefined);
+					try {
+						const redirectHost = this.plexServerRedirectHostForRequest(req);
+						if(redirectHost) {
+							redirectUrl = redirectHost + req.url;
+						}
+					} catch(error) {
+						console.error(`Error handling stream redirect:`);
+						console.error(error);
+					}
+					// redirect or continue
+					if(redirectUrl) {
+						res.redirect(redirectUrl);
+						return;
+					}
+					next();
+				}
+			]);
+		}
+
 		router.get('/photo/\\:/transcode', [
 			this.middlewares.plexAuthentication,
 			asyncRequestHandler(async (req: IncomingPlexAPIRequest, res) => {
@@ -1155,7 +1192,7 @@ export class PseuplexApp {
 				}
 			},
 		]);
-
+		
 		// proxy requests to plex
 		const plexGeneralProxy = plexHttpProxy(this.plexServerHost, plexProxyArgs);
 		plexGeneralProxy.on('error', (error) => {
@@ -1207,7 +1244,7 @@ export class PseuplexApp {
 			}
 		}
 		console.assert(servers.length > 0, "No servers were created");
-
+		
 		for(const server of servers) {
 			// handle upgrade to socket
 			server.on('upgrade', (req, socket, head) => {
@@ -1269,11 +1306,6 @@ export class PseuplexApp {
 		this.httpServer = httpServer;
 		this.httpsServer = httpsServer;
 		this.httpolyglotServer = httpolyglotServer;
-	}
-
-
-	get plexServerHostForAdmin() {
-		return this.plexServerHostSecure ?? this.plexServerHost;
 	}
 
 
@@ -1565,10 +1597,20 @@ export class PseuplexApp {
 
 
 
+	get plexServerHostForAdmin() {
+		return this.plexServerHostSecure ?? this.plexServerHost;
+	}
+
 	plexServerHostForRequest(req: express.Request): string {
 		return requestIsEncrypted(req)
 			? (this.plexServerHostSecure ?? this.plexServerHost)
 			: this.plexServerHost;
+	}
+
+	plexServerRedirectHostForRequest(req: express.Request): string | undefined {
+		return requestIsEncrypted(req)
+			? (this.plexServerRedirectHostSecure ?? this.plexServerRedirectHost)
+			: this.plexServerRedirectHost;
 	}
 
 	contextForRequest(req: IncomingPlexAPIRequest): PseuplexRequestContext {

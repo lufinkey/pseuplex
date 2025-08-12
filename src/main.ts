@@ -35,6 +35,7 @@ import { PlexPreferences } from './plex/types/preferences';
 import { PlexClient } from './plex/client';
 import { Logger, LoggingOptions } from './logging';
 import { importPlugins, installPlugins } from './pluginload';
+import { addProtocolToUrlIfMissing } from './utils/misc';
 
 if(process.env.NODE_ENV !== 'production') {
 	includeTracesForConsoleWarnAndError();
@@ -72,19 +73,27 @@ const readPlexPrefsIfNeeded = async () => {
 	if (args.verbose) {
 		console.log(`parsed config:\n${JSON.stringify(cfg, null, '\t')}\n`);
 	}
+
+	// get plex server urls
 	let plexServerHost = cfg.plex.host;
 	if(!plexServerHost) {
 		console.error("Missing .plex.host in config");
 		process.exit(1);
 	}
-	if(plexServerHost.indexOf('://') === -1) {
-		plexServerHost = 'http://'+plexServerHost;
-	}
+	plexServerHost = addProtocolToUrlIfMissing(plexServerHost, 'http');
 	let plexServerHostSecure = cfg.plex.secureHost;
 	if(plexServerHostSecure) {
-		if(plexServerHostSecure.indexOf('://') === -1) {
-			plexServerHostSecure = 'https://'+plexServerHostSecure;
-		}
+		plexServerHostSecure = addProtocolToUrlIfMissing(plexServerHostSecure, 'https');
+	}
+
+	// get plex server redirect urls
+	let plexServerRedirectHost = cfg.plex.redirectHost;
+	if(plexServerRedirectHost) {
+		plexServerRedirectHost = addProtocolToUrlIfMissing(plexServerRedirectHost, 'http');
+	}
+	let plexServerRedirectHostSecure = cfg.plex.secureRedirectHost;
+	if(plexServerRedirectHostSecure) {
+		plexServerRedirectHostSecure = addProtocolToUrlIfMissing(plexServerRedirectHostSecure, 'https');
 	}
 
 	// create logger
@@ -157,6 +166,9 @@ const readPlexPrefsIfNeeded = async () => {
 		},
 		plexServerHost,
 		plexServerHostSecure,
+		plexServerRedirectHost,
+		plexServerRedirectHostSecure,
+		redirectPlexStreams: cfg.redirectPlexStreams,
 		plexAdminAuthContext: {
 			'X-Plex-Token': cfg.plex.token
 		},

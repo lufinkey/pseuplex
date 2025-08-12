@@ -102,6 +102,13 @@ export const combinePathSegments = (part1: string, part2: string) => {
 	return `${part1}/${part2}`;
 };
 
+export const addProtocolToUrlIfMissing = (url: string, protocol: string) => {
+	if(url.indexOf('://') === -1) {
+		url = `${protocol}://${url}`;
+	}
+	return url;
+};
+
 export type URLPathParts = {
 	path: string;
 	query?: string;
@@ -287,4 +294,4 @@ export const mergeObjects = <T1 extends {[key: (string | number)]: any}, T2 exte
 		}
 	}
 	return newObj;
-}
+};
