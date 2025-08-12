@@ -13,7 +13,7 @@
 		"url": "https://github.com/lufinkey/pseuplex.git"
 	},
 	"scripts": {
-		"build": "npm install && tsc && npm link pseuplex@file:./",
+		"build": "tsc && npm link pseuplex@file:./",
 		"clean": "rm -rf dist node_modules plugindeps/node_modules pluginexample/node_modules pluginexample/dist pluginexample/package-lock.json",
 		"prepare": "tsc",
 		"start": "tsc && node --enable-source-maps dist/main.js",

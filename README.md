@@ -174,6 +174,7 @@ If remote streams are still showing as local streams, add `"ipv4ForwardingMode":
 To run, cd into this repo's folder in terminal and run the following commands, replacing the config.json path with your own:
 
 ```sh
+npm install
 npm run build
 npm start -- --config="/path/to/config.json"
 ```
