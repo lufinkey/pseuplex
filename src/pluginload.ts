@@ -1,12 +1,13 @@
-import fs from 'fs';
 import { executeAsync } from './utils/subprocess';
 import { Config } from './config';
-import { parseCmdArgs } from './cmdargs';
 import { PseuplexPluginClass } from './pseuplex';
+
+const initialCwd = process.cwd();
+const pluginDepsPath = `${initialCwd}/plugindeps`;
 
 // prepend the plugins path to NODE_PATH
 let prependedPluginsPath = false;
-const installedPluginsPath = `${require.main!.path}/../plugindeps/node_modules`;
+const installedPluginsPath = `${pluginDepsPath}/node_modules`;
 
 const pluginNamePrefix = 'pseuplex-plugin-';
 const getPluginModuleName = (id: string) => {
@@ -24,12 +25,15 @@ export const installPlugins = async (cfg: Config) => {
 	if(pluginIds.length == 0) {
 		return;
 	}
-	console.log(`Installing plugins: ${JSON.stringify(cfg.plugins, null, '\t')}`);
+	console.log(`Installing plugins to ${pluginDepsPath}`);
+	for(const pluginId of pluginIds) {
+		console.log(`\t${pluginId}: ${cfg.plugins[pluginId]}`);
+	}
 	const pluginArgs = pluginIds.map((id) => `${getPluginModuleName(id)}@${cfg.plugins![id]}`);
 	const pkgMgrName = process.env.NODE_PACKAGEMANAGER || "npm";
 	// TODO run install differently depending on process.env.npm_lifecycle_event
-	await executeAsync(pkgMgrName, ["install", "--prefix", "./plugindeps", "--no-save", ...pluginArgs], {
-		cwd: `${require.main!.path}/../`,
+	await executeAsync(pkgMgrName, ["install", "--prefix", pluginDepsPath, "--no-save", ...pluginArgs], {
+		cwd: initialCwd,
 	});
 };
 
