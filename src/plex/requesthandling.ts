@@ -14,7 +14,14 @@ import {
 } from '../utils/error';
 import { parseQueryParams } from '../utils/queryparams';
 
-export const handlePlexAPIRequest = async <TResult>(req: express.Request, res: express.Response, handler: (req: express.Request, res: express.Response) => Promise<TResult>, options: PlexAPIRequestHandlerOptions): Promise<void> => {
+export type PlexAPIRequestHandler<TResult> = (req: express.Request, res: express.Response) => Promise<TResult>;
+export type PlexAPIRequestHandlerOptions = {
+	logger?: Logger;
+};
+
+export type PlexAPIRequestHandlerMiddleware<TResult> = (handler: PlexAPIRequestHandler<TResult>, options?: PlexAPIRequestHandlerOptions) => ((req: express.Request, res: express.Response) => Promise<void>);
+
+export const handlePlexAPIRequest = async <TResult>(req: express.Request, res: express.Response, handler: PlexAPIRequestHandler<TResult>, options: PlexAPIRequestHandlerOptions): Promise<void> => {
 	let serializedRes: {contentType:string, data:string};
 	try {
 		const result = await handler(req,res);
@@ -50,12 +57,6 @@ export const handlePlexAPIRequest = async <TResult>(req: express.Request, res: e
 	// log response
 	options?.logger?.logIncomingUserRequestResponse(req, res, serializedRes.data);
 };
-
-export type PlexAPIRequestHandlerOptions = {
-	logger?: Logger;
-};
-export type PlexAPIRequestHandler<TResult> = (req: express.Request, res: express.Response) => Promise<TResult>;
-export type PlexAPIRequestHandlerMiddleware<TResult> = (handler: PlexAPIRequestHandler<TResult>, options?: PlexAPIRequestHandlerOptions) => ((req: express.Request, res: express.Response) => Promise<void>);
 
 export type IncomingPlexAPIRequest = express.Request & {
 	plex: {
