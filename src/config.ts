@@ -5,6 +5,7 @@ import { PseuplexConfigBase } from './pseuplex/configbase';
 import { PseuplexServerProtocol } from './pseuplex/types/server';
 import { LetterboxdPluginConfig } from './plugins/letterboxd/config';
 import { RequestsPluginConfig } from './plugins/requests/config';
+import { DashboardPluginConfig } from './plugins/dashboard/config';
 import { OverseerrRequestsPluginConfig } from './plugins/requests/providers/overseerr/config';
 import { LoggingOptions } from './logging';
 
@@ -48,6 +49,7 @@ export type Config = {
 } & PseuplexConfigBase<{}>
 	& LetterboxdPluginConfig
 	& RequestsPluginConfig
+	& DashboardPluginConfig
 	& OverseerrRequestsPluginConfig;
 
 export const readConfigFile = async (path: string): Promise<Config> => {
