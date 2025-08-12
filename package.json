@@ -16,9 +16,9 @@
 		"build": "npm install && tsc && npm link pseuplex@file:./",
 		"clean": "rm -rf dist node_modules plugindeps/node_modules pluginexample/node_modules pluginexample/dist pluginexample/package-lock.json",
 		"prepare": "tsc",
-		"start": "npm run build && node --enable-source-maps dist/main.js",
-		"start_test": "npm run build && node --enable-source-maps --trace-deprecation dist/main.js --config=config/config.json --verbose --verbose-traffic",
-		"debug": "npm run build && node --enable-source-maps --inspect dist/main.js --config=config/config.json --verbose"
+		"start": "tsc && node --enable-source-maps dist/main.js",
+		"start_test": "tsc && node --enable-source-maps --trace-deprecation dist/main.js --config=config/config.json --verbose --verbose-traffic",
+		"debug": "tsc && node --enable-source-maps --inspect dist/main.js --config=config/config.json --verbose"
 	},
 	"author": "Luis Finke (luisfinke@gmail.com)",
 	"license": "Zlib",
