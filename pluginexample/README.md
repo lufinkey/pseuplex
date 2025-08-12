@@ -21,7 +21,7 @@ Then you'll need to link your plugin repo to the proxy repo:
 
 ```shell
 # enter your plugin repo
-cd ../pseuplex-plugin-example
+cd ../pseuplex-plugin-helloworld
 # link the proxy's package to your plugin
 npm link pseuplex@file:../pseuplex
 ```
