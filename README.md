@@ -95,6 +95,8 @@ Create a `config.json` file with the following structure, and fill in the config
 
 - **protocol**: The server protocol. Either `http`, `https`, or `http+https` (default is `http+https`)
 - **port**: The port that this proxy will run on.
+- **httpPort**: Manually specify the port that the http proxy will run on, if you want http and https traffic on separate ports.
+- **httpsPort**: Manually specify the port that the https proxy will run on, if you want http and https traffic on separate ports.
 - **plex**
 	- **host**: The url of your plex server.
 	- **token**: The plex API token of the server owner.

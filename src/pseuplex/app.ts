@@ -254,10 +254,10 @@ export class PseuplexApp {
 	};
 	
 	constructor(options: PseuplexAppOptions) {
-		const httpPort = (options.httpPort && (!options.protocol || options.protocol == PseuplexServerProtocol.http || options.protocol == PseuplexServerProtocol.httpolyglot))
+		const httpPort = (options.httpPort && (!options.protocol || options.protocol == PseuplexServerProtocol.http || options.protocol == PseuplexServerProtocol.httpAndHttps))
 			? options.httpPort
 			: undefined;
-		const httpsPort = (options.httpsPort && (!options.protocol || options.protocol == PseuplexServerProtocol.https || options.protocol == PseuplexServerProtocol.httpolyglot))
+		const httpsPort = (options.httpsPort && (!options.protocol || options.protocol == PseuplexServerProtocol.https || options.protocol == PseuplexServerProtocol.httpAndHttps))
 			? options.httpsPort
 			: undefined;
 		if(!httpPort && !httpsPort) {
