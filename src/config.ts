@@ -11,7 +11,9 @@ import { LoggingOptions } from './logging';
 export type Config = {
 	protocol?: PseuplexServerProtocol,
 	host?: string;
-	port: number;
+	port?: number;
+	httpPort?: number;
+	httpsPort?: number;
 	ipv4ForwardingMode?: IPv4NormalizeModeKey;
 	sendMetadataUnavailability?: boolean;
 	forwardMetadataRefreshToPluginMetadata?: boolean;

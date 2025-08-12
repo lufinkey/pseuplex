@@ -142,7 +142,8 @@ const readPlexPrefsIfNeeded = async () => {
 	// create server
 	const pseuplex = new PseuplexApp({
 		protocol: cfg.protocol,
-		port: cfg.port,
+		httpPort: cfg.httpPort ?? cfg.port,
+		httpsPort: cfg.httpsPort ?? cfg.port,
 		ipv4ForwardingMode: cfg.ipv4ForwardingMode ? IPv4NormalizeMode[cfg.ipv4ForwardingMode] : undefined,
 		forwardMetadataRefreshToPluginMetadata: cfg.forwardMetadataRefreshToPluginMetadata,
 		sendMetadataUnavailability: cfg.sendMetadataUnavailability,
@@ -184,18 +185,27 @@ const readPlexPrefsIfNeeded = async () => {
 	});
 
 	// start server
-	pseuplex.listen(() => {
-		console.log(`${constants.APP_NAME} is listening at localhost:${pseuplex.port}\n`);
+	pseuplex.listen({
+		onHttpListening: (port) => {
+			console.log(`${constants.APP_NAME} is listening for http connections on port ${port}\n`);
+		},
+		onHttpsListening: (port) => {
+			console.log(`${constants.APP_NAME} is listening for https connections on port ${port}\n`);
+		},
+		onHttpolyglotListening: (port) => {
+			console.log(`${constants.APP_NAME} is listening for http and https connections on port ${port}\n`);
+		},
 	});
 
 	// watch for certificate changes if this is an SSL server
-	if(cfg.ssl?.watchCertChanges && (pseuplex.server as https.Server).setSecureContext) {
+	const secureServer = pseuplex.httpsServer || pseuplex.httpolyglotServer;
+	if(cfg.ssl?.watchCertChanges && secureServer?.setSecureContext) {
 		const watcher = watchSSLCertAndKeyChanges(sslConfig, {
 			debounceDelay: (cfg.ssl?.certReloadDelay ?? 1000)
 		}, (sslCertData) => {
 			try {
 				console.log("\nUpdating SSL certificate");
-				(pseuplex.server as https.Server).setSecureContext(sslCertData);
+				secureServer.setSecureContext(sslCertData);
 			} catch(error) {
 				console.error("Failed to set secure context:");
 				console.error(error);

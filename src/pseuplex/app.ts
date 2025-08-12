@@ -103,7 +103,11 @@ import {
 import { Logger } from '../logging';
 import { CachedFetcher } from '../fetching/CachedFetcher';
 import { httpError, HttpResponseError } from '../utils/error';
-import { asyncRequestHandler, expressErrorHandler } from '../utils/requesthandling';
+import {
+	asyncRequestHandler,
+	expressErrorHandler,
+	requestIsEncrypted
+} from '../utils/requesthandling';
 import {
 	parseURLPath,
 	stringifyURLPath,
@@ -148,7 +152,7 @@ type PseuplexAppMetadataChildrenParams = {
 	cachePluginMetadataAccess?: boolean;
 };
 
-type PseuplexAppConfig = PseuplexConfigBase<{[key: string]: any}> & {[key: string]: any};
+type PseuplexAppConfig = PseuplexConfigBase<{[key: string]: any}>;
 
 type PseuplexPlexServerNotificationsOptions = {
 	socketRetryInterval?: number;
@@ -162,7 +166,8 @@ type PseuplexPlayQueueURIResolverOptions = {
 export type PseuplexAppOptions = {
 	slug?: string;
 	protocol?: PseuplexServerProtocol;
-	port: number;
+	httpPort?: number;
+	httpsPort?: number;
 	ipv4ForwardingMode?: IPv4NormalizeMode;
 	forwardMetadataRefreshToPluginMetadata?: boolean;
 	sendMetadataUnavailability?: boolean;
@@ -180,7 +185,7 @@ export type PseuplexAppOptions = {
 	}
 	logger?: Logger;
 	responseFilterOrders?: PseuplexResponseFilterOrders;
-	plugins: PseuplexPluginClass[];
+	plugins?: PseuplexPluginClass[];
 	config: PseuplexAppConfig;
 	mapPseuplexMetadataIds?: boolean;
 };
@@ -190,7 +195,8 @@ const overlayImageNameRegex = /^[a-z0-9 ._-]+$/i;
 export class PseuplexApp {
 	readonly slug: string;
 	readonly config: PseuplexAppConfig;
-	readonly port: number;
+	readonly httpPort?: number;
+	readonly httpsPort?: number;
 	readonly forwardsMetadataRefreshToPluginMetadata: boolean;
 	readonly sendsMetadataUnavailability: boolean;
 	readonly overwritePlexPrivatePort: number | boolean;
@@ -233,12 +239,25 @@ export class PseuplexApp {
 		plexServerOwnerOnly: PlexAuthedRequestHandler;
 		plexRequestHandler: <TResult>(handler: PlexAPIRequestHandler<TResult>) => ((req: express.Request, res: express.Response) => Promise<void>)
 	};
-	readonly server: http.Server | https.Server;
+
+	httpServer?: http.Server;
+	httpsServer?: https.Server;
+	httpolyglotServer?: httpolyglot.Server;
 
 	constructor(options: PseuplexAppOptions) {
+		const httpPort = (options.httpPort && (!options.protocol || options.protocol == PseuplexServerProtocol.http || options.protocol == PseuplexServerProtocol.httpolyglot))
+			? options.httpPort
+			: undefined;
+		const httpsPort = (options.httpsPort && (!options.protocol || options.protocol == PseuplexServerProtocol.https || options.protocol == PseuplexServerProtocol.httpolyglot))
+			? options.httpsPort
+			: undefined;
+		if(!httpPort && !httpsPort) {
+			throw new Error("Server must listen on atleast 1 port");
+		}
 		this.slug = options.slug ?? 'pseuplex';
 		this.config = options.config;
-		this.port = options.port;
+		this.httpPort = httpPort;
+		this.httpsPort = httpsPort;
 		this.forwardsMetadataRefreshToPluginMetadata = options.forwardMetadataRefreshToPluginMetadata ?? true;
 		this.sendsMetadataUnavailability = options.sendMetadataUnavailability ?? true;
 		this.overwritePlexPrivatePort = options.overwritePlexPrivatePort ?? true;
@@ -299,88 +318,92 @@ export class PseuplexApp {
 		// loop through and instantiate plugins
 		const responseFilterOrders = options.responseFilterOrders ?? {};
 		const tmpPluginSlugsSet = new Set<string>();
-		for(const pluginClass of options.plugins) {
-			// instantiate plugin
-			if(pluginClass.slug in this.plugins) {
-				console.error(`Ignoring duplicate plugin slug '${pluginClass.slug}'`);
-				continue;
-			}
-			if(!pluginClass.slug) {
-				console.error(`Skipping plugin with no defined slug`);
-				continue;
-			}
-			
-			console.log(`Initializing ${pluginClass.slug} plugin`);
-			let plugin: PseuplexPlugin;
-			try {
-				plugin = new pluginClass(this);
-			} catch(error) {
-				console.error(`Failed to initialize ${pluginClass.slug} plugin`);
-				throw error;
-			}
-
-			// add plugin metadata providers
-			const metadataProviders = plugin.metadataProviders;
-			if(metadataProviders) {
-				for(const metadataProvider of metadataProviders) {
-					const metadataSlug = metadataProvider.sourceSlug;
-					if(metadataSlug in this.metadataProviders) {
-						console.error(`Ignoring duplicate metadata provider '${metadataProvider.sourceSlug}' in plugin '${pluginClass.slug}'`);
-						continue;
-					}
-					this.metadataProviders[metadataSlug] = metadataProvider;
+		if(options.plugins && options.plugins.length > 0) {
+			for(const pluginClass of options.plugins) {
+				// instantiate plugin
+				if(pluginClass.slug in this.plugins) {
+					console.error(`Ignoring duplicate plugin slug '${pluginClass.slug}'`);
+					continue;
 				}
-			}
-
-			// add plugin response filters
-			const pluginResponseFilters = plugin.responseFilters;
-			if(pluginResponseFilters) {
-				for(const filterName of Object.keys(pluginResponseFilters)) {
-					const pluginResponseFilter = pluginResponseFilters[filterName as PseuplexResponseFilterName];
-					if(!pluginResponseFilter) {
-						continue;
-					}
-					const filter: ResponseFilterDefinition<any> = {
-						slug: pluginClass.slug,
-						filter: pluginResponseFilter
-					};
-					// get or create list for filter
-					let filterList = this.responseFilters[filterName as PseuplexResponseFilterName];
-					if(!filterList) {
-						filterList = [];
-						this.responseFilters[filterName] = filterList;
-					}
-					// determine plugin order of filters
-					const filterOrder = responseFilterOrders[filterName];
-					const filterIndex = filterOrder ? filterOrder.indexOf(pluginClass.slug) : -1;
-					if(filterIndex === -1) {
-						// no order defined, so just add the filter
-						filterList.push(filter);
-						continue;
-					}
-					// filter has a defined order, so find any filters ahead of this filter
-					tmpPluginSlugsSet.clear();
-					for(let i=(filterIndex+1); i<filterOrder.length; i++) {
-						tmpPluginSlugsSet.add(filterOrder[i]);
-					}
-					// loop through already-added filters and insert this one where needed
-					let filterInsertIndex = 0;
-					for(const existingFilter of filterList) {
-						if(tmpPluginSlugsSet.has(existingFilter.slug)) {
-							break;
+				if(!pluginClass.slug) {
+					console.error(`Skipping plugin with no defined slug`);
+					continue;
+				}
+				
+				console.log(`Initializing ${pluginClass.slug} plugin`);
+				let plugin: PseuplexPlugin;
+				try {
+					plugin = new pluginClass(this);
+				} catch(error) {
+					console.error(`Failed to initialize ${pluginClass.slug} plugin`);
+					throw error;
+				}
+				
+				// add plugin metadata providers
+				const metadataProviders = plugin.metadataProviders;
+				if(metadataProviders) {
+					for(const metadataProvider of metadataProviders) {
+						const metadataSlug = metadataProvider.sourceSlug;
+						if(metadataSlug in this.metadataProviders) {
+							console.error(`Ignoring duplicate metadata provider '${metadataProvider.sourceSlug}' in plugin '${pluginClass.slug}'`);
+							continue;
 						}
-						filterInsertIndex++;
+						this.metadataProviders[metadataSlug] = metadataProvider;
 					}
-					filterList.splice(filterInsertIndex, 0, filter);
 				}
+
+				// add plugin response filters
+				const pluginResponseFilters = plugin.responseFilters;
+				if(pluginResponseFilters) {
+					for(const filterName of Object.keys(pluginResponseFilters)) {
+						const pluginResponseFilter = pluginResponseFilters[filterName as PseuplexResponseFilterName];
+						if(!pluginResponseFilter) {
+							continue;
+						}
+						const filter: ResponseFilterDefinition<any> = {
+							slug: pluginClass.slug,
+							filter: pluginResponseFilter
+						};
+						// get or create list for filter
+						let filterList = this.responseFilters[filterName as PseuplexResponseFilterName];
+						if(!filterList) {
+							filterList = [];
+							this.responseFilters[filterName] = filterList;
+						}
+						// determine plugin order of filters
+						const filterOrder = responseFilterOrders[filterName];
+						const filterIndex = filterOrder ? filterOrder.indexOf(pluginClass.slug) : -1;
+						if(filterIndex === -1) {
+							// no order defined, so just add the filter
+							filterList.push(filter);
+							continue;
+						}
+						// filter has a defined order, so find any filters ahead of this filter
+						tmpPluginSlugsSet.clear();
+						for(let i=(filterIndex+1); i<filterOrder.length; i++) {
+							tmpPluginSlugsSet.add(filterOrder[i]);
+						}
+						// loop through already-added filters and insert this one where needed
+						let filterInsertIndex = 0;
+						for(const existingFilter of filterList) {
+							if(tmpPluginSlugsSet.has(existingFilter.slug)) {
+								break;
+							}
+							filterInsertIndex++;
+						}
+						filterList.splice(filterInsertIndex, 0, filter);
+					}
+				}
+
+				// add plugin
+				this.plugins[pluginClass.slug] = plugin;
 			}
 
-			// add plugin
-			this.plugins[pluginClass.slug] = plugin;
+			// extra space after initializing plugins
+			console.log();
 		}
 
 		// create router and define routes
-		const protocol = options.protocol ?? PseuplexServerProtocol.httpolyglot;
 		const plexProxyArgs: PlexProxyOptions = {
 			logger: this.logger,
 			ipv4Mode: options.ipv4ForwardingMode
@@ -912,9 +935,19 @@ export class PseuplexApp {
 			this.middlewares.plexServerOwnerOnly,
 			plexApiProxy(this.plexServerURL, plexProxyArgs, {
 				responseModifier: async (proxyRes, resData: plexTypes.PlexMyPlexAccountPage, userReq: IncomingPlexAPIRequest, userRes) => {
+					// overwrite privatePort if needed
 					if(this.overwritePlexPrivatePort) {
 						if(this.overwritePlexPrivatePort === true) {
-							resData.MyPlex.privatePort = this.port;
+							const secure = requestIsEncrypted(userReq);
+							let port: number | undefined;
+							if(secure) {
+								port = this.httpsPort ?? this.httpPort;
+							} else {
+								port = this.httpPort;
+							}
+							if(port) {
+								resData.MyPlex.privatePort = port;
+							}
 						} else {
 							resData.MyPlex.privatePort = this.overwritePlexPrivatePort;
 						}
@@ -975,11 +1008,15 @@ export class PseuplexApp {
 					if(photoUrl && typeof photoUrl === 'string') {
 						let changedUrl = false;
 						const urlsToRewrite = [
-							`http://127.0.0.1:${this.config.port}`,
-							`https://127.0.0.1:${this.config.port}`,
 							'http://127.0.0.1:32400',
 							'https://127.0.0.1:32400',
 						];
+						if(this.httpsPort) {
+							urlsToRewrite.push(`https://127.0.0.1:${this.httpsPort}`);
+						}
+						if(this.httpPort) {
+							urlsToRewrite.push(`http://127.0.0.1:${this.httpPort}`);
+						}
 						// rewrite 127.0.0.1 urls query params to absolute paths
 						for(const urlToRewrite of urlsToRewrite) {
 							if(photoUrl.startsWith(urlToRewrite) && photoUrl[urlToRewrite.length] == '/') {
@@ -1118,94 +1155,144 @@ export class PseuplexApp {
 		});
 		
 		// create http/https/http+https server
-		let server: (http.Server | https.Server);
-		switch(protocol) {
-			case PseuplexServerProtocol.http:
-				server = http.createServer(options.serverOptions, router);
-				break;
-			case PseuplexServerProtocol.https:
-				server = https.createServer(options.serverOptions, router);
-				break;
-			case PseuplexServerProtocol.httpolyglot:
-				server = httpolyglot.createServer(options.serverOptions, router);
-				break;
-			default:
-				console.warn(`Unknown protocol '${protocol}'`);
-				server = httpolyglot.createServer(options.serverOptions, router);
-				break;
+		let httpServer: http.Server | undefined;
+		let httpsServer: https.Server | undefined;
+		let httpolyglotServer: httpolyglot.Server | undefined;
+		const servers: (http.Server | https.Server | httpolyglot.Server)[] = [];
+		if(httpPort == httpsPort) {
+			httpolyglotServer = httpolyglot.createServer(options.serverOptions, router);
+			servers.push(httpolyglotServer);
+		} else {
+			if(httpPort) {
+				httpServer = http.createServer(options.serverOptions, router);
+				servers.push(httpServer);
+			}
+			if(httpsPort) {
+				httpsServer = https.createServer(options.serverOptions, router);
+				servers.push(httpsServer);
+			}
+		}
+		console.assert(servers.length > 0, "No servers were created");
+
+		for(const server of servers) {
+			// handle upgrade to socket
+			server.on('upgrade', (req, socket, head) => {
+				this.logger?.logIncomingUserUpgradeRequest(req);
+				// socket endpoints seem to only get passed the token
+				const plexToken = plexTypes.parsePlexTokenFromRequest(req);
+				if(plexToken) {
+					// save socket info per plex token
+					let sockets = this.clientWebSockets[plexToken];
+					let endpoint = (req as express.Request).path || parseURLPathParts(req.url!).path;
+					// trim trailing endpoint slash if needed
+					if(endpoint && endpoint.length > 1 && endpoint.endsWith('/') && endpoint.startsWith('/')) {
+						endpoint = endpoint.slice(0, endpoint.length-1);
+					}
+					const socketInfo: PseuplexPossiblyConfirmedClientWebSocketInfo = {
+						endpoint,
+						socket,
+						proxySocket: undefined,
+					};
+					if(sockets) {
+						sockets.push(socketInfo);
+					} else {
+						sockets = [socketInfo];
+						this.clientWebSockets[plexToken] = sockets;
+					}
+					// `pipe` is called on this socket once the proxy socket succeeds
+					//  so we want to listen for this function call to "confirm" the websocket as being accepted by the plex server
+					const innerSocketPipe = socket.pipe;
+					let piped = false;
+					socket.pipe = function(...args) {
+						if(!piped) {
+							piped = true;
+							const proxySocket = args[0];
+							if(proxySocket instanceof stream.Duplex) {
+								socketInfo.proxySocket = proxySocket;
+							}
+						}
+						return innerSocketPipe.call(this, ...args);
+					};
+					// remove on close
+					socket.once('close', () => {
+						const socketIndex = sockets.indexOf(socketInfo);
+						if(socketIndex != -1) {
+							sockets.splice(socketIndex, 1);
+							if(sockets.length == 0) {
+								delete this.clientWebSockets[plexToken];
+							}
+						} else {
+							console.error(`Couldn't find socket to remove for ${req.url}`);
+						}
+						this.logger?.logIncomingWebsocketClosed(req);
+					});
+				}
+				plexGeneralProxy.ws(req, socket, head);
+			});
 		}
 
-		// handle upgrade to socket
-		server.on('upgrade', (req, socket, head) => {
-			this.logger?.logIncomingUserUpgradeRequest(req);
-			// socket endpoints seem to only get passed the token
-			const plexToken = plexTypes.parsePlexTokenFromRequest(req);
-			if(plexToken) {
-				// save socket info per plex token
-				let sockets = this.clientWebSockets[plexToken];
-				let endpoint = (req as express.Request).path || parseURLPathParts(req.url!).path;
-				// trim trailing endpoint slash if needed
-				if(endpoint && endpoint.length > 1 && endpoint.endsWith('/') && endpoint.startsWith('/')) {
-					endpoint = endpoint.slice(0, endpoint.length-1);
-				}
-				const socketInfo: PseuplexPossiblyConfirmedClientWebSocketInfo = {
-					endpoint,
-					socket,
-					proxySocket: undefined,
-				};
-				if(sockets) {
-					sockets.push(socketInfo);
-				} else {
-					sockets = [socketInfo];
-					this.clientWebSockets[plexToken] = sockets;
-				}
-				// `pipe` is called on this socket once the proxy socket succeeds
-				//  so we want to listen for this function call to "confirm" the websocket as being accepted by the plex server
-				const innerSocketPipe = socket.pipe;
-				let piped = false;
-				socket.pipe = function(...args) {
-					if(!piped) {
-						piped = true;
-						const proxySocket = args[0];
-						if(proxySocket instanceof stream.Duplex) {
-							socketInfo.proxySocket = proxySocket;
-						}
-					}
-					return innerSocketPipe.call(this, ...args);
-				};
-				// remove on close
-				socket.once('close', () => {
-					const socketIndex = sockets.indexOf(socketInfo);
-					if(socketIndex != -1) {
-						sockets.splice(socketIndex, 1);
-						if(sockets.length == 0) {
-							delete this.clientWebSockets[plexToken];
-						}
-					} else {
-						console.error(`Couldn't find socket to remove for ${req.url}`);
-					}
-					this.logger?.logIncomingWebsocketClosed(req);
-				});
-			}
-			plexGeneralProxy.ws(req, socket, head);
-		});
-
-		this.server = server;
+		// set servers
+		this.httpServer = httpServer;
+		this.httpsServer = httpsServer;
+		this.httpolyglotServer = httpolyglotServer;
 	}
 
 
-	listen(callback?: () => void) {
-		this.server.listen(this.port, () => {
-			if(this.shouldListenToPlexServerNotifications()) {
-				this.startListeningToPlexServerNotifications();
-			}
-			callback?.();
-		});
+	getAllServers() {
+		const servers: (http.Server | https.Server | httpolyglot.Server)[] = [];
+		if(this.httpolyglotServer) {
+			servers.push(this.httpolyglotServer);
+		}
+		if(this.httpServer) {
+			servers.push(this.httpServer);
+		}
+		if(this.httpsServer) {
+			servers.push(this.httpsServer);
+		}
+		return servers;
 	}
 
-	close(callback: (error?: Error) => void) {
+
+	async listen(evts?: {
+		onHttpListening?: (port: number) => void,
+		onHttpsListening?: (port: number) => void,
+		onHttpolyglotListening?: (port: number) => void,
+	}) {
+		if(this.httpsServer) {
+			const port = this.httpsPort!;
+			this.httpsServer!.listen(port, () => {
+				evts?.onHttpsListening?.(port);
+			});
+		}
+		if(this.httpServer) {
+			const port = this.httpPort!;
+			this.httpServer!.listen(port, () => {
+				evts?.onHttpListening?.(port);
+			});
+		}
+		if(this.httpolyglotServer) {
+			const port = (this.httpsPort ?? this.httpPort)!;
+			this.httpolyglotServer!.listen(port, () => {
+				evts?.onHttpolyglotListening?.(port);
+			});
+		}
+	}
+
+	close(evts?: {
+		onHttpClosed?: (error?: Error) => void,
+		onHttpsClosed?: (error?: Error) => void,
+		onHttpolyglotClosed?: (error?: Error) => void,
+	}) {
 		this.stopListeningToPlexServerNotifications();
-		this.server.close(callback);
+		this.httpServer?.close((error) => {
+			evts?.onHttpClosed?.(error);
+		});
+		this.httpsServer?.close((error) => {
+			evts?.onHttpsClosed?.(error);
+		});
+		this.httpolyglotServer?.close((error) => {
+			evts?.onHttpolyglotClosed?.(error);
+		});
 	}
 
 
