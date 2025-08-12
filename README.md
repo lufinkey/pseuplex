@@ -44,9 +44,9 @@ This is an unofficial project that is **NOT** endorsed by or associated with Ple
 
 ## Contributing
 
-This app is structured to have different ["plugins"](src/plugins) to provide different functionality. The [template](src/plugins/template) plugin is provided to give a starting point for anyone implementing a new plugin. At the moment, these are only defined [in this project](src/main.ts#L161) and not externally loaded, but this may change in the future if there's an interest in it. If you would like to add your own set of functionality unrelated to letterboxd or any existing functionality, you should create your own "plugin".
+This app is structured to have different ["plugins"](src/plugins) to provide different functionality. The [example plugin](pluginexample) and the [plugin template](src/plugins/template) are provided to give a starting point for anyone implementing a new plugin. If you would like to add your own set of functionality unrelated to letterboxd or any existing functionality, you should create your own plugin.
 
-Feel free to ask me if you're unsure of where to implement something!
+Feel free to ask me if you're unsure of where or how to implement something!
 
 ## Setup
 
