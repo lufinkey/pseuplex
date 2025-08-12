@@ -35,6 +35,7 @@ export const installPlugins = async (cfg: Config) => {
 	await executeAsync(pkgMgrName, ["install", "--prefix", pluginDepsPath, "--no-save", ...pluginArgs], {
 		cwd: initialCwd,
 	});
+	console.log();
 };
 
 export const importPlugins = async (cfg: Config): Promise<PseuplexPluginClass[]> => {
