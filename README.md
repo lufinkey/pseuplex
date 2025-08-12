@@ -116,6 +116,7 @@ Create a `config.json` file with the following structure, and fill in the config
 	- **friendsReviewsEnabled**: Display letterboxd friends reviews for all users with a letterboxd username configured
 - **dashboard**:
 	- **enabled**: Controls whether to show a pseudo "Dashboard" section for all users, which will show custom hubs
+	- **uuid**: The unique uuid for the dashboard section. If enabling the dashboard, you should specify your own [randomly generated uuid](https://www.uuidgenerator.net), to ensure it's unique to your server.
 	- **title**: The title to display for the section
 	- **hubs**: An array of hubs to show on the dashboard section for all users. For a list of built-in hubs that can be configured, see [here](docs/Dashboard.md#hubs).
 		- **plugin**: The name of the plugin that this hub comes from (for example, `letterboxd` for letterboxd hubs)
