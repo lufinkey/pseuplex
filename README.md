@@ -97,8 +97,12 @@ Create a `config.json` file with the following structure, and fill in the config
 - **port**: The port that this proxy will run on.
 - **httpPort**: Manually specify the port that the http proxy will run on, if you want http and https traffic on separate ports.
 - **httpsPort**: Manually specify the port that the https proxy will run on, if you want http and https traffic on separate ports.
+- **redirectPlexStreams**: Optionally redirect video streams to go directly to plex, rather than through the proxy. The `plex.redirectHost` option must be set in order for streams to be redirected.
 - **plex**
 	- **host**: The url of your plex server.
+	- **secureHost**: The "secure" url of your plex server, if you want https traffic to use a different url.
+	- **redirectHost**: The external url of your plex server, to use when redirecting streams.
+	- **secureRedirectHost**: The "secure" external url of your plex server, to use when redirecting streams for https traffic.
 	- **token**: The plex API token of the server owner.
 	- **appDataPath**: (*optional*) Manually specify the path of your plex server's appdata folder if it's in an unconventional place. On Linux, this is typically `/var/lib/plexmediaserver/Library/Application Support/Plex Media Server` unless you're running via docker. This will be used to determine the path of the SSL certificate if `ssl.autoP12Path` is `true`. This will also be used to determine the path of `Preferences.xml` if `ssl.autoP12Password` is `true`.
 	- **assumedTopSectionId**: (*optional*) Because of a bug in Plex for Mobile, it isn't possible to determine which section is the first "pinned" section. To fix this, you can manually specify the top pinned section ID here.
