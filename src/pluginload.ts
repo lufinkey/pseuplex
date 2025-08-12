@@ -1,15 +1,15 @@
-import { executeAsync } from './utils/subprocess';
+import * as constants from './constants';
 import { Config } from './config';
 import { PseuplexPluginClass } from './pseuplex';
+import { executeAsync } from './utils/subprocess';
 
 const initialCwd = process.cwd();
 const pluginDepsPath = `${initialCwd}/plugindeps`;
 
-// prepend the plugins path to NODE_PATH
 let prependedPluginsPath = false;
 const installedPluginsPath = `${pluginDepsPath}/node_modules`;
 
-const pluginNamePrefix = 'pseuplex-plugin-';
+const pluginNamePrefix = `${constants.APP_SLUG}-plugin-`;
 const getPluginModuleName = (id: string) => {
 	if(id.startsWith(pluginNamePrefix)) {
 		return id;

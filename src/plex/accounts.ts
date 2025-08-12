@@ -4,7 +4,7 @@ import {
 } from './types';
 import * as plexServerAPI from './api';
 import * as plexTVAPI from '../plextv/api';
-import { PlexTVCurrentUserInfo } from '../plextv/types/User';
+import { PlexTVCurrentUserInfo } from '../plextv/types';
 import { Logger } from '../logging';
 import { HttpResponseError } from '../utils/error';
 import { PlexServerPropertiesStore } from './serverproperties';

@@ -1,5 +1,5 @@
 
-import { PseuplexConfigBase } from '../../pseuplex/configbase';
+import { PseuplexConfigBase } from '../../pseuplex';
 
 type TemplateFlags = {
 	templatePlugin?: {

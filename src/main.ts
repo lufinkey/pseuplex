@@ -1,5 +1,4 @@
 #!/usr/bin/env node --enable-source-maps
-import https from 'https';
 import sharp from 'sharp';
 import * as constants from './constants';
 import {
@@ -31,11 +30,11 @@ import {
 	getPlexP12Path,
 	readPlexPreferences
 } from './plex/config';
-import { PlexPreferences } from './plex/types/preferences';
+import { PlexPreferences } from './plex/types';
 import { PlexClient } from './plex/client';
 import { Logger, LoggingOptions } from './logging';
 import { importPlugins, installPlugins } from './pluginload';
-import { addProtocolToUrlIfMissing } from './utils/misc';
+import { addProtocolToUrlIfMissing } from './utils/url';
 
 if(process.env.NODE_ENV !== 'production') {
 	includeTracesForConsoleWarnAndError();

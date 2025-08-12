@@ -10,7 +10,9 @@ import {
 import * as plexTypes from '../plex/types';
 import * as plexServerAPI from '../plex/api';
 import {
-	addQueryArgumentToURLPath,
+	addQueryArgumentToURLPath
+} from '../utils/queryparams';
+import {
 	forArrayOrSingle
 } from '../utils/misc';
 import {
@@ -23,7 +25,6 @@ import {
 	PseuplexHubPageParams,
 	PseuplexHubSectionInfo
 } from './hub';
-import { PseuplexSection } from './section';
 import { Logger } from '../logging';
 
 export type PseuplexFeedHubOptions = {

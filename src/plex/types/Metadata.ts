@@ -2,7 +2,6 @@
 import {
 	PlexContentRating,
 	PlexMediaItemType,
-	PlexXMLBoolean
 } from './common';
 import { PlexHubWithItems } from './Hub';
 import {
@@ -11,26 +10,27 @@ import {
 import {
 	PlexMediaContainer
 } from './MediaContainer';
+import { BooleanQueryParam } from '../../utils/queryparams';
 
 export type PlexMetadataPageParams = {
-	includeConcerts?: PlexXMLBoolean;
-	includeExtras?: PlexXMLBoolean;
-	includeOnDeck?: PlexXMLBoolean;
-	includePopularLeaves?: PlexXMLBoolean;
-	includePreferences?: PlexXMLBoolean;
-	includeReviews?: PlexXMLBoolean;
-	includeChapters?: PlexXMLBoolean;
-	includeStations?: PlexXMLBoolean;
-	includeExternalMetadata?: PlexXMLBoolean;
-	asyncAugmentMetadata?: PlexXMLBoolean;
-	checkFiles?: PlexXMLBoolean;
-	asyncCheckFiles?: PlexXMLBoolean;
-	refreshAnalysis?: PlexXMLBoolean;
-	asyncRefreshAnalysis?: PlexXMLBoolean;
-	refreshLocalMediaAgent?: PlexXMLBoolean;
-	asyncRefreshLocalMediaAgent?: PlexXMLBoolean;
-	includeUserState?: PlexXMLBoolean;
-	includeRelated?: PlexXMLBoolean;
+	includeConcerts?: BooleanQueryParam;
+	includeExtras?: BooleanQueryParam;
+	includeOnDeck?: BooleanQueryParam;
+	includePopularLeaves?: BooleanQueryParam;
+	includePreferences?: BooleanQueryParam;
+	includeReviews?: BooleanQueryParam;
+	includeChapters?: BooleanQueryParam;
+	includeStations?: BooleanQueryParam;
+	includeExternalMetadata?: BooleanQueryParam;
+	asyncAugmentMetadata?: BooleanQueryParam;
+	checkFiles?: BooleanQueryParam;
+	asyncCheckFiles?: BooleanQueryParam;
+	refreshAnalysis?: BooleanQueryParam;
+	asyncRefreshAnalysis?: BooleanQueryParam;
+	refreshLocalMediaAgent?: BooleanQueryParam;
+	asyncRefreshLocalMediaAgent?: BooleanQueryParam;
+	includeUserState?: BooleanQueryParam;
+	includeRelated?: BooleanQueryParam;
 };
 
 export type PlexMetadataChildrenPageParams = {

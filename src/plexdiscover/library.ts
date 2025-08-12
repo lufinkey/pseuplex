@@ -1,6 +1,9 @@
 import qs from 'querystring';
 import * as plexTypes from '../plex/types';
-import { PlexDiscoverAPIRequestOptions, plexDiscoverFetch } from './core';
+import {
+	PlexDiscoverAPIRequestOptions,
+	plexDiscoverFetch
+} from './core';
 
 export const getLibraryMetadata = async (id: string | string[], options: (PlexDiscoverAPIRequestOptions & {
 	params?: plexTypes.PlexMetadataPageParams,

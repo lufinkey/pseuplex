@@ -1,6 +1,7 @@
 import http from 'http';
 import express from 'express';
-import { parseURLPath, stringParam } from '../../utils/misc';
+import { parseStringQueryParam } from '../../utils/queryparams';
+import { parseURLPath } from '../../utils/url';
 
 export type PlexAuthContext = {
 	'X-Plex-Product'?: string;
@@ -80,9 +81,9 @@ export const parsePlexTokenFromRequest = (req: (http.IncomingMessage | express.R
 		const urlParts = parseURLPath(req.url!);
 		query = urlParts.queryItems ?? {};
 	}
-	let plexToken = query ? stringParam(query['X-Plex-Token']) : undefined;
+	let plexToken = query ? parseStringQueryParam(query['X-Plex-Token']) : undefined;
 	if(!plexToken) {
-		plexToken = stringParam(req.headers['x-plex-token']);
+		plexToken = parseStringQueryParam(req.headers['x-plex-token']);
 	}
 	return plexToken;
 };

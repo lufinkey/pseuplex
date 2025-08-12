@@ -21,10 +21,12 @@ import {
 } from '../../pseuplex';
 import * as extPlexTransform from '../../pseuplex/externalplex/transform';
 import {
-	stringParam,
-	intParam,
+	parseStringQueryParam,
+	parseIntQueryParam,
+} from '../../utils/queryparams';
+import {
 	pushToArray,
-	isNullOrEmpty,
+	isArrayNullOrEmpty,
 	findInArrayOrSingle,
 	forArrayOrSingle,
 	firstOrSingle,
@@ -89,7 +91,7 @@ export default (class RequestsPlugin implements RequestsPluginDef, PseuplexPlugi
 			// wait for all previous filters
 			await Promise.all(filterContext.previousFilterPromises ?? []);
 			// only show request option if no items were found
-			if(!isNullOrEmpty(resData.MediaContainer.Metadata)) {
+			if(!isArrayNullOrEmpty(resData.MediaContainer.Metadata)) {
 				return;
 			}
 			// get request provider
@@ -98,15 +100,15 @@ export default (class RequestsPlugin implements RequestsPluginDef, PseuplexPlugi
 				return;
 			}
 			// parse params
-			let mediaType = intParam(filterContext.userReq.query['type']) as plexTypes.PlexMediaItemTypeNumeric;
-			let guid = stringParam(filterContext.userReq.query['guid']);
+			let mediaType = parseIntQueryParam(filterContext.userReq.query['type']) as plexTypes.PlexMediaItemTypeNumeric;
+			let guid = parseStringQueryParam(filterContext.userReq.query['guid']);
 			let season: number | undefined = undefined;
 			if(!guid) {
-				guid = stringParam(filterContext.userReq.query['show.guid']);
+				guid = parseStringQueryParam(filterContext.userReq.query['show.guid']);
 				if(!guid) {
 					return;
 				}
-				season = intParam(filterContext.userReq.query['season.index']);
+				season = parseIntQueryParam(filterContext.userReq.query['season.index']);
 			}
 			if(mediaType == null) {
 				const guidParts = parsePlexMetadataGuid(guid);
@@ -196,10 +198,10 @@ export default (class RequestsPlugin implements RequestsPluginDef, PseuplexPlugi
 			// get metadata for requested item
 			router.get(endpoint, [
 				this.app.middlewares.plexAuthentication,
-				this.app.middlewares.plexRequestHandler(async (req: IncomingPlexAPIRequest, res) => {
+				this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res) => {
 					// get request properties
 					const { providerSlug, mediaType, plexId } = req.params;
-					const season = intParam(req.params.season);
+					const season = parseIntQueryParam(req.params.season);
 					const plexParams = req.plex.requestParams;
 					const context = this.app.contextForRequest(req);
 					// handle request

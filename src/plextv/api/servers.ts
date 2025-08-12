@@ -1,6 +1,6 @@
 import { PlexAuthContext } from '../../plex/types';
 import { PlexTVAPIRequestOptions, plexTVFetch } from './core';
-import { PlexTVSharedServersPage } from '../types/Servers';
+import { PlexTVSharedServersPage } from '../types';
 
 export const getSharedServers = async (args: {
 	clientIdentifier: string,

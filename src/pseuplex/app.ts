@@ -27,14 +27,15 @@ import {
 } from './metadataAccessCache';
 import {
 	plexApiProxy,
+	PlexAPIProxyFilters,
 	plexHttpProxy,
 	PlexProxyOptions,
 } from '../plex/proxy';
 import {
 	createPlexAuthenticationMiddleware,
+	handlePlexAPIRequest,
 	IncomingPlexAPIRequest,
 	PlexAPIRequestHandler,
-	plexAPIRequestHandler,
 	PlexAPIRequestHandlerOptions,
 	PlexAuthedRequestHandler
 } from '../plex/requesthandling';
@@ -54,6 +55,9 @@ import {
 	PseuplexServerProtocol,
 	PseuplexRequestContext,
 	PseuplexMetadataChildrenPage,
+	PseuplexClientWebSocketInfo,
+	PseuplexPossiblyConfirmedClientWebSocketInfo,
+	PseuplexEventSourceSubscriber,
 } from './types';
 import { PseuplexConfigBase } from './configbase';
 import {
@@ -70,13 +74,6 @@ import {
 	PseuplexRelatedHubsParams,
 	PseuplexRelatedHubsSource,
 } from './metadata';
-import {
-	PseuplexClientWebSocketInfo,
-	PseuplexPossiblyConfirmedClientWebSocketInfo,
-} from './types/websocket';
-import {
-	PseuplexEventSourceSubscriber
-} from './types/eventsource';
 import {
 	PseuplexPlugin,
 	PseuplexResponseFilterName,
@@ -101,6 +98,7 @@ import {
 	sendMediaUnavailableNotifications,
 	sendMetadataRefreshTimelineNotifications,
 } from './notifications';
+import * as constants from '../constants';
 import { Logger } from '../logging';
 import { CachedFetcher } from '../fetching/CachedFetcher';
 import { httpError, HttpResponseError } from '../utils/error';
@@ -110,14 +108,18 @@ import {
 	requestIsEncrypted
 } from '../utils/requesthandling';
 import {
+	parseIntQueryParam
+} from '../utils/queryparams';
+import {
 	parseURLPath,
 	stringifyURLPath,
+	parseURLPathParts,
+} from '../utils/url';
+import {
 	forArrayOrSingle,
 	forArrayOrSingleAsyncParallel,
 	transformArrayOrSingle,
 	transformArrayOrSingleAsyncParallel,
-	intParam,
-	parseURLPathParts,
 	findInArrayOrSingle,
 } from '../utils/misc';
 import { IPv4NormalizeMode } from '../utils/ip';
@@ -250,7 +252,8 @@ export class PseuplexApp {
 	readonly middlewares: {
 		plexAuthentication: express.RequestHandler;
 		plexServerOwnerOnly: PlexAuthedRequestHandler;
-		plexRequestHandler: <TResult>(handler: PlexAPIRequestHandler<TResult>) => ((req: express.Request, res: express.Response) => Promise<void>)
+		plexAPIRequestHandler: <TResult>(handler: PlexAPIRequestHandler<TResult>) => express.RequestHandler;
+		plexAPIProxy: (filters: PlexAPIProxyFilters) => express.RequestHandler;
 	};
 	
 	constructor(options: PseuplexAppOptions) {
@@ -263,7 +266,7 @@ export class PseuplexApp {
 		if(!httpPort && !httpsPort) {
 			throw new Error("Server must listen on atleast 1 port");
 		}
-		this.slug = options.slug ?? 'pseuplex';
+		this.slug = options.slug ?? constants.APP_SLUG;
 		this.config = options.config;
 		this.httpPort = httpPort;
 		this.httpsPort = httpsPort;
@@ -313,6 +316,13 @@ export class PseuplexApp {
 		const plexReqHandlerOpts: PlexAPIRequestHandlerOptions = {
 			logger: this.logger,
 		};
+		const plexProxyOpts: PlexProxyOptions = {
+			logger: this.logger,
+			ipv4Mode: options.ipv4ForwardingMode
+		};
+		const plexServerHostGetter = (req: express.Request) => {
+			return this.plexServerHostForRequest(req);
+		};
 		this.middlewares = {
 			plexAuthentication: createPlexAuthenticationMiddleware(this.plexServerAccounts),
 			plexServerOwnerOnly: (req: IncomingPlexAPIRequest, res, next) => {
@@ -326,7 +336,14 @@ export class PseuplexApp {
 				}
 				next();
 			},
-			plexRequestHandler: <TResult>(handler: PlexAPIRequestHandler<TResult>) => plexAPIRequestHandler(handler, plexReqHandlerOpts)
+			plexAPIRequestHandler: <TResult>(handler: PlexAPIRequestHandler<TResult>) => {
+				return async (req: IncomingPlexAPIRequest, res: express.Response) => {
+					await handlePlexAPIRequest(req, res, handler, options);
+				};
+			},
+			plexAPIProxy: (proxyFilters: PlexAPIProxyFilters) => {
+				return plexApiProxy(plexServerHostGetter, plexProxyOpts, proxyFilters);
+			},
 		};
 		
 		// loop through and instantiate plugins
@@ -418,10 +435,6 @@ export class PseuplexApp {
 		}
 
 		// create router and define routes
-		const plexProxyArgs: PlexProxyOptions = {
-			logger: this.logger,
-			ipv4Mode: options.ipv4ForwardingMode
-		};
 		const router = express();
 
 		// log request if needed
@@ -528,13 +541,9 @@ export class PseuplexApp {
 			plugin.defineRoutes?.(router);
 		}
 
-		const plexServerHostGetter = (req: express.Request) => {
-			return this.plexServerHostForRequest(req);
-		};
-
 		router.get('/media/providers', [
 			this.middlewares.plexAuthentication,
-			plexApiProxy(plexServerHostGetter, plexProxyArgs, {
+			this.middlewares.plexAPIProxy({
 				filter: async (req: IncomingPlexAPIRequest, res) => {
 					const context = this.contextForRequest(req);
 					return ((await this.hasPluginSections(context)) || (this.responseFilters?.mediaProviders?.length ?? 0) > 0);
@@ -558,7 +567,7 @@ export class PseuplexApp {
 
 		router.get(['/library/sections', '/library/sections/all'], [
 			this.middlewares.plexAuthentication,
-			plexApiProxy(plexServerHostGetter, plexProxyArgs, {
+			this.middlewares.plexAPIProxy({
 				filter: async (req: IncomingPlexAPIRequest, res) => {
 					const context = this.contextForRequest(req);
 					return await this.hasPluginSections(context);
@@ -582,7 +591,7 @@ export class PseuplexApp {
 
 		router.get('/hubs', [
 			this.middlewares.plexAuthentication,
-			plexApiProxy(plexServerHostGetter, plexProxyArgs, {
+			this.middlewares.plexAPIProxy({
 				responseModifier: async (proxyRes, resData: plexTypes.PlexLibraryHubsPage, userReq: IncomingPlexAPIRequest, userRes) => {
 					const context = this.contextForRequest(userReq);
 					const reqParams = userReq.plex.requestParams;
@@ -621,7 +630,7 @@ export class PseuplexApp {
 
 		router.get('/hubs/promoted', [
 			this.middlewares.plexAuthentication,
-			plexApiProxy(plexServerHostGetter, plexProxyArgs, {
+			this.middlewares.plexAPIProxy({
 				responseModifier: async (proxyRes, resData: plexTypes.PlexLibraryHubsPage, userReq: IncomingPlexAPIRequest, userRes) => {
 					const context = this.contextForRequest(userReq);
 					const reqParams = userReq.plex.requestParams;
@@ -669,7 +678,7 @@ export class PseuplexApp {
 		router.get('/hubs/sections/:sectionId', [
 			this.middlewares.plexAuthentication,
 			// TODO handle custom sections
-			plexApiProxy(plexServerHostGetter, plexProxyArgs, {
+			this.middlewares.plexAPIProxy({
 				responseModifier: async (proxyRes, resData: plexTypes.PlexSectionHubsPage, userReq: IncomingPlexAPIRequest, userRes) => {
 					const sectionId = userReq.params.sectionId;
 					// filter response
@@ -750,7 +759,7 @@ export class PseuplexApp {
 				this.sendMetadataUnavailableNotificationsIfNeeded(resData, params, context);
 				return resData;
 			}),
-			plexApiProxy(plexServerHostGetter, plexProxyArgs, {
+			this.middlewares.plexAPIProxy({
 				responseModifier: async (proxyRes, resData: plexTypes.PlexMetadataPage, userReq: IncomingPlexAPIRequest, userRes) => {
 					const context = this.contextForRequest(userReq);
 					const plexParams: plexTypes.PlexMetadataPageParams = userReq.plex.requestParams;
@@ -810,8 +819,8 @@ export class PseuplexApp {
 				const context = this.contextForRequest(req);
 				const plexParams: plexTypes.PlexMetadataChildrenPageParams = {
 					...req.plex.requestParams,
-					'X-Plex-Container-Start': intParam(req.query['X-Plex-Container-Start'] ?? req.header('x-plex-container-start')),
-					'X-Plex-Container-Size': intParam(req.query['X-Plex-Container-Size'] ?? req.header('x-plex-container-size'))
+					'X-Plex-Container-Start': parseIntQueryParam(req.query['X-Plex-Container-Start'] ?? req.header('x-plex-container-start')),
+					'X-Plex-Container-Size': parseIntQueryParam(req.query['X-Plex-Container-Size'] ?? req.header('x-plex-container-size'))
 				};
 				// get metadatas
 				const resData = await this.getMetadataChildren(metadataId, {
@@ -835,14 +844,14 @@ export class PseuplexApp {
 				this.sendMetadataUnavailableNotificationsIfNeeded(resData, plexParams as plexTypes.PlexMetadataPageParams, context);
 				return resData;
 			}),
-			plexApiProxy(plexServerHostGetter, plexProxyArgs, {
+			this.middlewares.plexAPIProxy({
 				responseModifier: async (proxyRes, resData: plexTypes.PlexMetadataChildrenPage, userReq: IncomingPlexAPIRequest, userRes) => {
 					const context = this.contextForRequest(userReq);
 					const metadataId = parseMetadataIdFromPathParam(userReq.params.metadataId);
 					const plexParams: plexTypes.PlexMetadataChildrenPageParams = {
 						...userReq.plex.requestParams,
-						'X-Plex-Container-Start': intParam(userReq.query['X-Plex-Container-Start'] ?? userReq.header('x-plex-container-start')),
-						'X-Plex-Container-Size': intParam(userReq.query['X-Plex-Container-Size'] ?? userReq.header('x-plex-container-size'))
+						'X-Plex-Container-Start': parseIntQueryParam(userReq.query['X-Plex-Container-Start'] ?? userReq.header('x-plex-container-start')),
+						'X-Plex-Container-Size': parseIntQueryParam(userReq.query['X-Plex-Container-Size'] ?? userReq.header('x-plex-container-size'))
 					};
 					// process metadata items
 					await forArrayOrSingleAsyncParallel(resData.MediaContainer.Metadata, async (metadataItem: PseuplexMetadataItem) => {
@@ -895,7 +904,7 @@ export class PseuplexApp {
 					}
 					return resData;
 				}),
-				plexApiProxy(plexServerHostGetter, plexProxyArgs, {
+				this.middlewares.plexAPIProxy({
 					responseModifier: async (proxyRes, resData: plexTypes.PlexHubsPage, userReq: IncomingPlexAPIRequest, userRes) => {
 						// get request info
 						const metadataId = parseMetadataIdFromPathParam(userReq.params.metadataId);
@@ -921,7 +930,7 @@ export class PseuplexApp {
 
 		router.get(`/library/all`, [
 			this.middlewares.plexAuthentication,
-			plexApiProxy(plexServerHostGetter, plexProxyArgs, {
+			this.middlewares.plexAPIProxy({
 				filter: (req, res) => {
 					// only filter if guid is included
 					if(req.query['guid'] || req.query['show.guid']) {
@@ -947,7 +956,7 @@ export class PseuplexApp {
 			this.middlewares.plexAuthentication,
 			// ensure that this endpoint NEVER gives data to non-owners
 			this.middlewares.plexServerOwnerOnly,
-			plexApiProxy(plexServerHostGetter, plexProxyArgs, {
+			this.middlewares.plexAPIProxy({
 				responseModifier: async (proxyRes, resData: plexTypes.PlexMyPlexAccountPage, userReq: IncomingPlexAPIRequest, userRes) => {
 					// overwrite privatePort if needed
 					if(this.overwritePlexPrivatePort) {
@@ -973,7 +982,7 @@ export class PseuplexApp {
 
 		router.post('/playQueues', [
 			this.middlewares.plexAuthentication,
-			plexApiProxy(plexServerHostGetter, plexProxyArgs, {
+			this.middlewares.plexAPIProxy({
 				requestPathModifier: async (req: IncomingPlexAPIRequest): Promise<string> => {
 					const context = this.contextForRequest(req);
 					// parse url path
@@ -1171,12 +1180,12 @@ export class PseuplexApp {
 			userRes.once('close', onResponseDone);
 		};
 		// proxy SSE events
-		const plexSSEProxy = plexHttpProxy(this.plexServerHost, plexProxyArgs, {
+		const plexSSEProxy = plexHttpProxy(this.plexServerHost, plexProxyOpts, {
 			onProxyResponse: onPlexSSEProxyResponse,
 		});
 		let plexSSEProxySecure: HttpProxyServer;
 		if(plexServerHostSecureIsDifferent) {
-			plexSSEProxySecure = plexHttpProxy(this.plexServerHostSecure, plexProxyArgs, {
+			plexSSEProxySecure = plexHttpProxy(this.plexServerHostSecure, plexProxyOpts, {
 				onProxyResponse: onPlexSSEProxyResponse,
 			});
 		} else {
@@ -1194,7 +1203,7 @@ export class PseuplexApp {
 		]);
 		
 		// proxy requests to plex
-		const plexGeneralProxy = plexHttpProxy(this.plexServerHost, plexProxyArgs);
+		const plexGeneralProxy = plexHttpProxy(this.plexServerHost, plexProxyOpts);
 		plexGeneralProxy.on('error', (error) => {
 			console.error();
 			console.error(`Got proxy error:`);
@@ -1202,7 +1211,7 @@ export class PseuplexApp {
 		});
 		let plexGeneralProxySecure: HttpProxyServer;
 		if(plexServerHostSecureIsDifferent) {
-			plexGeneralProxySecure = plexHttpProxy(this.plexServerHostSecure, plexProxyArgs);
+			plexGeneralProxySecure = plexHttpProxy(this.plexServerHostSecure, plexProxyOpts);
 			plexGeneralProxySecure.on('error', (error) => {
 				console.error();
 				console.error(`Got proxy error:`);
@@ -1219,13 +1228,8 @@ export class PseuplexApp {
 			}
 		});
 		router.use(expressErrorHandler);
-		router.use((error: Error, req: express.Request, res: express.Response, next) => {
-			console.error(`Error cascaded past where it should've:`);
-			console.error(error);
-			next();
-		});
 		
-		// create http/https/http+https server
+		// create http/https/http+https server(s)
 		let httpServer: http.Server | undefined;
 		let httpsServer: https.Server | undefined;
 		let httpolyglotServer: httpolyglot.Server | undefined;

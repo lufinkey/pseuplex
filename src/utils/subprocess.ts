@@ -3,7 +3,7 @@ import {
 	SpawnOptions,
 	SpawnOptionsWithoutStdio
 } from 'child_process';
-import { isStringNullOrWhitespace } from './misc';
+import { isStringNullOrWhitespace } from './strings';
 
 export type SubprocessError = Error & {
 	exitSignal?: NodeJS.Signals;

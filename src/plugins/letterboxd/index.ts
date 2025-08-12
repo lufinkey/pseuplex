@@ -6,7 +6,6 @@ import {
 	doesRequestIncludeFirstPinnedContentDirectory,
 	IncomingPlexAPIRequest,
 } from '../../plex/requesthandling';
-import { parseMetadataIDFromKey } from '../../plex/metadataidentifier';
 import {
 	PseuplexApp,
 	PseuplexPlugin,
@@ -43,10 +42,10 @@ import * as lbTransform from './transform';
 import { LetterboxdPluginDef } from './plugindef';
 import { RequestExecutor } from '../../fetching/RequestExecutor';
 import { httpError } from '../../utils/error';
+import { parseStringQueryParam } from '../../utils/queryparams';
 import {
 	forArrayOrSingleAsyncParallel,
 	pushToArray,
-	stringParam
 } from '../../utils/misc';
 
 export default (class LetterboxdPlugin implements LetterboxdPluginDef, PseuplexPlugin {
@@ -247,7 +246,7 @@ export default (class LetterboxdPlugin implements LetterboxdPluginDef, PseuplexP
 		// get metadata item(s)
 		router.get(`${this.metadata.basePath}/:id`, [
 			this.app.middlewares.plexAuthentication,
-			this.app.middlewares.plexRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexMetadataPage> => {
+			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexMetadataPage> => {
 				console.log(`Got request for letterboxd item ${req.params.id}`);
 				const context = this.app.contextForRequest(req);
 				const params: plexTypes.PlexMetadataPageParams = req.plex.requestParams;
@@ -323,7 +322,7 @@ export default (class LetterboxdPlugin implements LetterboxdPluginDef, PseuplexP
 		for(const {endpoint, hubsSource} of getPlexRelatedHubsEndpoints(`${this.metadata.basePath}/:id`)) {
 			router.get(endpoint, [
 				this.app.middlewares.plexAuthentication,
-				this.app.middlewares.plexRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexHubsPage> => {
+				this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexHubsPage> => {
 					const metadataId = req.params.id;
 					const context = this.app.contextForRequest(req);
 					const params = plexTypes.parsePlexHubPageParams(req, {fromListPage:true});
@@ -351,7 +350,7 @@ export default (class LetterboxdPlugin implements LetterboxdPluginDef, PseuplexP
 		// get similar films on letterboxd as a hub
 		router.get(`${this.metadata.basePath}/:id/${this.hubs.similar.relativePath}`, [
 			this.app.middlewares.plexAuthentication,
-			this.app.middlewares.plexRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexHubsPage> => {
+			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexHubsPage> => {
 				const id = req.params.id;
 				const context = this.app.contextForRequest(req);
 				const params = plexTypes.parsePlexHubPageParams(req, {fromListPage:false});
@@ -363,7 +362,7 @@ export default (class LetterboxdPlugin implements LetterboxdPluginDef, PseuplexP
 		// get letterboxd friend activity as a hub
 		router.get(`${this.hubs.userFollowingActivity.basePath}/:letterboxdUsername`, [
 			this.app.middlewares.plexAuthentication,
-			this.app.middlewares.plexRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexMetadataPage> => {
+			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexMetadataPage> => {
 				const context = this.app.contextForRequest(req);
 				const letterboxdUsername = req.params['letterboxdUsername'];
 				if(!letterboxdUsername) {
@@ -373,7 +372,7 @@ export default (class LetterboxdPlugin implements LetterboxdPluginDef, PseuplexP
 				const hub = await this.hubs.userFollowingActivity.get(letterboxdUsername);
 				return await hub.getHubPage({
 					...params,
-					listStartToken: stringParam(req.query['listStartToken'])
+					listStartToken: parseStringQueryParam(req.query['listStartToken'])
 				}, context);
 			})
 		]);
@@ -381,7 +380,7 @@ export default (class LetterboxdPlugin implements LetterboxdPluginDef, PseuplexP
 		// get letterboxd list as a hub
 		router.get(`${this.hubs.list.basePath}/:listId`, [
 			this.app.middlewares.plexAuthentication,
-			this.app.middlewares.plexRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexHubPage> => {
+			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexHubPage> => {
 				const listId = req.params['listId'];
 				if(!listId) {
 					throw httpError(400, "No list ID provided");

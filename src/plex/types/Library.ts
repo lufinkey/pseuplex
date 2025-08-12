@@ -5,9 +5,9 @@ import {
 	PlexMediaItemType,
 	PlexMediaItemTypeNumeric,
 	PlexPluginIdentifier,
-	PlexXMLBoolean
 } from './common';
 import { PlexMediaContainer } from './MediaContainer';
+import { BooleanQueryParam } from '../../utils/queryparams';
 
 export type PlexGetLibraryMatchesParams = {
 	guid?: string,
@@ -22,7 +22,7 @@ export type PlexGetLibraryMatchesParams = {
 };
 
 export type PlexLibrarySectionsPageParams = {
-	includePreferences?: PlexXMLBoolean;
+	includePreferences?: BooleanQueryParam;
 }
 
 export type PlexLibrarySection = {

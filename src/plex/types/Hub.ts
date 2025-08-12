@@ -1,7 +1,6 @@
 
 import express from 'express';
 import {
-	PlexXMLBoolean,
 	PlexMediaItemType
 } from './common';
 import {
@@ -16,10 +15,10 @@ import {
 } from './Meta';
 import { PlexMediaContainer } from './MediaContainer';
 import {
-	intParam,
-	stringArrayParam,
-	booleanParam
-} from '../../utils/misc';
+	parseIntQueryParam,
+	parseStringArrayQueryParam,
+	parseBooleanQueryParam,
+} from '../../utils/queryparams';
 
 
 export enum PlexHubNumericType {
@@ -65,12 +64,12 @@ export const parsePlexHubPageParams = (req: express.Request, options: {fromListP
 		return {};
 	}
 	return {
-		start: options.fromListPage ? undefined : intParam(query['X-Plex-Container-Start'] ?? req.header('x-plex-container-start')),
-		count: options.fromListPage ? intParam(query['count']) : intParam(query['X-Plex-Container-Size'] ?? req.header('x-plex-container-size')),
-		contentDirectoryID: stringArrayParam(query['contentDirectoryID']),
-		pinnedContentDirectoryID: stringArrayParam(query['pinnedContentDirectoryID']),
-		excludeFields: stringArrayParam(query['excludeFields']),
-		includeMeta: booleanParam(query['includeMeta'])
+		start: options.fromListPage ? undefined : parseIntQueryParam(query['X-Plex-Container-Start'] ?? req.header('x-plex-container-start')),
+		count: options.fromListPage ? parseIntQueryParam(query['count']) : parseIntQueryParam(query['X-Plex-Container-Size'] ?? req.header('x-plex-container-size')),
+		contentDirectoryID: parseStringArrayQueryParam(query['contentDirectoryID']),
+		pinnedContentDirectoryID: parseStringArrayQueryParam(query['pinnedContentDirectoryID']),
+		excludeFields: parseStringArrayQueryParam(query['excludeFields']),
+		includeMeta: parseBooleanQueryParam(query['includeMeta'])
 	};
 };
 
@@ -98,13 +97,13 @@ export const parsePlexHubListPageParams = (req: express.Request): PlexHubListPag
 		return {};
 	}
 	return {
-		count: intParam(query['count']),
-		includeLibraryPlaylists: booleanParam(query['includeLibraryPlaylists']),
-		includeStations: booleanParam(query['includeStations']),
-		includeRecentChannels: booleanParam(query['includeRecentChannels']),
-		includeMeta: booleanParam(query['includeMeta']),
-		includeExternalMetadata: booleanParam(query['includeExternalMetadata']),
-		excludeFields: stringArrayParam(query['excludeFields'])
+		count: parseIntQueryParam(query['count']),
+		includeLibraryPlaylists: parseBooleanQueryParam(query['includeLibraryPlaylists']),
+		includeStations: parseBooleanQueryParam(query['includeStations']),
+		includeRecentChannels: parseBooleanQueryParam(query['includeRecentChannels']),
+		includeMeta: parseBooleanQueryParam(query['includeMeta']),
+		includeExternalMetadata: parseBooleanQueryParam(query['includeExternalMetadata']),
+		excludeFields: parseStringArrayQueryParam(query['excludeFields'])
 	};
 };
 

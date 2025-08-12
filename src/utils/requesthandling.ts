@@ -1,3 +1,4 @@
+import http from 'http';
 import express from 'express';
 import { HttpError, HttpResponseError } from './error';
 
@@ -47,15 +48,15 @@ export const expressErrorHandler = (error: Error, req: express.Request, res: exp
 	}
 };
 
-export function requestIsEncrypted(req: express.Request) {
+export function requestIsEncrypted(req: http.IncomingMessage) {
 	const connection = ((req.connection || req.socket) as {encrypted?: boolean; pair?: boolean;})
 	const encrypted = (connection?.encrypted || connection?.pair);
 	return encrypted ? true : false;
 }
 
-export function getPortFromRequest(req: express.Request) {
+export function getPortFromRequest(req: http.IncomingMessage) {
   const port = req.headers.host?.match(/:(\d+)/)?.[1];
   return port ?
 	port
-	: requestIsEncrypted(req) ? '443' : '80';
-};
+	: (requestIsEncrypted(req) ? '443' : '80');
+}

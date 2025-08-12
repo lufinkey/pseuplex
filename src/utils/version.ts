@@ -1,7 +1,7 @@
 import fs from 'fs';
 import { SpawnOptionsWithoutStdio } from 'child_process';
 import { executeAndGetOutputAsync } from './subprocess';
-import { getFirstLineOfString } from './misc';
+import { getFirstLineOfString } from './strings';
 import packageJson from '../../package.json';
 
 export type AppVersion = {

@@ -6,21 +6,21 @@ import {
 	PseuplexMetadataSource,
 	PseuplexMetadataTransformOptions,
 	PseuplexRequestContext,
-} from '../../pseuplex';
-import {
 	parsePartialMetadataID,
 	PseuplexMetadataIDString,
 	PseuplexPartialMetadataIDString,
 	stringifyMetadataID,
-	stringifyPartialMetadataID
-} from '../../pseuplex/metadataidentifier';
+	stringifyPartialMetadataID,
+	nonexistantMediaItems,
+} from '../../pseuplex';
 import {
-	intParam,
+	parseIntQueryParam,
+	createBooleanQueryParam,
+} from '../../utils/queryparams';
+import {
 	combinePathSegments
 } from '../../utils/misc';
 import { LetterboxdMetadataProvider } from './metadata';
-import { booleanQueryParam } from '../../plex/api/serialization';
-import { nonexistantMediaItems } from '../../pseuplex/media';
 
 export const partialMetadataIdFromFilmInfo = (filmInfo: letterboxd.FilmPage): PseuplexPartialMetadataIDString => {
 	return stringifyPartialMetadataID({
@@ -65,7 +65,7 @@ export const filmInfoToPlexMetadata = (filmInfo: letterboxd.FilmPage, context: P
 		thumb: filmInfo.ldJson.image,
 		tagline: filmInfo.pageData.tagline,
 		summary: filmInfo.pageData.description,
-		year: intParam(releasedEvent?.[0]?.startDate),
+		year: parseIntQueryParam(releasedEvent?.[0]?.startDate),
 		Pseuplex: {
 			isOnServer: false,
 			unavailable: true,
@@ -146,7 +146,7 @@ export const filmToPlexMetadata = (film: letterboxd.Film, options: PseuplexMetad
 		title: film.name,
 		//slug: fullMetadataId,
 		thumb: film.imageURL,
-		year: intParam(film.year)
+		year: parseIntQueryParam(film.year)
 	};
 };
 
@@ -199,10 +199,10 @@ export const getFilmListOptsFromPartialListId = (listId: PseuplexLetterboxdListI
 	const query = queryString ? qs.parse(queryString) : undefined;
 	if(query) {
 		if(query.detail) {
-			query.detail = booleanQueryParam(query.detail as any) as any;
+			query.detail = createBooleanQueryParam(query.detail as any) as any;
 		}
 		if(query.upcoming) {
-			query.upcoming = booleanQueryParam(query.upcoming as any) as any;
+			query.upcoming = createBooleanQueryParam(query.upcoming as any) as any;
 		}
 		if(typeof query.genre === 'string') {
 			query.genre = query.genre.split(',');

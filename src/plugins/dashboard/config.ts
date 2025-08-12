@@ -1,4 +1,4 @@
-import { PseuplexConfigBase } from '../../pseuplex/configbase';
+import { PseuplexConfigBase } from '../../pseuplex';
 
 export type DashboardHubConfig = {
 	plugin: string;

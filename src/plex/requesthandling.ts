@@ -12,7 +12,7 @@ import {
 	httpError,
 	HttpResponseError,
 } from '../utils/error';
-import { parseQueryParams } from '../utils/misc';
+import { parseQueryParams } from '../utils/queryparams';
 
 export const handlePlexAPIRequest = async <TResult>(req: express.Request, res: express.Response, handler: (req: express.Request, res: express.Response) => Promise<TResult>, options: PlexAPIRequestHandlerOptions): Promise<void> => {
 	let serializedRes: {contentType:string, data:string};
@@ -56,11 +56,6 @@ export type PlexAPIRequestHandlerOptions = {
 };
 export type PlexAPIRequestHandler<TResult> = (req: express.Request, res: express.Response) => Promise<TResult>;
 export type PlexAPIRequestHandlerMiddleware<TResult> = (handler: PlexAPIRequestHandler<TResult>, options?: PlexAPIRequestHandlerOptions) => ((req: express.Request, res: express.Response) => Promise<void>);
-export const plexAPIRequestHandler = <TResult>(handler: PlexAPIRequestHandler<TResult>, options: PlexAPIRequestHandlerOptions) => {
-	return async (req: IncomingPlexAPIRequest, res: express.Response) => {
-		await handlePlexAPIRequest(req, res, handler, options);
-	};
-};
 
 export type IncomingPlexAPIRequest = express.Request & {
 	plex: {

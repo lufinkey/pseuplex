@@ -1,8 +1,8 @@
 
 import {
-	PlexXMLBoolean,
 	PlexMediaItemType
 } from '../../plex/types';
+import { BooleanQueryParam } from '../../utils/queryparams';
 
 export type PlexTVSharedServer = {
 	id: `${number}` | number;
@@ -13,13 +13,13 @@ export type PlexTVSharedServer = {
 	name: string; // server name
 	invitedAt: `${number}` | number;
 	acceptedAt: `${number}` | number;
-	allowSync: PlexXMLBoolean;
-	allowCameraUpload: PlexXMLBoolean;
-	allowChannels: PlexXMLBoolean;
-	allowTuners: PlexXMLBoolean;
-	allowSubtitleAdmin: PlexXMLBoolean;
-	owned: PlexXMLBoolean;
-	allLibraries: PlexXMLBoolean;
+	allowSync: BooleanQueryParam;
+	allowCameraUpload: BooleanQueryParam;
+	allowChannels: BooleanQueryParam;
+	allowTuners: BooleanQueryParam;
+	allowSubtitleAdmin: BooleanQueryParam;
+	owned: BooleanQueryParam;
+	allLibraries: BooleanQueryParam;
 	filterAll: string;
 	filterMovies: string;
 	filterMusic: string;
@@ -33,7 +33,7 @@ export type PlexTVSharedServerSection = {
 	key: `${number}` | number;
 	title: string;
 	type: PlexMediaItemType;
-	shared: PlexXMLBoolean;
+	shared: BooleanQueryParam;
 };
 
 export type PlexTVSharedServersPage = {

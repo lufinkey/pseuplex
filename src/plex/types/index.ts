@@ -13,6 +13,7 @@ export * from './MyPlex';
 export * from './Notifications';
 export * from './Playlist';
 export * from './PlayQueue';
+export * from './preferences';
 export * from './Search';
 export * from './SearchProvider';
 export * from './Server';

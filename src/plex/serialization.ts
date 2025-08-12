@@ -1,7 +1,6 @@
 
 import xml2js from 'xml2js';
 import express from 'express';
-import * as plexTypes from './types';
 
 export const parseHttpContentType = (contentType: string | null | undefined): {contentTypes: string[], contentTypeSuffix: string} => {
 	if(!contentType) {

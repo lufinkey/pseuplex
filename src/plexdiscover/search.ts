@@ -1,5 +1,8 @@
 import * as plexTypes from '../plex/types';
-import { PlexDiscoverAPIRequestOptions, plexDiscoverFetch } from './core';
+import {
+	PlexDiscoverAPIRequestOptions,
+	plexDiscoverFetch
+} from './core';
 
 export const search = async (options: (PlexDiscoverAPIRequestOptions & {
 	params: plexTypes.PlexTVSearchParams,

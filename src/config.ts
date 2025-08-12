@@ -1,8 +1,10 @@
 import fs from 'fs';
 import { SSLConfig } from './utils/ssl';
 import { IPv4NormalizeModeKey } from './utils/ip';
-import { PseuplexConfigBase } from './pseuplex/configbase';
-import { PseuplexServerProtocol } from './pseuplex/types/server';
+import {
+	PseuplexConfigBase,
+	PseuplexServerProtocol,
+} from './pseuplex';
 import { LetterboxdPluginConfig } from './plugins/letterboxd/config';
 import { RequestsPluginConfig } from './plugins/requests/config';
 import { DashboardPluginConfig } from './plugins/dashboard/config';

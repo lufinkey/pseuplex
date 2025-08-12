@@ -5,8 +5,6 @@ export enum PlexPluginIdentifier {
 	PlexTVMetadata = 'tv.plex.provider.metadata'
 }
 
-export type PlexXMLBoolean = '1' | '0' | 1 | 0 | boolean;
-
 export enum PlexSymbol {
 	Star = 'star',
 	Library = 'library',
