@@ -1351,6 +1351,9 @@ export class PseuplexApp {
 				evts?.onHttpolyglotListening?.(port);
 			});
 		}
+		if(this.shouldListenToPlexServerNotifications()) {
+			this.startListeningToPlexServerNotifications();
+		}
 	}
 
 	close(evts?: {
