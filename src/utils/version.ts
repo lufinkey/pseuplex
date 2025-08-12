@@ -1,4 +1,5 @@
 import fs from 'fs';
+import { SpawnOptionsWithoutStdio } from 'child_process';
 import { executeAndGetOutputAsync } from './subprocess';
 import { getFirstLineOfString } from './misc';
 import packageJson from '../../package.json';
@@ -14,6 +15,9 @@ export type AppVersion = {
 
 export const getAppVersion = async (): Promise<AppVersion> => {
 	const modulePath = `${require.main!.path}/..`;
+	const cmdOpts: SpawnOptionsWithoutStdio = {
+		cwd: modulePath,
+	}
 
 	// check git state
 	let gitTag: string | undefined;
@@ -25,8 +29,9 @@ export const getAppVersion = async (): Promise<AppVersion> => {
 		// parse git tag
 		[gitTag, gitCommitHash, gitDirty, gitBranch] = await Promise.all([
 			(async () => {
+				// get any tag that points at this commit
 				try {
-					const output = await executeAndGetOutputAsync('git', ['tag', '--points-at', 'HEAD']);
+					const output = await executeAndGetOutputAsync('git', ['tag', '--points-at', 'HEAD'], cmdOpts);
 					const outputString = output.toString('utf8');
 					const firstLine = getFirstLineOfString(outputString);
 					if(firstLine) {
@@ -40,7 +45,7 @@ export const getAppVersion = async (): Promise<AppVersion> => {
 			(async () => {
 				// parse git commit hash
 				try {
-					const output = await executeAndGetOutputAsync('git', ['rev-parse', 'HEAD']);
+					const output = await executeAndGetOutputAsync('git', ['rev-parse', 'HEAD'], cmdOpts);
 					const outputString = output.toString('utf8');
 					const firstLine = getFirstLineOfString(outputString);
 					if(firstLine) {
@@ -54,7 +59,7 @@ export const getAppVersion = async (): Promise<AppVersion> => {
 			(async () => {
 				// check if git has any revisions
 				try {
-					const output = await executeAndGetOutputAsync('git', ['status', '-s']);
+					const output = await executeAndGetOutputAsync('git', ['status', '--short'], cmdOpts);
 					const outputString = output.toString('utf8').trim();
 					return outputString ? true : false;
 				} catch(error) {
@@ -63,8 +68,9 @@ export const getAppVersion = async (): Promise<AppVersion> => {
 				}
 			})(),
 			(async () => {
+				// get current git branch
 				try {
-					const output = await executeAndGetOutputAsync('git', ['branch', '--show-current']);
+					const output = await executeAndGetOutputAsync('git', ['branch', '--show-current'], cmdOpts);
 					const outputString = output.toString('utf8');
 					const firstLine = getFirstLineOfString(outputString);
 					if(firstLine) {
