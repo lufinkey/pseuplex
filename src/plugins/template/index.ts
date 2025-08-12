@@ -45,7 +45,7 @@ export default (class TemplatePlugin implements TemplatePluginDef, PseuplexPlugi
 	}
 
 	get config(): TemplatePluginConfig {
-		return this.app.config;
+		return this.app.config as TemplatePluginConfig;
 	}
 
 	responseFilters?: PseuplexReadOnlyResponseFilters = {
