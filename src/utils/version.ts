@@ -5,6 +5,7 @@ import packageJson from '../../package.json';
 
 export type AppVersion = {
 	version: string;
+	git: boolean;
 	tag: string | undefined;
 	branch: string | undefined;
 	commit: string | undefined;
@@ -19,7 +20,7 @@ export const getAppVersion = async (): Promise<AppVersion> => {
 	let gitCommitHash: string | undefined;
 	let gitDirty: boolean | undefined;
 	let gitBranch: string | undefined;
-	const isGitRepo = await new Promise((resolve, reject) => fs.exists(`${modulePath}/.git`, resolve));
+	const isGitRepo = await new Promise<boolean>((resolve, reject) => fs.exists(`${modulePath}/.git`, resolve));
 	if(isGitRepo) {
 		// parse git tag
 		[gitTag, gitCommitHash, gitDirty, gitBranch] = await Promise.all([
@@ -79,6 +80,7 @@ export const getAppVersion = async (): Promise<AppVersion> => {
 
 	return {
 		version: packageJson.version,
+		git: isGitRepo,
 		tag: gitTag,
 		commit: gitCommitHash,
 		branch: gitBranch,
@@ -91,21 +93,22 @@ export const getAppVersionString = async (): Promise<string> => {
 	if(appVersion.tag) {
 		return `${appVersion.tag}` + (appVersion.dirty ? ' (dirty)' : '');
 	} else if(appVersion.version) {
-		const parenthesParts: string[] = [];
-		if(appVersion.branch) {
-			parenthesParts.push(`branch ${appVersion.branch}`);
+		if(appVersion.git) {
+			const parenthesParts: string[] = [];
+			if(appVersion.branch) {
+				parenthesParts.push(`branch ${appVersion.branch}`);
+			}
+			if(appVersion.commit) {
+				parenthesParts.push(`commit ${appVersion.commit}`);
+			}
+			if(appVersion.dirty) {
+				parenthesParts.push('dirty');
+			}
+			if(parenthesParts.length > 0) {
+				return `v${appVersion.version} (${parenthesParts.join(", ")})`;
+			}
 		}
-		if(appVersion.commit) {
-			parenthesParts.push(`commit ${appVersion.commit}`);
-		}
-		if(appVersion.dirty) {
-			parenthesParts.push('dirty');
-		}
-		if(parenthesParts.length > 0) {
-			return `v${appVersion.version} (${parenthesParts.join(", ")})`;
-		} else {
-			return `v${appVersion.version}`;
-		}
+		return `v${appVersion.version}`;
 	} else if(appVersion.commit) {
 		return `rev ${appVersion.commit}` + (appVersion.dirty ? ' (dirty)' : '');
 	} else {
