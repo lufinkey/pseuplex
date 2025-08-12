@@ -54,7 +54,7 @@ const readPlexPrefsIfNeeded = async () => {
 
 (async () => {
 	const appVersionString = await getAppVersionString();
-	console.log(`${constants.APP_NAME} ${appVersionString}`);
+	console.log(`${constants.APP_NAME} ${appVersionString}\n`);
 
 	// parse command line arguments
 	args = parseCmdArgs(process.argv.slice(2));
