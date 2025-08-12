@@ -1042,7 +1042,7 @@ export class PseuplexApp {
 					}
 					// redirect or continue
 					if(redirectUrl) {
-						res.redirect(redirectUrl);
+						res.redirect(307, redirectUrl);
 						return;
 					}
 					next();
