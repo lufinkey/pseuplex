@@ -1,4 +1,3 @@
-import url from 'url';
 import http from 'http';
 import zlib from 'zlib';
 import express from 'express';
@@ -38,10 +37,13 @@ type ProxyingUserResponse = express.Response & {
 	___proxyReq: http.ClientRequest;
 }
 
-export const plexThinProxy = (serverURL: string, options: PlexProxyOptions, proxyOptions: expressHttpProxy.ProxyOptions = {}) => {
+type HostOrHostGetter = (string | ((req: express.Request) => string));
+
+export const plexThinProxy = (host: HostOrHostGetter, options: PlexProxyOptions, proxyOptions: expressHttpProxy.ProxyOptions = {}) => {
 	proxyOptions = {
-		preserveHostHdr: true,
-		...proxyOptions
+		...proxyOptions,
+		preserveHostHdr: proxyOptions.preserveHostHdr ?? true,
+		memoizeHost: proxyOptions.memoizeHost ?? false,
 	};
 	const innerProxyReqOptDecorator = proxyOptions.proxyReqOptDecorator;
 	proxyOptions.proxyReqOptDecorator = async (reqOpts, userReq) => {
@@ -100,11 +102,11 @@ export const plexThinProxy = (serverURL: string, options: PlexProxyOptions, prox
 		options?.logger?.logProxyingRequest(userReq, proxyReqOpts, url);
 		return url;
 	};
-	return expressHttpProxy(serverURL, proxyOptions);
+	return expressHttpProxy(host, proxyOptions);
 };
 
-export const plexProxy = (serverURL: string, args: PlexProxyOptions, opts: expressHttpProxy.ProxyOptions = {}) => {
-	return plexThinProxy(serverURL, args, {
+export const plexProxy = (host: HostOrHostGetter, args: PlexProxyOptions, opts: expressHttpProxy.ProxyOptions = {}) => {
+	return plexThinProxy(host, args, {
 		...opts,
 		userResHeaderDecorator: (headers, userReq, userRes, proxyReq, proxyRes) => {
 			// add a custom header to the response to check if we went through pseuplex
@@ -118,14 +120,14 @@ export const plexProxy = (serverURL: string, args: PlexProxyOptions, opts: expre
 	});
 };
 
-export const plexApiProxy = (serverURL: string, args: PlexProxyOptions, opts: {
+export const plexApiProxy = (host: HostOrHostGetter, args: PlexProxyOptions, opts: {
 	filter?: (req: express.Request, res: express.Response) => (boolean | Promise<boolean>),
 	requestOptionsModifier?: (proxyReqOpts: http.RequestOptions, userReq: express.Request) => http.RequestOptions,
 	requestPathModifier?: (req: express.Request) => string | Promise<string>,
 	requestBodyModifier?: (bodyContent: string, userReq: express.Request) => string | Promise<string>,
 	responseModifier?: (proxyRes: http.IncomingMessage, proxyResData: any, userReq: express.Request, userRes: express.Response) => any
 })=> {
-	return plexProxy(serverURL, args, {
+	return plexProxy(host, args, {
 		filter: opts.filter,
 		parseReqBody: opts.requestBodyModifier ? true : undefined,
 		proxyReqOptDecorator: async (proxyReqOpts, userReq) => {

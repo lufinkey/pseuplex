@@ -410,24 +410,18 @@ export abstract class PseuplexMetadataProviderBase<TMetadataItem> implements Pse
 					console.error(error);
 				}
 			}
-			let metadatas = serverResult?.MediaContainer.Metadata;
-			if(metadatas) {
-				if(!(metadatas instanceof Array)) {
-					metadatas = [metadatas];
+			forArrayOrSingle(serverResult?.MediaContainer.Metadata, (metadata) => {
+				if(metadata.guid) {
+					const pseuMetadata = metadata as PseuplexMetadataItem;
+					pseuMetadata.Pseuplex = {
+						isOnServer: true,
+						unavailable: false,
+						metadataIds: {},
+						plexServerMetadataId: pseuMetadata.ratingKey,
+					};
+					plexMetadataMap[metadata.guid] = pseuMetadata;
 				}
-				for(const metadata of metadatas) {
-					if(metadata.guid) {
-						const pseuMetadata = metadata as PseuplexMetadataItem;
-						pseuMetadata.Pseuplex = {
-							isOnServer: true,
-							unavailable: false,
-							metadataIds: {},
-							plexMetadataIds: {}
-						};
-						plexMetadataMap[metadata.guid] = pseuMetadata;
-					}
-				}
-			}
+			});
 		}
 		// map unmatched items to plex discover metadata if allowed
 		if(options.includePlexDiscoverMatches ?? true) {

@@ -173,7 +173,7 @@ export const addQueryArgumentToURLPath = (urlPath: string, queryEntry: string) =
 	}
 };
 
-export const forArrayOrSingle = <T>(item: T | T[], callback: (item: T) => void) => {
+export const forArrayOrSingle = <T>(item: T | T[] | undefined, callback: (item: T) => void) => {
 	if(item) {
 		if(item instanceof Array) {
 			for(const element of item) {

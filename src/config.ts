@@ -24,7 +24,7 @@ export type Config = {
 	remapMetadataIds?: boolean;
 	plex: {
 		host?: string;
-		port?: number;
+		secureHost?: string;
 		token: string;
 		processedMachineIdentifier?: string;
 		appDataPath?: string;

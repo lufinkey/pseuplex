@@ -77,9 +77,9 @@ export const transformExternalPlexMetadata = (metadataItem: plexTypes.PlexMetada
 			isOnServer: false,
 			unavailable: true,
 			metadataIds: {},
-			plexMetadataIds: {
+			externalPlexMetadataIds: {
 				[serverURL]: metadataId
-			}
+			},
 		};
 	} else {
 		console.error("Failed to parse metadataId from external plex metadata item");

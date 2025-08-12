@@ -72,16 +72,19 @@ const readPlexPrefsIfNeeded = async () => {
 	if (args.verbose) {
 		console.log(`parsed config:\n${JSON.stringify(cfg, null, '\t')}\n`);
 	}
-	let plexServerURL = cfg.plex.host;
-	if(!plexServerURL) {
+	let plexServerHost = cfg.plex.host;
+	if(!plexServerHost) {
 		console.error("Missing .plex.host in config");
 		process.exit(1);
 	}
-	if(cfg.plex.port) {
-		plexServerURL += `:${cfg.plex.port}`;
+	if(plexServerHost.indexOf('://') === -1) {
+		plexServerHost = 'http://'+plexServerHost;
 	}
-	if(plexServerURL.indexOf('://') === -1) {
-		plexServerURL = 'http://'+plexServerURL;
+	let plexServerHostSecure = cfg.plex.secureHost;
+	if(plexServerHostSecure) {
+		if(plexServerHostSecure.indexOf('://') === -1) {
+			plexServerHostSecure = 'https://'+plexServerHostSecure;
+		}
 	}
 
 	// create logger
@@ -152,7 +155,8 @@ const readPlexPrefsIfNeeded = async () => {
 		serverOptions: {
 			...sslCertData
 		},
-		plexServerURL,
+		plexServerHost,
+		plexServerHostSecure,
 		plexAdminAuthContext: {
 			'X-Plex-Token': cfg.plex.token
 		},

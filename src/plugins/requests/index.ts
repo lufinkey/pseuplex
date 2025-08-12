@@ -74,20 +74,20 @@ export default (class RequestsPlugin implements RequestsPluginDef, PseuplexPlugi
 	}
 
 	responseFilters?: PseuplexReadOnlyResponseFilters = {
-		findGuidInLibrary: async (resData, context) => {
-			const plexAuthContext = context.userReq.plex.authContext;
+		findGuidInLibrary: async (resData, filterContext) => {
+			const plexAuthContext = filterContext.userReq.plex.authContext;
 			const plexUserToken = plexAuthContext?.['X-Plex-Token'];
 			if(!plexUserToken) {
 				return;
 			}
-			const plexUserInfo = context.userReq.plex.userInfo;
+			const plexUserInfo = filterContext.userReq.plex.userInfo;
 			// check if requests are enabled
 			const requestsEnabled = this.config.perUser[plexUserInfo.email]?.requests?.enabled ?? this.config.requests?.enabled;
 			if(!requestsEnabled) {
 				return;
 			}
 			// wait for all previous filters
-			await Promise.all(context.previousFilterPromises ?? []);
+			await Promise.all(filterContext.previousFilterPromises ?? []);
 			// only show request option if no items were found
 			if(!isNullOrEmpty(resData.MediaContainer.Metadata)) {
 				return;
@@ -98,15 +98,15 @@ export default (class RequestsPlugin implements RequestsPluginDef, PseuplexPlugi
 				return;
 			}
 			// parse params
-			let mediaType = intParam(context.userReq.query['type']) as plexTypes.PlexMediaItemTypeNumeric;
-			let guid = stringParam(context.userReq.query['guid']);
+			let mediaType = intParam(filterContext.userReq.query['type']) as plexTypes.PlexMediaItemTypeNumeric;
+			let guid = stringParam(filterContext.userReq.query['guid']);
 			let season: number | undefined = undefined;
 			if(!guid) {
-				guid = stringParam(context.userReq.query['show.guid']);
+				guid = stringParam(filterContext.userReq.query['show.guid']);
 				if(!guid) {
 					return;
 				}
-				season = intParam(context.userReq.query['season.index']);
+				season = intParam(filterContext.userReq.query['season.index']);
 			}
 			if(mediaType == null) {
 				const guidParts = parsePlexMetadataGuid(guid);
@@ -136,13 +136,13 @@ export default (class RequestsPlugin implements RequestsPluginDef, PseuplexPlugi
 			resData.MediaContainer.size += 1;
 		},
 
-		metadataChildren: async (resData, context) => {
-			const plexAuthContext = context.userReq.plex.authContext;
-			const plexUserToken = plexAuthContext?.['X-Plex-Token'];
+		metadataChildren: async (resData, filterContext) => {
+			const reqContext = this.app.contextForRequest(filterContext.userReq);
+			const plexUserToken = filterContext.userReq.plex.authContext?.['X-Plex-Token'];
 			if(!plexUserToken) {
 				return;
 			}
-			const plexUserInfo = context.userReq.plex.userInfo;
+			const plexUserInfo = filterContext.userReq.plex.userInfo;
 			// get prefs
 			const config = this.config;
 			const userPrefs = config.perUser[plexUserInfo.email];
@@ -153,10 +153,10 @@ export default (class RequestsPlugin implements RequestsPluginDef, PseuplexPlugi
 			const showRequestableSeasons = userPrefs?.requests?.requestableSeasons ?? config.requests?.requestableSeasons;
 			const requestsProvider = await this.requestsHandler.getRequestsProviderForPlexUser(plexUserToken, plexUserInfo);
 			// add requestable seasons if able
-			if(showRequestableSeasons && !context.metadataId.source && requestsProvider) {
-				await Promise.all(context.previousFilterPromises ?? []);
+			if(showRequestableSeasons && !filterContext.metadataId.source && requestsProvider) {
+				await Promise.all(filterContext.previousFilterPromises ?? []);
 				// get guid for id
-				const plexGuid = await this.app.plexServerIdToGuidCache.getOrFetch(context.metadataId.id);
+				const plexGuid = await this.app.plexServerIdToGuidCache.getOrFetch(filterContext.metadataId.id);
 				const plexGuidParts = plexGuid ? parsePlexMetadataGuid(plexGuid) : null;
 				if(plexGuidParts
 					&& plexGuidParts.type == plexTypes.PlexMediaItemType.TVShow
@@ -170,18 +170,14 @@ export default (class RequestsPlugin implements RequestsPluginDef, PseuplexPlugi
 					await this.requestsHandler.addRequestableSeasons(resData, {
 						plexId: plexGuidParts.id,
 						plexType: plexGuidParts.type,
-						plexParams: context.userReq.plex.requestParams,
+						plexParams: filterContext.userReq.plex.requestParams,
 						transformMatchKeys: false,
 						metadataBasePath: '/library/metadata',
 						qualifiedMetadataIds: true,
 						requestsProvider,
 						parentKey: `/library/metadata/${fullIdString}`,
 						parentRatingKey: fullIdString,
-					}, {
-						plexUserInfo,
-						plexAuthContext,
-						plexServerURL: this.app.plexServerURL,
-					});
+					}, reqContext);
 				}
 			}
 		},

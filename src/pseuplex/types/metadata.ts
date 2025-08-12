@@ -18,7 +18,8 @@ export type PseuplexMetadataItem = PlexMetadataItem & {
 		isOnServer: boolean;
 		unavailable: boolean;
 		metadataIds: { [sourceSlug: string]: string };
-		plexMetadataIds?: { [serverURL: string]: string | undefined };
+		plexServerMetadataId?: string | undefined;
+		externalPlexMetadataIds?: { [serverURL: string]: string | undefined };
 	}
 };
 
