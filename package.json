@@ -15,7 +15,7 @@
 	},
 	"scripts": {
 		"clean": "rm -rf build dist .react-router node_modules plugindeps pluginexample/node_modules pluginexample/dist pluginexample/package-lock.json",
-		"build": "nnpm run webapp-build && npm run server-build --",
+		"build": "npm run webapp-build && npm run server-build --",
 		"start": "npm run webapp-build && npm run server-start --",
 		"start-dev": "npm run webapp-build && npm run server-start-dev --",
 		"prepare": "npm run webapp-typecheck && npm run server-typecheck",
