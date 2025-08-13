@@ -133,6 +133,7 @@ dist
 .DS_Store
 
 # private data
+/plugindeps
 /plex_docker/docker-compose.yml
 /keys
 /config/config.json
