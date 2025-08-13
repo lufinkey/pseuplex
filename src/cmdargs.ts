@@ -6,12 +6,12 @@ export type CommandArguments = {
 	verboseHttpTraffic?: boolean,
 	verboseWsTraffic?: boolean,
 	noInstallPlugins?: boolean,
-	onlyInstallPlugins?: boolean,
+	installPluginsAndExit?: boolean,
 } & LoggingOptions;
 
 enum CmdFlag {
 	configPath = '--config',
-	onlyInstallPlugins = '--only-install-plugins',
+	installPluginsAndExit = '--install-plugins-and-exit',
 	noInstallPlugins = '--no-install-plugins',
 	logPlexTokenInfo = '--log-plex-tokens',
 	logOutgoingRequests = '--log-outgoing-requests',
@@ -81,8 +81,8 @@ export const parseCmdArgs = (args: string[]): CommandArguments => {
 					parsedArgs.noInstallPlugins = true;
 					break;
 
-				case CmdFlag.onlyInstallPlugins:
-					parsedArgs.onlyInstallPlugins = true;
+				case CmdFlag.installPluginsAndExit:
+					parsedArgs.installPluginsAndExit = true;
 					break;
 
 				case CmdFlag.logPlexTokenInfo:

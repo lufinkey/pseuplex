@@ -46,11 +46,6 @@ sharp.cache(false);
 let plexPrefs: PlexPreferences | undefined = undefined;
 let cfg: Config;
 let args: CommandArguments;
-const readPlexPrefsIfNeeded = async () => {
-	if(!plexPrefs) {
-		plexPrefs = await readPlexPreferences({appDataPath:cfg.plex?.appDataPath});
-	}
-};
 
 (async () => {
 	const appVersionString = await getAppVersionString();
@@ -74,13 +69,20 @@ const readPlexPrefsIfNeeded = async () => {
 	}
 
 	// only install plugins and exit if needed
-	if(args.onlyInstallPlugins) {
+	if(args.installPluginsAndExit) {
 		if(!args.noInstallPlugins) {
 			await installPlugins(cfg);
 		}
 		process.exit(0);
 		return;
 	}
+
+	// define function to read plex prefs
+	const readPlexPrefsIfNeeded = async () => {
+		if(!plexPrefs) {
+			plexPrefs = await readPlexPreferences({appDataPath:cfg.plex?.appDataPath});
+		}
+	};
 
 	// get plex server urls
 	let plexServerHost = cfg.plex.host;
