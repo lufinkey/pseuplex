@@ -205,7 +205,7 @@ export class PseuplexApp {
 	readonly httpPort?: number;
 	readonly httpsPort?: number;
 	readonly forwardsMetadataRefreshToPluginMetadata: boolean;
-	readonly sendsMetadataUnavailability: boolean;
+	sendsMetadataUnavailability: boolean;
 	readonly overwritePlexPrivatePort: number | boolean;
 	readonly logger?: Logger;
 	readonly plexServerNotificationsOptions: PseuplexPlexServerNotificationsOptions;
