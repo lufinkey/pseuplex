@@ -15,8 +15,8 @@
 	"scripts": {
 		"build": "tsc && npm link pseuplex@file:./",
 		"clean": "npm run clean:notwindows && npm run clean:windows",
-		"clean:windows": "npm run if:windows && del /f dist node_modules plugindeps pluginexample/node_modules pluginexample/dist pluginexample/package-lock.json",
-		"clean:notwindows": "npm run if:notwindows && rm -rf dist node_modules plugindeps pluginexample/node_modules pluginexample/dist pluginexample/package-lock.json",
+		"clean:windows": "npm run if:notwindows || del /f dist node_modules plugindeps pluginexample/node_modules pluginexample/dist pluginexample/package-lock.json",
+		"clean:notwindows": "npm run if:windows || rm -rf dist node_modules plugindeps pluginexample/node_modules pluginexample/dist pluginexample/package-lock.json",
 		"prepare": "tsc",
 		"start": "tsc && node --enable-source-maps dist/main.js",
 		"start_test": "tsc && node --enable-source-maps --trace-deprecation dist/main.js --config=config/config.json --verbose --verbose-traffic",
