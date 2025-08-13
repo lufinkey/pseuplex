@@ -98,6 +98,7 @@ Create a `config.json` file with the following structure, and fill in the config
 - **httpPort**: Manually specify the port that the http proxy will run on, if you want http and https traffic on separate ports.
 - **httpsPort**: Manually specify the port that the https proxy will run on, if you want http and https traffic on separate ports.
 - **redirectPlexStreams**: Optionally redirect video streams to go directly to plex, rather than through the proxy. The `plex.redirectHost` option must be set in order for streams to be redirected.
+- **sendMetadataUnavailability**: By default, the proxy will send the "unavailable" status for any "pseudo" metadata item (ie from letterboxd) that doesn't match up to an item in your library. If you for whatever reason don't want this behaviour, you can optionally set this to `false` to disable it.
 - **plex**
 	- **host**: The url of your plex server.
 	- **secureHost**: The "secure" url of your plex server, if you want https traffic to use a different url.
