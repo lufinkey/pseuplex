@@ -73,6 +73,15 @@ const readPlexPrefsIfNeeded = async () => {
 		console.log(`parsed config:\n${JSON.stringify(cfg, null, '\t')}\n`);
 	}
 
+	// only install plugins and exit if needed
+	if(args.onlyInstallPlugins) {
+		if(!args.noInstallPlugins) {
+			await installPlugins(cfg);
+		}
+		process.exit(0);
+		return;
+	}
+
 	// get plex server urls
 	let plexServerHost = cfg.plex.host;
 	if(!plexServerHost) {
@@ -146,10 +155,6 @@ const readPlexPrefsIfNeeded = async () => {
 	// install and import plugins
 	if(!args.noInstallPlugins) {
 		await installPlugins(cfg);
-	}
-	if(args.onlyInstallPlugins) {
-		process.exit(0);
-		return;
 	}
 	const plugins = await importPlugins(cfg);
 
