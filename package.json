@@ -3,7 +3,6 @@
 	"name": "pseuplex",
 	"version": "0.2.1",
 	"description": "A middleware for the plex server API",
-	"type": "module",
 	"bin": {
 		"pseuplex": "dist/server/main.js"
 	},
