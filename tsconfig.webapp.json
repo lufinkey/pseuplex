@@ -1,5 +1,7 @@
 {
 	"include": [
+		"vite.config.mts",
+		"react-router.config.ts",
 		"webapp/**/*",
 		"**/.server/**/*",
 		"**/.client/**/*",
