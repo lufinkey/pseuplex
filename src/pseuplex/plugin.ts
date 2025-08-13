@@ -74,6 +74,7 @@ export interface PseuplexPlugin {
 	readonly responseFilters?: PseuplexReadOnlyResponseFilters;
 
 	defineRoutes?: (router: express.Express) => void;
+	defineFallbackRoutes?: (router: express.Express) => void;
 	hasSections?: (context: PseuplexRequestContext) => Promise<boolean>;
 	getSections?: (context: PseuplexRequestContext) => Promise<PseuplexSection[]>;
 	shouldListenToPlexServerNotifications?: () => boolean;

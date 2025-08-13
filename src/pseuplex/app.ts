@@ -442,7 +442,7 @@ export class PseuplexApp {
 			this.logger?.logIncomingUserRequest(req);
 			next();
 		});
-
+		
 		// handle remapping public to private metadata IDs, if enabled
 		if(this.metadataIdMappings) {
 			const getIdReplacer = (pathPrefix: string) => {
@@ -1201,6 +1201,12 @@ export class PseuplexApp {
 				}
 			},
 		]);
+
+		// define fallback plugin routes, to be called after any route rewrites happen
+		for(const pluginSlug of Object.keys(this.plugins)) {
+			const plugin = this.plugins[pluginSlug];
+			plugin.defineFallbackRoutes?.(router);
+		}
 		
 		// proxy requests to plex
 		const plexGeneralProxy = plexHttpProxy(this.plexServerHost, plexProxyOpts);
