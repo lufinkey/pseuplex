@@ -102,10 +102,10 @@ export class PlexRequestsHandler implements PseuplexMetadataProvider {
 		season?: number,
 		requestProvider: RequestsProvider,
 		plexMetadataClient: PlexClient,
-		authContext?: plexTypes.PlexAuthContext,
 		moviesLibraryId?: string | number,
 		tvShowsLibraryId?: string | number,
 		useLibraryMetadataPath?: boolean,
+		context: PseuplexRequestContext,
 	}): Promise<plexTypes.PlexMetadataItem | null> {
 		// determine properties and get metadata
 		let requestActionTitle: string;
@@ -334,6 +334,8 @@ export class PlexRequestsHandler implements PseuplexMetadataProvider {
 						plexType: id.mediaType,
 						plexParams: options.plexParams as (plexTypes.PlexMetadataChildrenPageParams | undefined),
 						transformMatchKeys: options.transformMatchKeys,
+						partiallyAvailableOverlay: this.plugin.partiallyAvailableOverlayEnabledForContext(context),
+						overlayedImageEndpoint: this.plugin.app.overlayedImageEndpoint,
 					}, context);
 				} else {
 					// transform metadata item key since not getting children
@@ -568,8 +570,11 @@ export class PlexRequestsHandler implements PseuplexMetadataProvider {
 		requestsProvider: RequestsProvider,
 		metadataBasePath: string,
 		qualifiedMetadataIds: boolean,
+		partiallyAvailableOverlay: boolean | undefined,
+		overlayedImageEndpoint?: string,
 	}, context: PseuplexRequestContext) {
 		// fetch other children (seasons) from plex metadata provider
+		// TODO cache this data
 		const discoverMetadataPageTask = this.plexMetadataClient.getMetadataChildren(options.plexId, options.plexParams as plexTypes.PlexMetadataChildrenPageParams);
 		// fetch requests
 		let requests: RequestInfo[] | undefined;
@@ -584,6 +589,7 @@ export class PlexRequestsHandler implements PseuplexMetadataProvider {
 		const discoverMetadataPage = await discoverMetadataPageTask;
 		this.plexIdToInfoCache?.cacheMetadataItems(discoverMetadataPage.MediaContainer.Metadata);
 		// transform requestable children
+		const partiallyAvailableOverlayEnabled = options.partiallyAvailableOverlay ?? true;
 		resData.MediaContainer.Metadata = transformArrayOrSingle(discoverMetadataPage.MediaContainer.Metadata, (metadataItem: PseuplexMetadataItem): PseuplexMetadataItem => {
 			// find matching child from plex server
 			const matchingItem = metadataItem.index != null ?
@@ -603,6 +609,12 @@ export class PlexRequestsHandler implements PseuplexMetadataProvider {
 						// since the item is on the server, we want to leave the original ratingKey,
 						//  so that the plex server items will be fetched directly if any additional request is made
 						transformRatingKey: false,
+					});
+				}
+				// add partially available overlay if needed
+				if(partiallyAvailableOverlayEnabled && options.overlayedImageEndpoint) {
+					reqsTransform.addPartiallyAvailableBannerIfNeeded(matchingItem, metadataItem, {
+						overlayedImageEndpoint: options.overlayedImageEndpoint,
 					});
 				}
 				return matchingItem;

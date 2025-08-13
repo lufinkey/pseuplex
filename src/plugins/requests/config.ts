@@ -4,6 +4,7 @@ type RequestsFlags = {
 	requests?: {
 		enabled?: boolean;
 		requestableSeasons?: boolean;
+		partiallyAvailableOverlay?: boolean;
 	},
 };
 type RequestsPerUserPluginConfig = {

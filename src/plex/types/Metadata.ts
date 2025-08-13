@@ -87,7 +87,8 @@ export type PlexMetadataItem = {
 	availabilityId?: string;
 	streamingMediaId?: string;
 	userState?: boolean;
-	childCount?: number;
+	childCount?: number; // I think this might be only be for /library/all
+	leafCount?: number;
 
 	Guid?: PlexGuid[];
 	Genre?: PlexGenre[];

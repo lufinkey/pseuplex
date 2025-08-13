@@ -259,3 +259,18 @@ export const transformRequestableChildMetadata = (metadataItem: plexTypes.PlexMe
 		}
 	}
 };
+
+export const addPartiallyAvailableBannerIfNeeded = (serverMetadataItem: plexTypes.PlexMetadataItem, discoverMetadataItem: plexTypes.PlexMetadataItem, opts: {
+	overlayedImageEndpoint: string,
+}): boolean => {
+	const serverChildCount = serverMetadataItem.childCount ?? serverMetadataItem.leafCount;
+	const discoverChildCount = discoverMetadataItem.childCount ?? discoverMetadataItem.leafCount;
+	if(serverChildCount && discoverChildCount && serverChildCount < discoverChildCount) {
+		const thumb = serverMetadataItem.thumb || discoverMetadataItem.thumb;
+		if(thumb) {
+			serverMetadataItem.thumb = `${opts.overlayedImageEndpoint}?overlay=partiallyAvailable&url=${encodeURIComponent(thumb)}`;
+		}
+		return true;
+	}
+	return false;
+};

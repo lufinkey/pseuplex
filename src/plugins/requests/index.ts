@@ -77,14 +77,14 @@ export default (class RequestsPlugin implements RequestsPluginDef, PseuplexPlugi
 
 	responseFilters?: PseuplexReadOnlyResponseFilters = {
 		findGuidInLibrary: async (resData, filterContext) => {
-			const plexAuthContext = filterContext.userReq.plex.authContext;
-			const plexUserToken = plexAuthContext?.['X-Plex-Token'];
+			const reqContext = this.app.contextForRequest(filterContext.userReq);
+			const plexUserToken = reqContext.plexAuthContext?.['X-Plex-Token'];
 			if(!plexUserToken) {
 				return;
 			}
 			const plexUserInfo = filterContext.userReq.plex.userInfo;
 			// check if requests are enabled
-			const requestsEnabled = this.config.perUser[plexUserInfo.email]?.requests?.enabled ?? this.config.requests?.enabled;
+			const requestsEnabled = this.requestsEnabledForContext(reqContext);
 			if(!requestsEnabled) {
 				return;
 			}
@@ -126,7 +126,7 @@ export default (class RequestsPlugin implements RequestsPluginDef, PseuplexPlugi
 				season,
 				requestProvider,
 				plexMetadataClient: this.app.plexMetadataClient,
-				authContext: plexAuthContext,
+				context: reqContext,
 				moviesLibraryId: this.config.plex.requestedMoviesLibraryId,
 				tvShowsLibraryId: this.config.plex.requestedTVShowsLibraryId,
 				useLibraryMetadataPath: this.app.alwaysUseLibraryMetadataPath,
@@ -146,40 +146,69 @@ export default (class RequestsPlugin implements RequestsPluginDef, PseuplexPlugi
 			}
 			const plexUserInfo = filterContext.userReq.plex.userInfo;
 			// get prefs
-			const config = this.config;
-			const userPrefs = config.perUser[plexUserInfo.email];
-			const requestsEnabled = userPrefs?.requests?.enabled ?? config.requests?.enabled;
+			const requestsEnabled = this.requestsEnabledForContext(reqContext);
 			if(!requestsEnabled) {
 				return;
 			}
-			const showRequestableSeasons = userPrefs?.requests?.requestableSeasons ?? config.requests?.requestableSeasons;
+			const showRequestableSeasons = this.requestableSeasonsEnabledForContext(reqContext);
+			const partiallyAvailableOverlay = this.partiallyAvailableOverlayEnabledForContext(reqContext);
 			const requestsProvider = await this.requestsHandler.getRequestsProviderForPlexUser(plexUserToken, plexUserInfo);
 			// add requestable seasons if able
-			if(showRequestableSeasons && !filterContext.metadataId.source && requestsProvider) {
+			if((showRequestableSeasons || partiallyAvailableOverlay) && !filterContext.metadataId.source && requestsProvider) {
 				await Promise.all(filterContext.previousFilterPromises ?? []);
 				// get guid for id
 				const plexGuid = await this.app.plexServerIdToGuidCache.getOrFetch(filterContext.metadataId.id);
 				const plexGuidParts = plexGuid ? parsePlexMetadataGuid(plexGuid) : null;
-				if(plexGuidParts
+				if(plexGuidParts?.id
 					&& plexGuidParts.type == plexTypes.PlexMediaItemType.TVShow
 					&& plexGuidParts.protocol == plexTypes.PlexMetadataGuidProtocol.Plex
 				) {
-					const fullIdString = reqsTransform.createRequestFullMetadataId({
-						mediaType: plexGuidParts.type as plexTypes.PlexMediaItemType,
-						plexId: plexGuidParts.id,
-						requestProviderSlug: requestsProvider.slug,
-					});
-					await this.requestsHandler.addRequestableSeasons(resData, {
-						plexId: plexGuidParts.id,
-						plexType: plexGuidParts.type,
-						plexParams: filterContext.userReq.plex.requestParams,
-						transformMatchKeys: false,
-						metadataBasePath: '/library/metadata',
-						qualifiedMetadataIds: true,
-						requestsProvider,
-						parentKey: `/library/metadata/${fullIdString}`,
-						parentRatingKey: fullIdString,
-					}, reqContext);
+					const plexParams = filterContext.userReq.plex.requestParams;
+					// add requestable seasons if needed
+					if(showRequestableSeasons) {
+						const fullIdString = reqsTransform.createRequestFullMetadataId({
+							mediaType: plexGuidParts.type as plexTypes.PlexMediaItemType,
+							plexId: plexGuidParts.id,
+							requestProviderSlug: requestsProvider.slug,
+						});
+						await this.requestsHandler.addRequestableSeasons(resData, {
+							plexId: plexGuidParts.id,
+							plexType: plexGuidParts.type,
+							plexParams: plexParams,
+							transformMatchKeys: false,
+							metadataBasePath: '/library/metadata',
+							qualifiedMetadataIds: true,
+							requestsProvider,
+							parentKey: `/library/metadata/${fullIdString}`,
+							parentRatingKey: fullIdString,
+							partiallyAvailableOverlay: partiallyAvailableOverlay,
+							overlayedImageEndpoint: this.app.overlayedImageEndpoint,
+						}, reqContext);
+					}
+					else if(partiallyAvailableOverlay && this.app.overlayedImageEndpoint) {
+						// fetch other children (seasons) from plex metadata provider
+						// TODO cache this data
+						const discoverMetadataPage= await this.app.plexMetadataClient.getMetadataChildren(plexGuidParts.id, plexParams);
+						// add partially available overlays if needed
+						console.log(`adding overlays for ${(resData.MediaContainer.Metadata as any).length} seasons`);
+						forArrayOrSingle(resData.MediaContainer.Metadata, (metadataItem) => {
+							// find matching child from plex server
+							const discoverItem = metadataItem.index != null ?
+								findInArrayOrSingle(discoverMetadataPage.MediaContainer.Metadata, (cmpMetadataItem) => {
+									return (cmpMetadataItem.index == metadataItem.index);
+								})
+								: undefined;
+							if(!discoverItem) {
+								console.log(`skipped`);
+								return;
+							}
+							console.log("adding overlay");
+							// add partially available overlay if needed
+							reqsTransform.addPartiallyAvailableBannerIfNeeded(metadataItem, discoverItem, {
+								overlayedImageEndpoint: this.app.overlayedImageEndpoint!
+							});
+						});
+					}
 				}
 			}
 		},
@@ -246,6 +275,26 @@ export default (class RequestsPlugin implements RequestsPluginDef, PseuplexPlugi
 				// TODO handle /related routes
 			}
 		}
+	}
+
+
+
+	requestsEnabledForContext(context: PseuplexRequestContext) {
+		const cfg = this.config;
+		const userPrefs = cfg.perUser[context.plexUserInfo.email];
+		return userPrefs?.requests?.enabled ?? cfg.requests?.enabled;
+	}
+
+	requestableSeasonsEnabledForContext(context: PseuplexRequestContext) {
+		const cfg = this.config;
+		const userPrefs = cfg.perUser[context.plexUserInfo.email];
+		return userPrefs?.requests?.requestableSeasons ?? cfg.requests?.requestableSeasons;
+	}
+
+	partiallyAvailableOverlayEnabledForContext(context: PseuplexRequestContext) {
+		const cfg = this.config;
+		const userPrefs = cfg.perUser[context.plexUserInfo.email];
+		return userPrefs?.requests?.partiallyAvailableOverlay ?? cfg.requests?.partiallyAvailableOverlay;
 	}
 
 } satisfies PseuplexPluginClass);
