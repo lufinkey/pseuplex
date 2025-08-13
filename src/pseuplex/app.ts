@@ -982,42 +982,42 @@ export class PseuplexApp {
 
 		router.post('/playQueues', [
 			this.middlewares.plexAuthentication,
-			this.middlewares.plexAPIProxy({
-				requestPathModifier: async (req: IncomingPlexAPIRequest): Promise<string> => {
-					const context = this.contextForRequest(req);
-					// parse url path
-					const urlPathParts = parseURLPath(req.url);
-					const queryItems = urlPathParts.queryItems;
-					if(!queryItems) {
-						return req.url;
-					}
-					// check for play queue uri
-					let uriProp = queryItems['uri'];
-					if(!uriProp) {
-						return req.url;
-					}
-					// resolve play queue uri
-					const resolveOptions: PseuplexPlayQueueURIResolverOptions = {
-						plexMachineIdentifier: await this.plexServerProperties.getMachineIdentifier(),
-						context,
-					};
-					uriProp = await transformArrayOrSingleAsyncParallel(uriProp, async (uri) => {
-						const uriParts = plexTypes.parsePlayQueueURI(uri);
-						if(!uriParts.path) {
-							return uri;
-						}
-						const uriChanged = await this.resolvePlayQueueURI(uriParts, resolveOptions);
-						if(!uriChanged) {
-							return uri;
-						}
-						const newUri = plexTypes.stringifyPlayQueueURIParts(uriParts);
-						console.log(`Remapped play queue uri ${uri} to ${newUri}`);
-						return newUri;
-					});
-					queryItems['uri'] = uriProp;
-					return stringifyURLPath(urlPathParts);
+			asyncRequestHandler(async (req, res) => {
+				const context = this.contextForRequest(req);
+				// parse url path
+				const urlPathParts = parseURLPath(req.url);
+				const queryItems = urlPathParts.queryItems;
+				if(!queryItems) {
+					return false;
 				}
-			})
+				// check for play queue uri
+				let uriProp = queryItems['uri'];
+				if(!uriProp) {
+					return false;
+				}
+				// resolve play queue uri
+				const resolveOptions: PseuplexPlayQueueURIResolverOptions = {
+					plexMachineIdentifier: await this.plexServerProperties.getMachineIdentifier(),
+					context,
+				};
+				uriProp = await transformArrayOrSingleAsyncParallel(uriProp, async (uri) => {
+					const uriParts = plexTypes.parsePlayQueueURI(uri);
+					if(!uriParts.path) {
+						return uri;
+					}
+					const uriChanged = await this.resolvePlayQueueURI(uriParts, resolveOptions);
+					if(!uriChanged) {
+						return uri;
+					}
+					const newUri = plexTypes.stringifyPlayQueueURIParts(uriParts);
+					console.log(`Remapped play queue uri ${uri} to ${newUri}`);
+					return newUri;
+				});
+				queryItems['uri'] = uriProp;
+				const newUrl = stringifyURLPath(urlPathParts);
+				req.url = newUrl;
+				return false;
+			}),
 		]);
 
 		const pathEndingChars = ['/','?',undefined];
@@ -1227,6 +1227,8 @@ export class PseuplexApp {
 				plexGeneralProxy.web(req,res);
 			}
 		});
+
+		// handle any errors
 		router.use(expressErrorHandler);
 		
 		// create http/https/http+https server(s)
