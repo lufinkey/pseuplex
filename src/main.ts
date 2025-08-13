@@ -144,7 +144,13 @@ const readPlexPrefsIfNeeded = async () => {
 	}
 
 	// install and import plugins
-	await installPlugins(cfg);
+	if(!args.noInstallPlugins) {
+		await installPlugins(cfg);
+	}
+	if(args.onlyInstallPlugins) {
+		process.exit(0);
+		return;
+	}
 	const plugins = await importPlugins(cfg);
 
 	// read SSL certificates, if any

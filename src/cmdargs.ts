@@ -5,10 +5,14 @@ export type CommandArguments = {
 	verbose?: boolean,
 	verboseHttpTraffic?: boolean,
 	verboseWsTraffic?: boolean,
+	noInstallPlugins?: boolean,
+	onlyInstallPlugins?: boolean,
 } & LoggingOptions;
 
 enum CmdFlag {
 	configPath = '--config',
+	onlyInstallPlugins = '--only-install-plugins',
+	noInstallPlugins = '--no-install-plugins',
 	logPlexTokenInfo = '--log-plex-tokens',
 	logOutgoingRequests = '--log-outgoing-requests',
 	logUserRequests = '--log-user-requests',
@@ -71,6 +75,14 @@ export const parseCmdArgs = (args: string[]): CommandArguments => {
 						throw new Error(`Missing value for flag ${arg}`);
 					}
 					parsedArgs.configPath = flagVal;
+					break;
+
+				case CmdFlag.noInstallPlugins:
+					parsedArgs.noInstallPlugins = true;
+					break;
+
+				case CmdFlag.onlyInstallPlugins:
+					parsedArgs.onlyInstallPlugins = true;
 					break;
 
 				case CmdFlag.logPlexTokenInfo:
