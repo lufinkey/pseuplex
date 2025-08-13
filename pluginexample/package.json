@@ -16,6 +16,6 @@
 		"typescript": "^5.9.2"
 	},
 	"peerDependencies": {
-		"pseuplex": "^0.2.1"
+		"pseuplex": "^0.2.2"
 	}
 }
