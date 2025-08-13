@@ -13,7 +13,7 @@
 		"url": "https://github.com/lufinkey/pseuplex.git"
 	},
 	"scripts": {
-		"build": "tsc && npm link pseuplex@file:./",
+		"build": "tsc && (\n\tnpm run if:windows && set NODE_PATH=.& npm link pseuplex@file:./\n) || npm link pseuplex@file:./",
 		"clean": "npm run clean:notwindows && npm run clean:windows",
 		"clean:notwindows": "npm run if:windows || rm -rf dist node_modules plugindeps pluginexample/node_modules pluginexample/dist pluginexample/package-lock.json",
 		"clean:windows": "npm run if:notwindows || rmdir /s /q dist node_modules plugindeps pluginexample\\node_modules pluginexample\\dist pluginexample\\package-lock.json || echo \"fuck you windows i hate you\"",
