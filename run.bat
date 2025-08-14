@@ -1,4 +1,5 @@
 @echo off
+setlocal
 (
 	cd %~dp0% || goto :exit
 	call npm install || goto :exit
@@ -7,6 +8,7 @@
 	call npm start -- --config=config/config.json || goto :exit
 )
 pause
+endlocal
 
 :exit
 exit /b
