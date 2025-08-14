@@ -7,8 +7,8 @@ setlocal
 	set NODE_ENV=production
 	call npm start -- --config=config/config.json || goto :exit
 )
-pause
 endlocal
 
 :exit
+pause
 exit /b
