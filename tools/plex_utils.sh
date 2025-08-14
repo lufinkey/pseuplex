@@ -49,7 +49,7 @@ while [[ $# -gt 0 ]]; do
 				exit 1
 			fi
 			break
-		;;
+			;;
 	esac
 done
 if [ -z "$subcmd" ]; then
