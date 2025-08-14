@@ -134,6 +134,7 @@ dist
 
 # private data
 /plugindeps
+/external
 /plex_docker/docker-compose.yml
 /keys
 /config/config.json
