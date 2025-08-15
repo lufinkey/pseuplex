@@ -14,6 +14,7 @@ enum CmdFlag {
 	installPluginsAndExit = '--install-plugins-and-exit',
 	noInstallPlugins = '--no-install-plugins',
 	logPlexTokenInfo = '--log-plex-tokens',
+	logWatchedPaths = '--log-watched-paths',
 	logOutgoingRequests = '--log-outgoing-requests',
 	logUserRequests = '--log-user-requests',
 	logUserRequestHeaders = '--log-user-request-headers',
@@ -87,6 +88,10 @@ export const parseCmdArgs = (args: string[]): CommandArguments => {
 
 				case CmdFlag.logPlexTokenInfo:
 					parsedArgs.logPlexTokenInfo = true;
+					break;
+
+				case CmdFlag.logWatchedPaths:
+					parsedArgs.logWatchedPaths = true;
 					break;
 				
 				case CmdFlag.logOutgoingRequests:

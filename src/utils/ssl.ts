@@ -4,6 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import { watchFilepathChanges } from './files';
 import { createDebouncer } from './timing';
+import type { Logger } from '../logging';
 
 export type SSLConfig = {
 	p12Path?: string;
@@ -80,7 +81,11 @@ export const readSSLCertAndKey = async (sslConfig: SSLConfig): Promise<Certifica
 	};
 }
 
-export const watchSSLCertAndKeyChanges = (sslConfig: SSLConfig, opts: {debounceDelay?: number}, callback: (certData: CertificateData) => void): { close: () => void } | null => {
+export const watchSSLCertAndKeyChanges = (sslConfig: SSLConfig, opts: {
+	debounceDelay?: number,
+	logger?: Logger,
+}, callback: (certData: CertificateData) => void): { close: () => void } | null => {
+	const { logger } = opts;
 	const debouncer = opts.debounceDelay != null ? createDebouncer(opts.debounceDelay) : undefined;
 	const onCallback = async () => {
 		let certData: CertificateData;
@@ -99,14 +104,23 @@ export const watchSSLCertAndKeyChanges = (sslConfig: SSLConfig, opts: {debounceD
 		}
 	};
 	if(sslConfig.p12Path) {
-		return watchFilepathChanges(sslConfig.p12Path, {debouncer}, onCallback);
+		return watchFilepathChanges(sslConfig.p12Path, {
+			debouncer,
+			logger,
+		}, onCallback);
 	} else if(sslConfig.certPath && sslConfig.keyPath) {
 		let certWatcher: {close: () => void} | undefined;
 		let keyWatcher: {close: () => void} | undefined;
 		try {
 			// TODO have some FSWatcher pool in case cert and key are in the same directory (so we're not watching the directory twice)
-			certWatcher = watchFilepathChanges(sslConfig.certPath, {debouncer}, onCallback);
-			keyWatcher = watchFilepathChanges(sslConfig.keyPath, {debouncer}, onCallback);
+			certWatcher = watchFilepathChanges(sslConfig.certPath, {
+				debouncer,
+				logger,
+			}, onCallback);
+			keyWatcher = watchFilepathChanges(sslConfig.keyPath, {
+				debouncer,
+				logger,
+			}, onCallback);
 		} catch(error) {
 			certWatcher?.close();
 			keyWatcher?.close();

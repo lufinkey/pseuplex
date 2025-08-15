@@ -229,7 +229,8 @@ let args: CommandArguments;
 	const secureServer = pseuplex.httpsServer || pseuplex.httpolyglotServer;
 	if(cfg.ssl?.watchCertChanges && secureServer?.setSecureContext) {
 		const watcher = watchSSLCertAndKeyChanges(sslConfig, {
-			debounceDelay: (cfg.ssl?.certReloadDelay ?? 1000)
+			debounceDelay: (cfg.ssl?.certReloadDelay ?? 1000),
+			logger,
 		}, (sslCertData) => {
 			try {
 				console.log("\nUpdating SSL certificate");

@@ -5,11 +5,12 @@ import { PlexNotificationSender, PlexNotificationSenderTypeToName } from './plex
 import { urlFromClientRequest } from './utils/requests';
 import { requestIsEncrypted } from './utils/requesthandling';
 import type { WebSocketEventMap } from './utils/websocket';
-import * as overseerrTypes from './plugins/requests/providers/overseerr/apitypes';
+import type * as overseerrTypes from './plugins/requests/providers/overseerr/apitypes';
 
 export type GeneralLoggingOptions = {
 	logDebug?: boolean;
 	logFullURLs?: boolean;
+	logWatchedPaths?: boolean;
 };
 
 export type PlexLoggingOptions = {
@@ -56,7 +57,7 @@ export type OverseerrLoggingOptions = {
 	logOverseerrUsers?: boolean;
 	logOverseerrUserMatches?: boolean;
 	logOverseerrUserMatchFailures?: boolean;
-}
+};
 
 export type LoggingOptions =
 	GeneralLoggingOptions
@@ -93,6 +94,48 @@ export class Logger {
 		}
 		return urlString;
 	};
+
+	logWatchingDirectory(directoryPath) {
+		if(!this.options.logWatchedPaths) {
+			return;
+		}
+		console.log(`Watching directory ${directoryPath}`);
+	}
+
+	logStoppedWatchingDirectory(directoryPath) {
+		if(!this.options.logWatchedPaths) {
+			return;
+		}
+		console.log(`Stopped watching directory ${directoryPath}`);
+	}
+
+	logWatchingFile(filePath) {
+		if(!this.options.logWatchedPaths) {
+			return;
+		}
+		console.log(`Watching file ${filePath}`);
+	}
+
+	logStoppedWatchingFile(filePath) {
+		if(!this.options.logWatchedPaths) {
+			return;
+		}
+		console.log(`Stopped watching file ${filePath}`);
+	}
+
+	logWatchedFileChanged(eventType, filePath, filename) {
+		if(!this.options.logWatchedPaths) {
+			return;
+		}
+		console.log(`\nFile ${eventType} ${filename} detected: ${filePath}`);
+	}
+
+	logWatchedDirectoryFileChanged(eventType, directoryPath, filename) {
+		if(!this.options.logWatchedPaths) {
+			return;
+		}
+		console.log(`\nDirectory file ${eventType} detected: ${directoryPath}/${filename}`);
+	}
 
 	logOutgoingRequest(url: string, options: RequestInit) {
 		if(!this.options.logOutgoingRequests) {
