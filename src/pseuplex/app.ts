@@ -161,7 +161,7 @@ export type PseuplexAppPerUserConfig = {
 	redirectPlexStreams: boolean;
 };
 
-type PseuplexAppConfig = PseuplexConfigBase<PseuplexAppPerUserConfig>;
+type PseuplexAppConfig = PseuplexConfigBase<{[key: string]: any}>;
 
 type PseuplexPlexServerNotificationsOptions = {
 	socketRetryInterval?: number;
@@ -1032,7 +1032,7 @@ export class PseuplexApp {
 		const shouldRedirectStreams =
 			this.redirectPlexStreams
 			|| Object.values(this.config.perUser || {})
-				.findIndex((c) => c.redirectPlexStreams) != -1;
+				.findIndex((c: PseuplexAppPerUserConfig) => c.redirectPlexStreams) != -1;
 		if(shouldRedirectStreams) {
 			router.use([
 				'/video/\\:/transcode/universal/session',
