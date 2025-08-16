@@ -23,14 +23,9 @@ fi
 "$base_path/tools/decrypt_plex_cert.sh" "$@"
 
 # watch for file changes
->&2 echo "Listening for plex cert changes at $p12_path"
-while "$base_path/tools/watch_filechange.sh" "$p12_path"; do
+while "$base_path/tools/watch_filechange.sh" "$p12_path" 1> /dev/null ; do
 	echo "Plex certificate changed at $p12_path"
 	# decrypt the plex certificate
 	"$base_path/tools/decrypt_plex_cert.sh" "$@"
-	# kill if needed
-	if $killed; then
-		break
-	fi
 done
 >&2 echo "Stopped listening for plex cert changes"

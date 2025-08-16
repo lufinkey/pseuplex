@@ -10,7 +10,7 @@ done
 # get paths
 base_path="${BASH_SOURCE%/*}/.."
 plexutils_path="$base_path/tools/plex_utils.sh"
-privatekey_path="$base_path/keys/plex_privatekey.pem"
+privatekey_path="$base_path/keys/plex_privatekey.key"
 certchain_path="$base_path/keys/plex_certchain.pem"
 
 # create keys folder if it doesnt exist
