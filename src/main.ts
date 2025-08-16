@@ -1,5 +1,4 @@
 #!/usr/bin/env node --enable-source-maps
-import './utils/polyfill';
 import tls from 'tls';
 import sharp from 'sharp';
 import * as constants from './constants';
