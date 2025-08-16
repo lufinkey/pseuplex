@@ -22,10 +22,6 @@ import {
 	parsePlexMetadataGuid,
 } from '../plex/metadataidentifier';
 import {
-	PseuplexMetadataAccessCache,
-	PseuplexMetadataAccessCacheOptions
-} from './metadataAccessCache';
-import {
 	plexApiProxy,
 	PlexAPIProxyFilters,
 	plexHttpProxy,
@@ -59,7 +55,11 @@ import {
 	PseuplexPossiblyConfirmedClientWebSocketInfo,
 	PseuplexEventSourceSubscriber,
 } from './types';
-import { PseuplexConfigBase } from './configbase';
+import type { PseuplexConfigBase } from './configbase';
+import {
+	PseuplexMetadataAccessCache,
+	PseuplexMetadataAccessCacheOptions
+} from './metadataAccessCache';
 import {
 	stringifyPartialMetadataID,
 	stringifyMetadataID,
@@ -157,7 +157,11 @@ type PseuplexAppMetadataChildrenParams = {
 	cachePluginMetadataAccess?: boolean;
 };
 
-type PseuplexAppConfig = PseuplexConfigBase<{[key: string]: any}>;
+export type PseuplexAppPerUserConfig = {
+	redirectPlexStreams: boolean;
+};
+
+type PseuplexAppConfig = PseuplexConfigBase<PseuplexAppPerUserConfig>;
 
 type PseuplexPlexServerNotificationsOptions = {
 	socketRetryInterval?: number;
@@ -1025,30 +1029,39 @@ export class PseuplexApp {
 		const pathEndingChars = ['/','?',undefined];
 
 		// redirect streams if needed
-		if(this.redirectPlexStreams && (this.plexServerRedirectHost || this.plexServerRedirectHostSecure)) {
+		const shouldRedirectStreams =
+			this.redirectPlexStreams
+			|| Object.values(this.config.perUser || {})
+				.findIndex((c) => c.redirectPlexStreams) != -1;
+		if(shouldRedirectStreams) {
 			router.use([
 				'/video/\\:/transcode/universal/session',
 				'/library/parts',
 			], [
-				(req: express.Request, res: express.Response, next) => {
+				this.middlewares.plexAuthentication,
+				asyncRequestHandler(async (req: IncomingPlexAPIRequest, res: express.Response) => {
+					// check if we should redirect this request
+					const redirectPlexStreams = this.config.perUser[req.plex.userInfo.email].redirectPlexStreams ?? this.redirectPlexStreams;
+					if(!redirectPlexStreams) {
+						return false;
+					}
 					// get redirect url, if any
-					let redirectUrl: (string | undefined);
+					let redirectHost: (string | undefined);
 					try {
-						const redirectHost = this.plexServerRedirectHostForRequest(req);
-						if(redirectHost) {
-							redirectUrl = redirectHost + req.url;
+						redirectHost = this.plexServerRedirectHostForRequest(req);
+						if(!redirectHost) {
+							return false;
 						}
 					} catch(error) {
 						console.error(`Error handling stream redirect:`);
 						console.error(error);
+						return false;
 					}
-					// redirect or continue
-					if(redirectUrl) {
-						res.redirect(307, redirectUrl);
-						return;
-					}
-					next();
-				}
+					// redirect
+					const redirectUrl = redirectHost + req.url;
+					res.redirect(307, redirectUrl);
+					return true;
+				})
 			]);
 		}
 

@@ -1,15 +1,16 @@
 import fs from 'fs';
-import { SSLConfig } from './utils/ssl';
-import { IPv4NormalizeModeKey } from './utils/ip';
-import {
+import type { SSLConfig } from './utils/ssl';
+import type { IPv4NormalizeModeKey } from './utils/ip';
+import type {
+	PseuplexAppPerUserConfig,
 	PseuplexConfigBase,
 	PseuplexServerProtocol,
 } from './pseuplex';
-import { LetterboxdPluginConfig } from './plugins/letterboxd/config';
-import { RequestsPluginConfig } from './plugins/requests/config';
-import { DashboardPluginConfig } from './plugins/dashboard/config';
-import { OverseerrRequestsPluginConfig } from './plugins/requests/providers/overseerr/config';
-import { LoggingOptions } from './logging';
+import type { LetterboxdPluginConfig } from './plugins/letterboxd/config';
+import type { RequestsPluginConfig } from './plugins/requests/config';
+import type { DashboardPluginConfig } from './plugins/dashboard/config';
+import type { OverseerrRequestsPluginConfig } from './plugins/requests/providers/overseerr/config';
+import type { LoggingOptions } from './logging';
 
 export type Config = {
 	protocol?: PseuplexServerProtocol,
@@ -48,7 +49,7 @@ export type Config = {
 	plugins?: {
 		[id: string]: string
 	}
-} & PseuplexConfigBase<{}>
+} & PseuplexConfigBase<PseuplexAppPerUserConfig>
 	& LetterboxdPluginConfig
 	& RequestsPluginConfig
 	& DashboardPluginConfig
