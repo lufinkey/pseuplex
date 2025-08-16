@@ -21,12 +21,12 @@ function get_platform {
 case "$(get_platform)" in
 	Linux)
 		file_pattern=$(basename "$1" | sed 's/[].[^$*+?(){|\\]/\\&/g')
+		>&2 echo "Listening for changes to $1"
 		inotifywait -e modify,create,move "$(dirname "$1")" --include "^$file_pattern\$" || exit $?
 		;;
 	MacOS)
 		FSWATCH_VERSION=1.18.3
 		fswatch_path="$base_path/external/fswatch-$FSWATCH_VERSION/fswatch/src/fswatch"
-		"$fswatch_path" "$1" || exit $?
 		if [ ! -f "$fswatch_path" ]; then
 			"$base_path/tools/build_fswatch.sh"
 		fi
