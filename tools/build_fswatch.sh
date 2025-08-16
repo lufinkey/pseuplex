@@ -3,7 +3,7 @@
 FSWATCH_VERSION=1.18.3
 
 # enter base directory
-cd "$(dirname "$(realpath "$0")")/../" || exit $?
+cd "${BASH_SOURCE%/*}/../" || exit $?
 mkdir -p external || exit $?
 
 # extract fswatch

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-base_path="$(dirname "$(realpath "$0")")/.."
+base_path="${BASH_SOURCE%/*}/.."
 
 function get_platform {
 	local unameOut=$(uname -s)
