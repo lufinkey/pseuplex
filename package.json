@@ -19,7 +19,7 @@
 		"clean": "npm run clean:notwindows && npm run clean:windows",
 		"clean:notwindows": "npm run if:windows || rm -rf dist node_modules plugindeps pluginexample/node_modules pluginexample/dist pluginexample/package-lock.json",
 		"clean:windows": "npm run if:notwindows || rmdir /s /q dist node_modules plugindeps pluginexample\\node_modules pluginexample\\dist pluginexample\\package-lock.json || echo \"fuck you windows i hate you\"",
-		"start": "npm run node:start",
+		"start": "npm run node:start --",
 		"node:start": "tsc && node --enable-source-maps dist/main.js",
 		"node:start_test": "tsc && node --enable-source-maps --trace-deprecation dist/main.js --config=config/config.json --verbose --verbose-traffic",
 		"debug": "tsc && node --enable-source-maps --inspect dist/main.js --config=config/config.json --verbose",
