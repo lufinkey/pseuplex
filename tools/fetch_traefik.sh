@@ -6,6 +6,7 @@ TRAEFIK_VERSION="v3.5.0"
 
 # enter directory
 cd "${BASH_SOURCE%/*}/../" || exit $?
+mkdir -p external || exit $?
 
 # download traefik if it doesn't exist
 traefik_archive_name="traefik_${TRAEFIK_VERSION}_${platform}_${arch}"
