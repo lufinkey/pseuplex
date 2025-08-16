@@ -366,7 +366,7 @@ case "$subcmd" in
 				exit 0
 				;;
 			ssl-cert-p12)
-				get_ssl_cert_12_path "$@" || exit $?
+				get_ssl_cert_p12_path "$@" || exit $?
 				exit 0
 				;;
 			*)
