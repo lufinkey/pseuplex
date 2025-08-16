@@ -1,4 +1,6 @@
 #!/usr/bin/env node --enable-source-maps
+import './utils/polyfill';
+import tls from 'tls';
 import sharp from 'sharp';
 import * as constants from './constants';
 import {
@@ -173,7 +175,7 @@ let args: CommandArguments;
 		sendMetadataUnavailability: cfg.sendMetadataUnavailability,
 		overwritePlexPrivatePort: cfg.plex.overwritePrivatePort,
 		mapPseuplexMetadataIds: cfg.remapMetadataIds,
-		serverOptions: {
+		tlsCertOptions: {
 			...sslCertData
 		},
 		plexServerHost,
@@ -226,7 +228,7 @@ let args: CommandArguments;
 	});
 
 	// watch for certificate changes if this is an SSL server
-	const secureServer = pseuplex.httpsServer || pseuplex.httpolyglotServer;
+	const secureServer = pseuplex.httpsServer || ((pseuplex.httpolyglotServer as any)?._tlsServer as tls.Server);
 	if(cfg.ssl?.watchCertChanges && secureServer?.setSecureContext) {
 		const watcher = watchSSLCertAndKeyChanges(sslConfig, {
 			debounceDelay: (cfg.ssl?.certReloadDelay ?? 1000),

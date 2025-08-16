@@ -13,13 +13,13 @@ export type SSLConfig = {
 	keyPath?: string;
 };
 
-export type CertificateData = {
+export type TLSCertificateOptions = {
 	ca?: (string | Buffer)[];
 	cert?: string | Buffer;
 	key?: string | Buffer;
 };
 
-export const extractP12Data = (p12Data: string | Buffer, password: string | null | undefined): CertificateData => {
+export const extractP12Data = (p12Data: string | Buffer, password: string | null | undefined): TLSCertificateOptions => {
 	if(p12Data instanceof Buffer) {
 		p12Data = p12Data.toString('binary');
 	}
@@ -68,7 +68,7 @@ export const extractP12Data = (p12Data: string | Buffer, password: string | null
 	return {cert, key:privateKey, ca};
 };
 
-export const readSSLCertAndKey = async (sslConfig: SSLConfig): Promise<CertificateData> => {
+export const readSSLCertAndKey = async (sslConfig: SSLConfig): Promise<TLSCertificateOptions> => {
 	if(sslConfig.p12Path) {
 		const fileData = await fs.promises.readFile(sslConfig.p12Path);
 		return extractP12Data(fileData, sslConfig.p12Password);
@@ -84,11 +84,11 @@ export const readSSLCertAndKey = async (sslConfig: SSLConfig): Promise<Certifica
 export const watchSSLCertAndKeyChanges = (sslConfig: SSLConfig, opts: {
 	debounceDelay?: number,
 	logger?: Logger,
-}, callback: (certData: CertificateData) => void): { close: () => void } | null => {
+}, callback: (certData: TLSCertificateOptions) => void): { close: () => void } | null => {
 	const { logger } = opts;
 	const debouncer = opts.debounceDelay != null ? createDebouncer(opts.debounceDelay) : undefined;
 	const onCallback = async () => {
-		let certData: CertificateData;
+		let certData: TLSCertificateOptions;
 		try {
 			certData = await readSSLCertAndKey(sslConfig);
 		} catch(error) {

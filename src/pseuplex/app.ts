@@ -3,7 +3,7 @@ import https from 'https';
 import stream from 'stream';
 import qs from 'querystring';
 import express from 'express';
-import httpolyglot from 'httpolyglot';
+import * as httpolyglot from '@httptoolkit/httpolyglot';
 import sharp from 'sharp';
 import HttpProxyServer from 'http-proxy';
 import * as plexTypes from '../plex/types';
@@ -125,6 +125,8 @@ import {
 import { IPv4NormalizeMode } from '../utils/ip';
 import type { WebSocketEventMap } from '../utils/websocket';
 import { applyOverlayToImage } from '../utils/images';
+import { getModuleRootPath } from '../utils/compat';
+import { TLSCertificateOptions } from '../utils/ssl';
 
 
 // plugins
@@ -176,7 +178,7 @@ export type PseuplexAppOptions = {
 	sendMetadataUnavailability?: boolean;
 	overwritePlexPrivatePort?: number | boolean;
 	alwaysUseLibraryMetadataPath?: boolean;
-	serverOptions: https.ServerOptions;
+	tlsCertOptions: TLSCertificateOptions;
 	plexServerHost: string;
 	plexServerHostSecure?: string;
 	plexServerRedirectHost?: string;
@@ -1114,10 +1116,10 @@ export class PseuplexApp {
 				let imagePath = this.overlayImageOverrides?.[imageName];
 				if(imagePath) {
 					if(!imagePath.startsWith('/') && !imagePath.startsWith('./') && !imagePath.startsWith('../')) {
-						imagePath = `${require.main!.path}/../${imagePath}`;
+						imagePath = `${getModuleRootPath()}/${imagePath}`;
 					}
 				} else {
-					imagePath = `${require.main!.path}/../images/overlays/${imageName}.png`;
+					imagePath = `${getModuleRootPath()}/images/overlays/${imageName}.png`;
 				}
 				const image = sharp(imagePath);
 				try {
@@ -1243,15 +1245,19 @@ export class PseuplexApp {
 		let httpolyglotServer: httpolyglot.Server | undefined;
 		const servers: (http.Server | https.Server | httpolyglot.Server)[] = [];
 		if(httpPort == httpsPort) {
-			httpolyglotServer = httpolyglot.createServer(options.serverOptions, router);
+			httpolyglotServer = httpolyglot.createServer({
+				tls: options.tlsCertOptions,
+			}, router);
 			servers.push(httpolyglotServer);
 		} else {
 			if(httpPort) {
-				httpServer = http.createServer(options.serverOptions, router);
+				httpServer = http.createServer({}, router);
 				servers.push(httpServer);
 			}
 			if(httpsPort) {
-				httpsServer = https.createServer(options.serverOptions, router);
+				httpsServer = https.createServer({
+					...options.tlsCertOptions
+				}, router);
 				servers.push(httpsServer);
 			}
 		}
@@ -1450,7 +1456,7 @@ export class PseuplexApp {
 		let opened = false;
 		let closed = false;
 		// listen for errors
-		socket.addEventListener('error', (error) => {
+		socket.addEventListener('error', (error: WebSocketEventMap['error']) => {
 			if(!opened) {
 				this.logger?.logServerWebsocketFailedToOpen(error, firstAttempt);
 			} else {
@@ -1503,7 +1509,7 @@ export class PseuplexApp {
 			// TODO log possibly
 		});
 		// listen for message
-		socket.addEventListener('message', (evt) => {
+		socket.addEventListener('message', (evt: WebSocketEventMap['message']) => {
 			// TODO log possibly
 			this._handlePlexServerNotification(evt);
 		});

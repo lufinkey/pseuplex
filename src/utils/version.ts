@@ -2,6 +2,7 @@ import fs from 'fs';
 import { SpawnOptionsWithoutStdio } from 'child_process';
 import { executeAndGetOutputAsync } from './subprocess';
 import { getFirstLineOfString } from './strings';
+import { getModuleRootPath } from './compat';
 import packageJson from '../../package.json';
 
 export type AppVersion = {
@@ -14,7 +15,7 @@ export type AppVersion = {
 };
 
 export const getAppVersion = async (): Promise<AppVersion> => {
-	const modulePath = `${require.main!.path}/..`;
+	const modulePath = getModuleRootPath();
 	const cmdOpts: SpawnOptionsWithoutStdio = {
 		cwd: modulePath,
 	}
