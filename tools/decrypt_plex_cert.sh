@@ -1,3 +1,4 @@
+#!/bin/bash
 
 # validate args
 for arg in "$@"; do
