@@ -7,7 +7,7 @@ cd "$(dirname "$(realpath "$0")")/../" || exit $?
 mkdir -p external || exit $?
 
 # extract fswatch
-fswatch_archive_path="$external/fswatch-$FSWATCH_VERSION.tar.gz"
+fswatch_archive_path="external/fswatch-$FSWATCH_VERSION.tar.gz"
 if [ ! -d "external/fswatch-$FSWATCH_VERSION" ]; then
 	if [ ! -f "external/fswatch-$FSWATCH_VERSION.tar.gz" ]; then
 		curl -L "https://github.com/emcrisostomo/fswatch/releases/download/$FSWATCH_VERSION/fswatch-$FSWATCH_VERSION.tar.gz" -o "$fswatch_archive_path" || exit $?

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-platform=$(uname -s)
+platform=$(uname -s | tr '[:upper:]' '[:lower:]')
 arch=$(arch)
 TRAEFIK_VERSION="v3.5.0"
 
