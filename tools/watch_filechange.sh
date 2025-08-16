@@ -30,6 +30,7 @@ case "$(get_platform)" in
 		if [ ! -f "$fswatch_path" ]; then
 			"$base_path/tools/build_fswatch.sh"
 		fi
+		>&2 echo "Listening for changes to $1"
 		"$fswatch_path" -1 "$1" || exit $?
 		;;
 	Windows)
