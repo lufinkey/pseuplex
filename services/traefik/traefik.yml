@@ -1,0 +1,28 @@
+entryPoints:
+  proxy-http:
+    address: ":32394"
+  proxy-https:
+    address: ":32395"
+  traefik:
+    address: ":8080"
+
+accessLog: {}
+metrics:
+  prometheus:
+    addEntryPointsLabels: true
+    addRoutersLabels: true
+    addServicesLabels: true
+  otlp: {}
+tracing: {}
+
+api:
+  dashboard: true
+  insecure: true
+
+#log:
+#  level: DEBUG
+
+providers:
+  file:
+    directory: "./dynamic"
+    watch: true

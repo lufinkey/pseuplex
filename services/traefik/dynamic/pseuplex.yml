@@ -1,0 +1,30 @@
+
+tls:
+  certificates:
+    - certFile: '{{ env "TRAEFIK_TLS_CERTFILE" }}'
+      keyFile: '{{ env "TRAEFIK_TLS_KEYFILE" }}'
+      stores:
+        - default
+
+http:
+  routers:
+    pseuplex-http:
+      entryPoints: [proxy-http]
+      rule: "PathPrefix(`/`)"
+      service: pseuplex-http-service
+    pseuplex-https:
+      entryPoints: [proxy-https]
+      rule: "PathPrefix(`/`)"
+      service: pseuplex-https-service
+      tls: true
+  services:
+    pseuplex-http-service:
+      loadBalancer:
+        passHostHeader: true
+        servers:
+          - url: '{{ env "PSEUPLEX_HTTP_URL" }}'
+    pseuplex-https-service:
+      loadBalancer:
+        passHostHeader: true
+        servers:
+          - url: '{{ env "PSEUPLEX_HTTPS_URL" }}'
