@@ -19,7 +19,6 @@ import {
 	getPortFromRequest,
 	requestIsEncrypted
 } from '../utils/requesthandling';
-import { OutgoingHttpHeaders } from 'http2';
 
 export type PlexProxyOptions = {
 	logger?: Logger;
@@ -180,7 +179,7 @@ export const plexApiProxy = (host: HostOrHostGetter, options: PlexProxyOptions, 
 		},
 		proxyReqPathResolver: proxyFilters.requestPathModifier,
 		proxyReqBodyDecorator: proxyFilters.requestBodyModifier,
-		userResHeaderDecorator: (headers: OutgoingHttpHeaders, userReq, userRes, proxyReq, proxyRes) => {
+		userResHeaderDecorator: (headers: http.OutgoingHttpHeaders, userReq, userRes, proxyReq, proxyRes) => {
 			if(proxyFilters.responseHeadersModifier) {
 				headers = proxyFilters.responseHeadersModifier(headers, userReq, userRes, proxyReq, proxyRes);
 			}
