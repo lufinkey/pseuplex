@@ -270,7 +270,7 @@ export class Logger {
 		return true;
 	}
 
-	logProxyAndUserResponse(userReq: express.Request, userRes: express.Response, proxyRes: http.IncomingMessage, headers: http.IncomingHttpHeaders | undefined, resDataString: string | undefined): boolean {
+	logProxyAndUserResponse(userReq: express.Request, userRes: express.Response, proxyRes: http.IncomingMessage, headers: http.IncomingHttpHeaders | http.OutgoingHttpHeaders | undefined, resDataString: string | undefined): boolean {
 		const isErrorResponse = !proxyRes.statusCode || proxyRes.statusCode < 200 || proxyRes.statusCode >= 300;
 		if(!(this.options.logUserResponses || this.options.logProxyResponses
 			|| (this.options.logProxyErrorResponseBody && isErrorResponse))

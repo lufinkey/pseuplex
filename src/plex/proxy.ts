@@ -19,6 +19,7 @@ import {
 	getPortFromRequest,
 	requestIsEncrypted
 } from '../utils/requesthandling';
+import { OutgoingHttpHeaders } from 'http2';
 
 export type PlexProxyOptions = {
 	logger?: Logger;
@@ -125,6 +126,13 @@ export type PlexAPIProxyFilters = {
 	requestOptionsModifier?: (proxyReqOpts: http.RequestOptions, userReq: express.Request) => http.RequestOptions,
 	requestPathModifier?: (req: express.Request) => string | Promise<string>,
 	requestBodyModifier?: (bodyContent: string, userReq: express.Request) => string | Promise<string>,
+	responseHeadersModifier?: (
+		headers: http.OutgoingHttpHeaders,
+		userReq: express.Request,
+		userRes: express.Response,
+		proxyReq: http.ClientRequest,
+		proxyRes: http.IncomingMessage
+	) => http.OutgoingHttpHeaders;
 	responseModifier?: (proxyRes: http.IncomingMessage, proxyResData: any, userReq: express.Request, userRes: express.Response) => any,
 };
 
@@ -172,7 +180,10 @@ export const plexApiProxy = (host: HostOrHostGetter, options: PlexProxyOptions, 
 		},
 		proxyReqPathResolver: proxyFilters.requestPathModifier,
 		proxyReqBodyDecorator: proxyFilters.requestBodyModifier,
-		userResHeaderDecorator: (headers, userReq, userRes, proxyReq, proxyRes) => {
+		userResHeaderDecorator: (headers: OutgoingHttpHeaders, userReq, userRes, proxyReq, proxyRes) => {
+			if(proxyFilters.responseHeadersModifier) {
+				headers = proxyFilters.responseHeadersModifier(headers, userReq, userRes, proxyReq, proxyRes);
+			}
 			if(proxyFilters.responseModifier) {
 				// set the accepted content type if we're going to change back from json to xml
 				const acceptTypes = parseHttpContentTypeFromHeader(userReq, 'accept').contentTypes;
