@@ -1,6 +1,8 @@
 #!/bin/bash
 
-FSWATCH_VERSION=1.18.3
+if [ -z "$FSWATCH_VERSION" ]; then
+	export FSWATCH_VERSION="1.18.3"
+fi
 
 # enter base directory
 cd "${BASH_SOURCE%/*}/../" || exit $?
