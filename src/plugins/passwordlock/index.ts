@@ -47,8 +47,8 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 
 		this.section = new PasswordLockedSection(this, {
 			id: `${this.slug}`,
-			uuid: this.config.passwordLock?.sectionUUID,
-			path: this.basePath,
+			uuid: this.config.passwordLock?.sectionUUID ?? "b332948b-9bf1-44a2-8637-15324bac8222",
+			path: `${this.basePath}`,
 			hubsPath: `${this.basePath}/hubs`,
 			title: "Introduction",
 			type: plexTypes.PlexMediaItemType.Mixed,
@@ -122,7 +122,12 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 				const context = this.app.contextForRequest(req);
 				const reqParams = req.plex.requestParams;
 				// get hubs for each section
-				return await this.section.getHubsPage(reqParams, context);
+				const hubsPage: plexTypes.PlexHubsPage = await this.section.getHubsPage(reqParams, context);
+				delete hubsPage.MediaContainer.librarySectionID;
+				delete hubsPage.MediaContainer.librarySectionTitle;
+				delete hubsPage.MediaContainer.librarySectionUUID;
+				delete (hubsPage.MediaContainer as any).librarySectionKey;
+				return hubsPage;
 			}),
 		]);
 		
@@ -131,7 +136,12 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 				const context = this.app.contextForRequest(req);
 				const reqParams = req.plex.requestParams;
 				// get hubs for each section
-				return await this.section.getPromotedHubsPage(reqParams, context);
+				const hubsPage: plexTypes.PlexHubsPage = await this.section.getPromotedHubsPage(reqParams, context);
+				delete hubsPage.MediaContainer.librarySectionID;
+				delete hubsPage.MediaContainer.librarySectionTitle;
+				delete hubsPage.MediaContainer.librarySectionUUID;
+				delete (hubsPage.MediaContainer as any).librarySectionKey;
+				return hubsPage;
 			}),
 		]);
 
@@ -155,16 +165,51 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 			}),
 		]);
 
-		unauthRouter.get('/\\:/prefs', [
-			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<{MediaContainer:plexTypes.PlexMediaContainer}> => {
-				return {
-					MediaContainer: {
-						size: 0,
-					}
-				};
+		unauthRouter.get(this.section.path, [
+			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res) => {
+				const context = this.app.contextForRequest(req);
+				return await this.section.getSectionPage(context);
 			}),
 		]);
 
+		unauthRouter.get(this.section.hubsPath, [
+			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res) => {
+				const context = this.app.contextForRequest(req);
+				const reqParams = req.plex.requestParams;
+				return await this.section.getHubsPage(reqParams,context);
+			}),
+		]);
+
+		const sensitivePrefs = new Set<string>([
+			"customCertificatePath",
+			"customCertificateKey",
+			"LocalAppDataPath",
+			"iTunesLibraryXmlPath",
+			"ButlerDatabaseBackupPath",
+			"CertificateUUID",
+			"CertificateVersion",
+		]);
+		unauthRouter.get('/\\:/prefs', [
+			this.app.middlewares.plexAPIProxy({
+				responseModifier: (proxyRes, resData: plexTypes.PlexPrefsPage, userReq, userRes): plexTypes.PlexPrefsPage => {
+					if(resData.MediaContainer.Setting) {
+						resData.MediaContainer.Setting = resData.MediaContainer.Setting.filter((setting) => {
+							if(!setting.id) {
+								console.error(`wtf: ${JSON.stringify(setting)}`);
+							}
+							return !sensitivePrefs.has(setting.id);
+						});
+					}
+					return resData;
+				},
+			}),
+		]);
+
+		// TODO figure out if/how we should protect these endpoints
+		unauthRouter.use('/updater', [
+			this.app.middlewares.plexProxy(),
+		]);
+		/*
 		unauthRouter.get('/updater/status', [
 			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexUpdaterStatusPage> => {
 				return {
@@ -201,6 +246,7 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 				return true;
 			}),
 		]);
+		*/
 		
 		unauthRouter.use((req, res, next) => {
 			// all other requests should return a 403

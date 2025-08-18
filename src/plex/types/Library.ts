@@ -7,6 +7,7 @@ import {
 	PlexPluginIdentifier,
 } from './common';
 import { PlexMediaContainer } from './MediaContainer';
+import { PlexSetting } from './Prefs';
 import { BooleanQueryParam } from '../../utils/queryparams';
 
 export type PlexGetLibraryMatchesParams = {
@@ -23,7 +24,7 @@ export type PlexGetLibraryMatchesParams = {
 
 export type PlexLibrarySectionsPageParams = {
 	includePreferences?: BooleanQueryParam;
-}
+};
 
 export type PlexLibrarySection = {
 	allowSync: boolean;
@@ -48,29 +49,16 @@ export type PlexLibrarySection = {
 	hidden?: number;
 	Location?: PlexSectionLocation[];
 	Preferences?: PlexSectionPreferences;
-}
+};
 
-export interface PlexSectionLocation {
+export type PlexSectionLocation = {
 	id: number;
 	path: string;
-}
+};
 
-export interface PlexSectionPreferences {
-	Setting: PlexSectionSetting[];
-}
-
-export interface PlexSectionSetting {
-	id: string;
-	label: string;
-	summary: string;
-	type: 'bool' | 'int' | 'text';
-	default: string;
-	value: string;
-	hidden: boolean;
-	advanced: boolean;
-	group: string;
-	enumValues?: string; // "0:Disabled|1:For recorded items|2:For all items"
-}
+export type PlexSectionPreferences = {
+	Setting: PlexSetting[];
+};
 
 export type PlexLibrarySectionsPage = {
 	MediaContainer: PlexMediaContainer & {

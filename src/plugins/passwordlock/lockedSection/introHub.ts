@@ -36,10 +36,10 @@ export class PasswordLockedSectionIntroHub extends PseuplexHub {
 				key: this.path,
 				title: "",
 				type: plexTypes.PlexMediaItemType.Mixed,
-				hubIdentifier: `hub.custom.lockedpasswordsection.main`,
-				context: `hub.custom.lockedpasswordsection.main`,
+				hubIdentifier: `hub.custom.lockedpasswordsection.intro`,
+				context: `hub.custom.lockedpasswordsection.intro`,
 				style: plexTypes.PlexHubStyle.Shelf,
-				promoted: true
+				promoted: true,
 			},
 			items: arrayFromArrayOrSingle((await this.metadataProvider.get([
 				PasswordLockMetadataID.Instructions
