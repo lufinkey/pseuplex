@@ -24,7 +24,7 @@ export type PseuplexHubPageParams = plexTypes.PlexHubPageParams & {
 export type PseuplexHubSectionInfo = {
 	id: string;
 	title: string;
-	uuid: string;
+	uuid?: string;
 };
 
 export type PseuplexHubMetadataTransformOptions = {

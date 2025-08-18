@@ -143,12 +143,12 @@ export class PseuplexSectionBase implements PseuplexSection {
 			false
 		);
 	}
-
+	
 	async getPromotedHubsPage(params: plexTypes.PlexHubListPageParams, context: PseuplexRequestContext): Promise<plexTypes.PlexSectionHubsPage> {
 		return await this.hubPageFromHubs(
 			params,
 			context,
-			this.getHubs?.(params, context),
+			this.getPromotedHubs?.(params, context),
 			true
 		);
 	}

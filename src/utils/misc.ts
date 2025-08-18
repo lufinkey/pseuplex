@@ -105,6 +105,15 @@ export const firstOrSingle = <T>(arrayOrSingle: (T | T[] | undefined)): T | unde
 	return undefined;
 };
 
+export const arrayFromArrayOrSingle = <T>(arrayOrSingle: (T | T[] | undefined)): T[] => {
+	if(arrayOrSingle instanceof Array) {
+		return arrayOrSingle;
+	} else if(arrayOrSingle) {
+		return [arrayOrSingle];
+	}
+	return [];
+};
+
 export const isArrayNullOrEmpty = (obj: any) => {
 	return (!obj || (obj instanceof Array && obj.length === 0));
 };

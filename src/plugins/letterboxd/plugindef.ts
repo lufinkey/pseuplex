@@ -9,4 +9,6 @@ import {
 export interface LetterboxdPluginDef extends PseuplexPlugin {
 	app: PseuplexApp;
 	config: LetterboxdPluginConfig;
+
+	get basePath(): string;
 } 

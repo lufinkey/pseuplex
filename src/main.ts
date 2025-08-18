@@ -1,6 +1,7 @@
 #!/usr/bin/env node --enable-source-maps
 import tls from 'tls';
 import sharp from 'sharp';
+import { Netmask } from 'netmask';
 import * as constants from './constants';
 import {
 	Config,
@@ -20,9 +21,11 @@ import {
 	includeTracesForConsoleWarnAndError,
 	modConsoleColors,
 } from './utils/console';
+import { addProtocolToUrlIfMissing } from './utils/url';
 import { getAppVersionString } from './utils/version';
 import { RequestExecutor } from './fetching/RequestExecutor';
 import { PseuplexApp } from './pseuplex';
+import PasswordLockPlugin from './plugins/passwordlock';
 import LetterboxdPlugin from './plugins/letterboxd';
 import RequestsPlugin from './plugins/requests';
 import DashboardPlugin from './plugins/dashboard';
@@ -35,7 +38,6 @@ import { PlexPreferences } from './plex/types';
 import { PlexClient } from './plex/client';
 import { Logger, LoggingOptions } from './logging';
 import { importPlugins, installPlugins } from './pluginload';
-import { addProtocolToUrlIfMissing } from './utils/url';
 
 if(process.env.NODE_ENV !== 'production') {
 	includeTracesForConsoleWarnAndError();
@@ -174,6 +176,9 @@ let args: CommandArguments;
 		sendMetadataUnavailability: cfg.sendMetadataUnavailability,
 		overwritePlexPrivatePort: cfg.plex.overwritePrivatePort,
 		mapPseuplexMetadataIds: cfg.remapMetadataIds,
+		localNetmasks: cfg.localNetmask != null
+			? cfg.localNetmask.split(',').map((maskString) => new Netmask(maskString))
+			: undefined,
 		tlsCertOptions: {
 			...sslCertData
 		},
@@ -205,6 +210,7 @@ let args: CommandArguments;
 		overlayImageOverrides: cfg.imageOverlays?.overrides,
 		logger,
 		plugins: [
+			PasswordLockPlugin,
 			LetterboxdPlugin,
 			RequestsPlugin,
 			DashboardPlugin,

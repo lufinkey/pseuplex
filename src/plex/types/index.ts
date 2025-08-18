@@ -17,3 +17,4 @@ export * from './preferences';
 export * from './Search';
 export * from './SearchProvider';
 export * from './Server';
+export * from './updater';

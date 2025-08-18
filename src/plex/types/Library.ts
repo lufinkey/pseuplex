@@ -72,8 +72,8 @@ export interface PlexSectionSetting {
 	enumValues?: string; // "0:Disabled|1:For recorded items|2:For all items"
 }
 
-export type PlexLibrarySectionsPage = PlexMediaContainer & {
-	MediaContainer: {
+export type PlexLibrarySectionsPage = {
+	MediaContainer: PlexMediaContainer & {
 		size: number;
 		title1: string;
 		Directory: PlexLibrarySection[];

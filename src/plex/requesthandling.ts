@@ -13,6 +13,7 @@ import {
 	HttpResponseError,
 } from '../utils/error';
 import { parseQueryParams } from '../utils/queryparams';
+import { asyncRequestHandler } from '../utils/requesthandling';
 
 export type PlexAPIRequestHandler<TResult> = (req: express.Request, res: express.Response) => Promise<TResult>;
 export type PlexAPIRequestHandlerOptions = {
@@ -66,26 +67,28 @@ export type IncomingPlexAPIRequest = express.Request & {
 	}
 };
 
-export const createPlexAuthenticationMiddleware = (accountsStore: PlexServerAccountsStore) => {
-	return async (req: express.Request, res: express.Response, next: (error?: Error) => void) => {
-		try {
-			const authContext = plexTypes.parseAuthContextFromRequest(req);
-			const userInfo = await accountsStore.getUserInfoOrNull(authContext);
-			if(!userInfo) {
-				throw httpError(401, "Not Authorized");
-			}
-			const plexReq = req as IncomingPlexAPIRequest;
-			plexReq.plex = {
-				authContext,
-				userInfo,
-				requestParams: parseQueryParams(req, (key) => !(key in authContext))
-			};
-		} catch(error) {
-			next(error);
-			return;
-		}
-		next();
+export const authenticatePlexRequest = async (req: express.Request, accountsStore: PlexServerAccountsStore) => {
+	const authContext = plexTypes.parseAuthContextFromRequest(req);
+	const userInfo = await accountsStore.getUserInfoOrNull(authContext);
+	if(!userInfo) {
+		throw httpError(401, "Not Authorized");
+	}
+	const plexReq = req as IncomingPlexAPIRequest;
+	plexReq.plex = {
+		authContext,
+		userInfo,
+		requestParams: parseQueryParams(req, (key) => !(key in authContext))
 	};
+};
+
+export const createPlexAuthenticationMiddleware = (accountsStore: PlexServerAccountsStore) => {
+	return asyncRequestHandler(async (req: express.Request, res: express.Response) => {
+		if((req as IncomingPlexAPIRequest).plex && (req as IncomingPlexAPIRequest).plex.authContext['X-Plex-Token'] == plexTypes.parsePlexTokenFromRequest(req)) {
+			return false;
+		}
+		await authenticatePlexRequest(req, accountsStore);
+		return false;
+	});
 };
 
 export type PlexAuthedRequestHandler =

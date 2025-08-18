@@ -17,6 +17,7 @@ import {
 } from '../utils/ip';
 import {
 	getPortFromRequest,
+	remoteAddressOfRequest,
 	requestIsEncrypted
 } from '../utils/requesthandling';
 
@@ -52,7 +53,7 @@ export const plexThinProxy = (host: HostOrHostGetter, options: PlexProxyOptions,
 		reqOpts.headers ??= {};
 		// add x-forwarded headers
 		const encrypted = requestIsEncrypted(userReq);
-		const remoteAddress = userReq.connection?.remoteAddress || userReq.socket?.remoteAddress;
+		const remoteAddress = remoteAddressOfRequest(userReq);
 		const fwdHeaders = {
 			For: remoteAddress ? normalizeIPAddress(remoteAddress, ipv4Mode) : remoteAddress,
 			Port: getPortFromRequest(userReq),
@@ -325,7 +326,7 @@ export const plexHttpProxy = (serverURL: string, options: PlexProxyOptions, even
 			?? IPv4NormalizeMode.DontChange;
 		// add x-real-ip to proxy headers
 		if (!userReq.headers['x-real-ip']) {
-			const realIP = userReq.connection?.remoteAddress || userReq.socket?.remoteAddress;
+			const realIP = remoteAddressOfRequest(userReq);
 			const normalizedIP = realIP ? normalizeIPAddress(realIP, ipv4Mode) : realIP;
 			if(normalizedIP) {
 				proxyReq.setHeader('X-Real-IP', normalizedIP);
