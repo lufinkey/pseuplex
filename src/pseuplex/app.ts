@@ -263,6 +263,7 @@ export class PseuplexApp {
 		plexServerOwnerOnly: PlexAuthedRequestHandler;
 		plexAPIRequestHandler: <TResult>(handler: PlexAPIRequestHandler<TResult>) => express.RequestHandler;
 		plexAPIProxy: (filters: PlexAPIProxyFilters) => express.RequestHandler;
+		plexProxy: () => express.RequestHandler;
 	};
 	
 	constructor(options: PseuplexAppOptions) {
@@ -333,6 +334,23 @@ export class PseuplexApp {
 		const plexServerHostGetter = (req: express.Request) => {
 			return this.plexServerHostForRequest(req);
 		};
+		const plexGeneralProxy = plexHttpProxy(this.plexServerHost, plexProxyOpts);
+		plexGeneralProxy.on('error', (error) => {
+			console.error();
+			console.error(`Got proxy error:`);
+			console.error(error);
+		});
+		let plexGeneralProxySecure: HttpProxyServer;
+		if(plexServerHostSecureIsDifferent) {
+			plexGeneralProxySecure = plexHttpProxy(this.plexServerHostSecure, plexProxyOpts);
+			plexGeneralProxySecure.on('error', (error) => {
+				console.error();
+				console.error(`Got proxy error:`);
+				console.error(error);
+			});
+		} else {
+			plexGeneralProxySecure = plexGeneralProxy;
+		}
 		this.middlewares = {
 			plexAuthentication: createPlexAuthenticationMiddleware(this.plexServerAccounts),
 			plexServerOwnerOnly: (req: IncomingPlexAPIRequest, res, next) => {
@@ -353,6 +371,15 @@ export class PseuplexApp {
 			},
 			plexAPIProxy: (proxyFilters: PlexAPIProxyFilters) => {
 				return plexApiProxy(plexServerHostGetter, plexProxyOpts, proxyFilters);
+			},
+			plexProxy: () => {
+				return (req, res) => {
+					if(requestIsEncrypted(req)) {
+						plexGeneralProxySecure.web(req,res);
+					} else {
+						plexGeneralProxy.web(req,res);
+					}
+				};
 			},
 		};
 		
@@ -1228,30 +1255,7 @@ export class PseuplexApp {
 		}
 		
 		// proxy requests to plex
-		const plexGeneralProxy = plexHttpProxy(this.plexServerHost, plexProxyOpts);
-		plexGeneralProxy.on('error', (error) => {
-			console.error();
-			console.error(`Got proxy error:`);
-			console.error(error);
-		});
-		let plexGeneralProxySecure: HttpProxyServer;
-		if(plexServerHostSecureIsDifferent) {
-			plexGeneralProxySecure = plexHttpProxy(this.plexServerHostSecure, plexProxyOpts);
-			plexGeneralProxySecure.on('error', (error) => {
-				console.error();
-				console.error(`Got proxy error:`);
-				console.error(error);
-			});
-		} else {
-			plexGeneralProxySecure = plexGeneralProxy;
-		}
-		router.use((req, res) => {
-			if(requestIsEncrypted(req)) {
-				plexGeneralProxySecure.web(req,res);
-			} else {
-				plexGeneralProxy.web(req,res);
-			}
-		});
+		router.use(this.middlewares.plexProxy());
 
 		// handle any errors
 		router.use(expressErrorHandler);
