@@ -152,6 +152,8 @@ Create a `config.json` file with the following structure, and fill in the config
 			- **plugin**: The name of the plugin that this hub comes from (for example, `letterboxd` for letterboxd hubs)
 			- **hub**: The name of the hub within the plugin
 			- **arg**: The argument to pass to the hub provider
+	- **passwordLock**:
+		- **password**: The custom password to require from this specific user.
 
 ### Network Settings
 
