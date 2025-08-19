@@ -29,6 +29,9 @@ import { parseMetadataIDFromKey } from '../../plex/metadataidentifier';
 import { delay } from '../../utils/timing';
 import { firstOrSingle } from '../../utils/misc';
 
+const videoTranscodePathPrefix = '/video/:/transcode/universal/session/';
+const passthroughVideoTranscodeMethods = ['GET','OPTIONS','HEAD'];
+
 const lockInstructionsThumbFilepath = `${getModuleRootPath()}/images/lockedSectionInstructions.png`;
 const SectionTitle = "Login";
 
@@ -441,7 +444,10 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 						return;
 					}
 					// ignore paths that don't need authentication
-					if(req.path == '/identity' || req.path.startsWith('/web/') || req.path == 'web') {
+					const reqPath = req.path;
+					if(reqPath == '/identity' || reqPath.startsWith('/web/') || reqPath == 'web'
+						|| (reqPath.startsWith(videoTranscodePathPrefix) && reqPath.length > videoTranscodePathPrefix.length && passthroughVideoTranscodeMethods.indexOf(req.method) != -1)
+					) {
 						next()
 						return;
 					}
