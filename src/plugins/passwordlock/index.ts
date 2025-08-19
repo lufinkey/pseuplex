@@ -9,11 +9,12 @@ import {
 	PseuplexPluginClass,
 	PseuplexReadOnlyResponseFilters,
 	PseuplexRelatedHubsSource,
+	parseMetadataID,
 	parseMetadataIdFromPathParam,
 	parseMetadataIdsFromPathParam,
 	stringifyPartialMetadataID,
 } from '../../pseuplex';
-import { PasswordLockMetadataProvider } from './metadata';
+import { PasswordLockMetadataID, PasswordLockMetadataProvider } from './metadata';
 import { PasswordLockPluginConfig } from './config';
 import { PasswordLockPluginDef } from './plugindef';
 import { PasswordLockAuthenticationCache } from './authcache';
@@ -23,6 +24,9 @@ import { httpError } from '../../utils/error';
 import { getModuleRootPath } from '../../utils/compat';
 import { parseIntQueryParam } from '../../utils/queryparams';
 import { parseURLPath } from '../../utils/url';
+import { parseMetadataIDFromKey } from '../../plex/metadataidentifier';
+import { delay } from '../../utils/timing';
+import { firstOrSingle } from '../../utils/misc';
 
 const lockInstructionsThumbFilepath = `${getModuleRootPath()}/images/lockedSectionInstructions.png`;
 const SectionTitle = "Login";
@@ -34,8 +38,6 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 	readonly metadata: PasswordLockMetadataProvider;
 	readonly section: PasswordLockSection;
 	readonly authCache: PasswordLockAuthenticationCache;
-
-	readonly lockInstructionsThumbEndpoint: string;
 	
 	constructor(app: PseuplexApp) {
 		this.app = app;
@@ -55,12 +57,12 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 			});
 		}
 
-		this.lockInstructionsThumbEndpoint = `${this.basePath}/images/thumb/instructions`;
-
 		this.metadata = new PasswordLockMetadataProvider({
-			lockInstructionsThumbEndpoint: this.lockInstructionsThumbEndpoint,
+			lockInstructionsThumbEndpoint: `${this.basePath}/images/thumb/instructions`,
+			loginSuccessEndpoint: `${this.basePath}/${PasswordLockMetadataID.LoginSuccess}`,
 			lockInstructionsItemTitle: this.config.passwordLock?.instructionsItemTitle,
 			lockInstructionsItemSummary: this.config.passwordLock?.instructionsItemSummary,
+			loginSuccessItemUUID: this.config.passwordLock?.loginSuccessItemUUID ?? "47ebccd2-3324-4ad6-8497-5e478e0641ef"
 		});
 
 		this.section = new PasswordLockSection(this, {
@@ -190,11 +192,16 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 					if(metadataIdParts.source != this.metadata.sourceSlug) {
 						throw httpError(403, `Metadata is locked`);
 					}
+					if(!metadataIdParts.directory) {
+						if(metadataIdParts.id == PasswordLockMetadataID.LoginSuccess) {
+							throw httpError(403, "Success metadata is locked (nice try)");
+						}
+					}
 				}
 				const partialMetadataIds = metadataIds.map((idParts) => stringifyPartialMetadataID(idParts));
 				return await this.metadata.get(partialMetadataIds, {
 					context,
-					includeMetadataUnavailability: this.app.sendsMetadataUnavailability,
+					includeMetadataUnavailability: true,
 					plexParams: reqParams,
 					includeUnmatched: true,
 				});
@@ -240,6 +247,78 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 				};
 			}),
 		]);
+
+		unauthRouter.get('/playlists', [
+			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<{MediaContainer:plexTypes.PlexMediaContainer}> => {
+				return {
+					MediaContainer: {
+						size: 0,
+						totalSize: 0,
+						offset: 0,
+					}
+				};
+			}),
+		]);
+
+		unauthRouter.post('/playlists', [
+			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexPlaylistsPage> => {
+				const context = this.app.contextForRequest(req);
+				const metadataItemURIString = req.query['uri'];
+				if(metadataItemURIString && (typeof metadataItemURIString === 'string')) {
+					const metadataItemURIParts = plexTypes.parsePlexServerItemURI(metadataItemURIString);
+					const plexServerIdentifier = await this.app.plexServerProperties.getMachineIdentifier();
+					if(metadataItemURIParts.path && (metadataItemURIParts.machineIdentifier == plexServerIdentifier || metadataItemURIParts.machineIdentifier == "x")) {
+						const metadataKeyParts = parseMetadataIDFromKey(metadataItemURIParts.path, '/library/metadata');
+						if(metadataKeyParts) {
+							const metadataIdParts = parseMetadataID(metadataKeyParts.id);
+							if(metadataIdParts.source == this.metadata.sourceSlug) {
+								if(!metadataIdParts.directory && metadataIdParts.id == PasswordLockMetadataID.Instructions) {
+									const inputPassword = req.query['title'];
+									const password = this.config.perUser?.[req.plex.userInfo.email]?.passwordLock?.password
+										?? this.config.passwordLock?.password
+										?? "";
+									if(password == inputPassword) {
+										// success
+										// whitelist the IP
+										const plexToken = req.plex.authContext['X-Plex-Token']!;
+										const remoteAddress = remoteAddressOfRequest(req);
+										if(!remoteAddress) {
+											throw httpError(400, "No remote address for some reason");
+										}
+										this.authCache.whitelistIPForPlexToken(plexToken, remoteAddress);
+										if(!this.authCache.isSaveQueued) {
+											this.authCache.save().catch((error) => {
+												console.error("Error saving auth cache:");
+												console.error(error);
+											});
+										}
+										// return successfully
+										const successItem = firstOrSingle((await this.metadata.get([PasswordLockMetadataID.LoginSuccess], {
+											context,
+											includeUnmatched: true,
+											includeMetadataUnavailability: true,
+										})).MediaContainer.Metadata);
+										return {
+											MediaContainer: {
+												size: 1,
+												Metadata: [
+													successItem as any as plexTypes.PlexPlaylist
+												]
+											}
+										};
+									} else {
+										// failure, delay atleast 5 seconds to prevent brute force
+										await delay(6000);
+										throw httpError(401, "Wrong password");
+									}
+								}
+							}
+						}
+					}
+				}
+				throw httpError(403, "Library is locked");
+			}),
+		]);
 		
 		const sensitivePrefs = new Set<string>([
 			"customCertificatePath",
@@ -282,7 +361,7 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 			}),
 		]);
 
-		unauthRouter.get(this.lockInstructionsThumbEndpoint, [
+		unauthRouter.get(this.metadata.options.lockInstructionsThumbEndpoint, [
 			asyncRequestHandler(async (req, res) => {
 				// parse width and height
 				const width = parseIntQueryParam(req.query.width);
@@ -298,22 +377,24 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 			}),
 		]);
 
-		router.get('/photo/\\:/transcode', [
+		unauthRouter.get('/photo/\\:/transcode', [
 			asyncRequestHandler(async (req: IncomingPlexAPIRequest, res) => {
 				try {
 					const urlParts = parseURLPath(req.url);
 					let photoUrl = urlParts.queryItems?.['url'];
 					if(!photoUrl || typeof photoUrl !== 'string') {
+						// continue
 						return false;
 					}
 					const rewrittenPhotoUrl = this.app.rewritePhotoEndpointLocalhostURL(photoUrl);
 					photoUrl = rewrittenPhotoUrl.url;
 					if(!photoUrl.startsWith('/')) {
+						// continue
 						return false;
 					}
 					const photoUrlParts = parseURLPath(photoUrl);
 					switch(photoUrlParts.path) {
-						case this.lockInstructionsThumbEndpoint: {
+						case this.metadata.options.lockInstructionsThumbEndpoint: {
 							// parse width and height
 							const width = parseIntQueryParam(req.query.width);
 							const height = parseIntQueryParam(req.query.height);
@@ -327,6 +408,7 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 							return true;
 						}
 					}
+					// continue
 					return false;
 				} catch(error) {
 					console.error(`Error rewriting plex photo url:`);
@@ -338,7 +420,7 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 		
 		unauthRouter.use((req, res, next) => {
 			// all other requests should return a 403
-			next(httpError(403, "Forbidden"));
+			next(httpError(403, "Library is locked"));
 		});
 		
 		// catch and authenticate all api requests

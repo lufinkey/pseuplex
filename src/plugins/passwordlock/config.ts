@@ -18,5 +18,6 @@ export type PasswordLockPluginConfig = PseuplexConfigBase<PasswordLockPerUserPlu
 		introHubTitle?: string;
 		instructionsItemTitle?: string;
 		instructionsItemSummary?: string;
+		loginSuccessItemUUID?: string;
 	}
 };

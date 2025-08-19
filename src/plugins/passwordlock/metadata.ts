@@ -20,19 +20,24 @@ import { parseMetadataIdsFromPathParam } from '../../pseuplex/requesthandling';
 
 export enum PasswordLockMetadataID {
 	Instructions = 'instructions',
+	LoginSuccess = 'loginsuccess',
 }
 
 const LockInstructionsItemTitle = "Instructions";
 const LockInstructionsItemSummary =
 `This client has not yet been authorized for this IP address.
-To log in, add this item to a new playlist, and enter the password for the server as the playlist name.`;
+To log in, add this item to a new playlist, and enter the password for the server as the playlist name.
+After this is done, restart the app and you should have access.`;
 
 export type PasswordLockMetadataProviderOptions = {
 	lockInstructionsThumbEndpoint: string,
+	loginSuccessEndpoint: string,
 	lockInstructionsItemTitle?: string,
 	lockInstructionsItemSummary?: string,
+	loginSuccessItemUUID: string,
+	loginSuccessTitle?: string,
+	loginSuccessSummary?: string,
 };
-
 export class PasswordLockMetadataProvider implements PseuplexMetadataProvider {
 	readonly sourceDisplayName = "Password Lock";
 	readonly sourceSlug = 'passwordlock';
@@ -51,7 +56,7 @@ export class PasswordLockMetadataProvider implements PseuplexMetadataProvider {
 				throw httpError(400, "Invalid metadata");
 			}
 			switch(idParts.id) {
-				case PasswordLockMetadataID.Instructions:
+				case PasswordLockMetadataID.Instructions: {
 					// return password instructions metadata
 					const fullMetadataId = qualifyPartialMetadataID(idString, this.sourceSlug);
 					return ({
@@ -73,6 +78,34 @@ export class PasswordLockMetadataProvider implements PseuplexMetadataProvider {
 							},
 						}
 					} satisfies Partial<PseuplexMetadataItem>) as PseuplexMetadataItem;
+				}
+
+				case PasswordLockMetadataID.LoginSuccess: {
+					const fullMetadataId = qualifyPartialMetadataID(idString, this.sourceSlug);
+					const playlist = ({
+						ratingKey: fullMetadataId,
+						key: this.options.loginSuccessEndpoint,
+						guid: `com.plexapp.agents.none://${this.options.loginSuccessItemUUID}`,
+						type: plexTypes.PlexMediaItemType.Playlist,
+						title: this.options.loginSuccessTitle ?? "Success!",
+						summary: this.options.loginSuccessSummary ?? "You have successfully logged in",
+						smart: false,
+						playlistType: plexTypes.PlexPlaylistType.Video,
+						composite: undefined!, // TODO add success image
+						duration: 7762000,
+						leafCount: 1,
+						addedAt: 1755571432,
+						updatedAt: 1755571432,
+					} satisfies plexTypes.PlexPlaylist) as any as PseuplexMetadataItem;
+					playlist.Pseuplex = {
+						isOnServer: false,
+						unavailable: true,
+						metadataIds: {
+							[this.sourceSlug]: idString,
+						}
+					};
+					return playlist;
+				}
 			}
 			throw httpError(404, `No matching metadata`);
 		});
