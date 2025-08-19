@@ -44,7 +44,7 @@ This is an unofficial project that is **NOT** endorsed by or associated with Ple
 
 - ### Password Locking
 
-	Password-protect your server to easily whitelist IPs per user! To log into your server, add the instructions item to a new playlist, and input the password as the playlist title. If successful, then once you refresh the page (or restart the app), you will be "logged in" for the IP you're connecting from. (Note: this does not work behind a reverse proxy yet)
+	Password-protect your server to easily whitelist IPs per user! To log into your server, add the instructions item to a new playlist, and input the password as the playlist title. If successful, then once you refresh the page (or restart the app), you will be "logged in" for the IP you're connecting from. (Note: this does not work if your server is behind another reverse proxy yet)
 
 	![Password Locking](docs/images/passwordlock.png)
 
