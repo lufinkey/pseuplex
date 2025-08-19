@@ -1,12 +1,12 @@
 
-export type PlexPlayQueueURIParts = {
+export type PlexServerItemURIParts = {
 	protocol?: string | undefined; // "server",
 	machineIdentifier?: string | undefined;
 	sourceIdentifier?: string | undefined; // "com.plexapp.plugins.library"
 	path?: string | undefined;
 };
 
-export const parsePlayQueueURI = (uri: string): PlexPlayQueueURIParts => {
+export const parsePlexServerItemURI = (uri: string): PlexServerItemURIParts => {
 	// parse protocol
 	const protocolIndex = uri.indexOf('://');
 	let protocol: string | undefined;
@@ -51,7 +51,7 @@ export const parsePlayQueueURI = (uri: string): PlexPlayQueueURIParts => {
 	};
 };
 
-export const stringifyPlayQueueURIParts = (uriParts: PlexPlayQueueURIParts): string => {
+export const stringifyPlexServerItemURI = (uriParts: PlexServerItemURIParts): string => {
 	let uri: string;
 	if(uriParts.protocol != null) {
 		uri = uriParts.protocol + '://';

@@ -530,7 +530,7 @@ export class PseuplexApp {
 					const libraryMetadataPrefix = '/library/metadata/';
 					uriProp = transformArrayOrSingle(uriProp, (uri) => {
 						const originalURI = uri;
-						const uriParts = plexTypes.parsePlayQueueURI(uri);
+						const uriParts = plexTypes.parsePlexServerItemURI(uri);
 						if(!uriParts.path || (uriParts.machineIdentifier != plexMachineId && uriParts.machineIdentifier != "x")) {
 							return uri;
 						}
@@ -561,7 +561,7 @@ export class PseuplexApp {
 						}
 						urisChanged = true;
 						uriParts.path = `${libraryMetadataPrefix}${metadataIdStrings.join(',')}${metadataKeyParts.relativePath ?? ''}`;
-						return plexTypes.stringifyPlayQueueURIParts(uriParts);
+						return plexTypes.stringifyPlexServerItemURI(uriParts);
 					});
 					if(urisChanged) {
 						queryItems['uri'] = uriProp;
@@ -1038,7 +1038,7 @@ export class PseuplexApp {
 					context,
 				};
 				uriProp = await transformArrayOrSingleAsyncParallel(uriProp, async (uri) => {
-					const uriParts = plexTypes.parsePlayQueueURI(uri);
+					const uriParts = plexTypes.parsePlexServerItemURI(uri);
 					if(!uriParts.path) {
 						return uri;
 					}
@@ -1046,7 +1046,7 @@ export class PseuplexApp {
 					if(!uriChanged) {
 						return uri;
 					}
-					const newUri = plexTypes.stringifyPlayQueueURIParts(uriParts);
+					const newUri = plexTypes.stringifyPlexServerItemURI(uriParts);
 					console.log(`Remapped play queue uri ${uri} to ${newUri}`);
 					return newUri;
 				});
@@ -1919,7 +1919,7 @@ export class PseuplexApp {
 	}
 
 
-	async resolvePlayQueueURI(uriParts: plexTypes.PlexPlayQueueURIParts, options: PseuplexPlayQueueURIResolverOptions): Promise<boolean> {
+	async resolvePlayQueueURI(uriParts: plexTypes.PlexServerItemURIParts, options: PseuplexPlayQueueURIResolverOptions): Promise<boolean> {
 		if(!uriParts.path) {
 			return false;
 		}

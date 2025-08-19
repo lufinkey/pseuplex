@@ -29,7 +29,7 @@ export type PseuplexPlaylistContext = {
 export abstract class PseuplexPlaylist {
 	abstract get(params: PseuplexPlaylistPageParams, context: PseuplexPlaylistContext): Promise<PseuplexPlaylistPage>;
 	
-	async getPlaylist(params: PseuplexPlaylistParams, context: PseuplexPlaylistContext): Promise<plexTypes.PlexPlaylistPage> {
+	async getPlaylist(params: PseuplexPlaylistParams, context: PseuplexPlaylistContext): Promise<plexTypes.PlexPlaylistsPage> {
 		const page = await this.get({
 			...params,
 			count: 0
