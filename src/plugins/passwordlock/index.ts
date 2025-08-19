@@ -7,7 +7,11 @@ import {
 	PseuplexMetadataProvider,
 	PseuplexPlugin,
 	PseuplexPluginClass,
-	PseuplexReadOnlyResponseFilters
+	PseuplexReadOnlyResponseFilters,
+	PseuplexRelatedHubsSource,
+	parseMetadataIdFromPathParam,
+	parseMetadataIdsFromPathParam,
+	stringifyPartialMetadataID,
 } from '../../pseuplex';
 import { PasswordLockMetadataProvider } from './metadata';
 import { PasswordLockPluginConfig } from './config';
@@ -133,6 +137,21 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 			}),
 		]);
 
+		unauthRouter.get(this.section.path, [
+			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res) => {
+				const context = this.app.contextForRequest(req);
+				return await this.section.getSectionPage(context);
+			}),
+		]);
+
+		unauthRouter.get(this.section.hubsPath, [
+			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res) => {
+				const context = this.app.contextForRequest(req);
+				const reqParams = req.plex.requestParams;
+				return await this.section.getHubsPage(reqParams,context);
+			}),
+		]);
+
 		unauthRouter.get('/hubs', [
 			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexHubsPage> => {
 				const context = this.app.contextForRequest(req);
@@ -161,6 +180,47 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 			}),
 		]);
 
+		unauthRouter.get('/library/metadata/:metadataId', [
+			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexMetadataPage> => {
+				const context = this.app.contextForRequest(req);
+				const reqParams = req.plex.requestParams;
+				// get metadata ids
+				const metadataIds = parseMetadataIdsFromPathParam(req.params.metadataId);
+				for(const metadataIdParts of metadataIds) {
+					if(metadataIdParts.source != this.metadata.sourceSlug) {
+						throw httpError(403, `Metadata is locked`);
+					}
+				}
+				const partialMetadataIds = metadataIds.map((idParts) => stringifyPartialMetadataID(idParts));
+				return await this.metadata.get(partialMetadataIds, {
+					context,
+					includeMetadataUnavailability: this.app.sendsMetadataUnavailability,
+					plexParams: reqParams,
+					includeUnmatched: true,
+				});
+			}),
+		]);
+
+		for(const hubsSource of Object.values(PseuplexRelatedHubsSource)) {
+			unauthRouter.get(`/${hubsSource}/metadata/:metadataId/related`, [
+				this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexHubsPage> => {
+					const context = this.app.contextForRequest(req);
+					const reqParams = req.plex.requestParams;
+					// get metadata ids
+					const metadataIdParts = parseMetadataIdFromPathParam(req.params.metadataId);
+					if(metadataIdParts.source != this.metadata.sourceSlug) {
+						throw httpError(403, `Metadata is locked`);
+					}
+					const partialMetadataId = stringifyPartialMetadataID(metadataIdParts);
+					return await this.metadata.getRelatedHubs(partialMetadataId, {
+						context,
+						plexParams: reqParams,
+						from: hubsSource,
+					});
+				}),
+			]);
+		}
+
 		unauthRouter.get('/status/sessions', [
 			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<{MediaContainer:plexTypes.PlexMediaContainer}> => {
 				return {
@@ -178,21 +238,6 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 						size: 0,
 					}
 				};
-			}),
-		]);
-
-		unauthRouter.get(this.section.path, [
-			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res) => {
-				const context = this.app.contextForRequest(req);
-				return await this.section.getSectionPage(context);
-			}),
-		]);
-
-		unauthRouter.get(this.section.hubsPath, [
-			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res) => {
-				const context = this.app.contextForRequest(req);
-				const reqParams = req.plex.requestParams;
-				return await this.section.getHubsPage(reqParams,context);
 			}),
 		]);
 		
@@ -244,6 +289,7 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 				const height = parseIntQueryParam(req.query.height);
 				// send image response
 				await this.app.sendImageResponse({
+					origin: req.headers['origin'],
 					filepath: lockInstructionsThumbFilepath,
 					width,
 					height,
@@ -273,6 +319,7 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 							const height = parseIntQueryParam(req.query.height);
 							// send image response
 							await this.app.sendImageResponse({
+								origin: req.headers['origin'],
 								filepath: lockInstructionsThumbFilepath,
 								width,
 								height,

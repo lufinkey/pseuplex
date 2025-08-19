@@ -2153,12 +2153,12 @@ export class PseuplexApp {
 			resize: (width != null && height != null) ? {width,height} : undefined,
 			keepAspectRatio: true,
 		});
+		if(origin) {
+			res.setHeader('Access-Control-Allow-Origin', origin);
+		}
 		const contentType = baseImageRes.headers.get('Content-Type');
 		if(contentType) {
 			res.setHeader('Content-Type', contentType);
-		}
-		if(origin) {
-			res.setHeader('Access-Control-Allow-Origin', origin);
 		}
 		const cacheControl = baseImageRes.headers.get('Cache-Control');
 		if(cacheControl) {
@@ -2169,7 +2169,8 @@ export class PseuplexApp {
 		res.end(outputImageBuffer);
 	}
 
-	async sendImageResponse({filepath, width, height}: {
+	async sendImageResponse({origin, filepath, width, height}: {
+		origin?: string,
 		filepath: string,
 		width?: number,
 		height?: number,
@@ -2197,6 +2198,9 @@ export class PseuplexApp {
 			height,
 			keepAspectRatio: true
 		});
+		if(origin) {
+			res.setHeader('Access-Control-Allow-Origin', origin);
+		}
 		res.set('Content-Type', `image/${meta.format}`);
 		image.pipe(res);
 	}

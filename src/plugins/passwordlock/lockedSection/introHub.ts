@@ -49,6 +49,7 @@ export class PasswordLockedSectionIntroHub extends PseuplexHub {
 			], {
 				...this.metadataTransformOptions,
 				context,
+				includeUnmatched: true,
 			})).MediaContainer.Metadata),
 			offset: 0,
 			more: false,
