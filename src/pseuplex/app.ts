@@ -125,7 +125,7 @@ import {
 } from '../utils/misc';
 import { IPv4NormalizeMode } from '../utils/ip';
 import type { WebSocketEventMap } from '../utils/websocket';
-import { applyOverlayToImage } from '../utils/images';
+import { applyOverlayToImage, getResizedImageFromFile } from '../utils/images';
 import { getModuleRootPath } from '../utils/compat';
 import { TLSCertificateOptions } from '../utils/ssl';
 
@@ -1103,27 +1103,9 @@ export class PseuplexApp {
 					const urlParts = parseURLPath(req.url);
 					let photoUrl = urlParts.queryItems?.['url'];
 					if(photoUrl && typeof photoUrl === 'string') {
-						let changedUrl = false;
-						const urlsToRewrite = [
-							'http://127.0.0.1:32400',
-							'https://127.0.0.1:32400',
-						];
-						if(this.httpsPort) {
-							urlsToRewrite.push(`https://127.0.0.1:${this.httpsPort}`);
-						}
-						if(this.httpPort) {
-							urlsToRewrite.push(`http://127.0.0.1:${this.httpPort}`);
-						}
-						// rewrite 127.0.0.1 urls query params to absolute paths
-						for(const urlToRewrite of urlsToRewrite) {
-							if(photoUrl.startsWith(urlToRewrite) && photoUrl[urlToRewrite.length] == '/') {
-								const ogPhotoUrl = photoUrl;
-								photoUrl = photoUrl.substring(urlToRewrite.length);
-								// TODO log photo url rewrite
-								changedUrl = true;
-								break;
-							}
-						}
+						const rewrittenPhotoUrl = this.rewritePhotoEndpointLocalhostURL(photoUrl);
+						let changedUrl = rewrittenPhotoUrl.changed;
+						photoUrl = rewrittenPhotoUrl.url;
 						// replace photo url if it matches the overlay url
 						if(this.overlayedImageEndpoint
 							&& photoUrl.startsWith(this.overlayedImageEndpoint)
@@ -2078,41 +2060,43 @@ export class PseuplexApp {
 		return uriChanged;
 	}
 
+	rewritePhotoEndpointLocalhostURL(photoUrl: string): {
+		url: string,
+		changed: boolean,
+	 } {
+		const urlsToRewrite = [
+			'http://127.0.0.1:32400',
+			'https://127.0.0.1:32400',
+		];
+		if(this.httpsPort) {
+			urlsToRewrite.push(`https://127.0.0.1:${this.httpsPort}`);
+		}
+		if(this.httpPort) {
+			urlsToRewrite.push(`http://127.0.0.1:${this.httpPort}`);
+		}
+		// rewrite 127.0.0.1 urls query params to absolute paths
+		for(const urlToRewrite of urlsToRewrite) {
+			if(photoUrl.startsWith(urlToRewrite) && photoUrl[urlToRewrite.length] == '/') {
+				const ogPhotoUrl = photoUrl;
+				return {
+					url: photoUrl.substring(urlToRewrite.length),
+					changed: true,
+				};
+			}
+		}
+		return {
+			url: photoUrl,
+			changed: false
+		};
+	}
 
 	private async _handleOverlayedImageRequest(req: express.Request, res: express.Response) {
 		if(!this.overlayImageCache) {
 			throw httpError(500, "Overlays are disabled");
 		}
-		// parse width
-		let width: any = req.query['width'];
-		if(typeof width === 'string') {
-			if(width) {
-				width = Number.parseInt(width);
-				if(Number.isNaN(width)) {
-					throw httpError(500, "Invalid width");
-				}
-			} else {
-				width = null;
-			}
-		}
-		if(width != null && typeof width !== 'number') {
-			throw httpError(400, "Invalid width");
-		}
-		// parse height
-		let height: any = req.query['height'];
-		if(typeof height === 'string') {
-			if(height) {
-				height = Number.parseInt(height);
-				if(Number.isNaN(height)) {
-					throw httpError(500, "Invalid height");
-				}
-			} else {
-				height = null;
-			}
-		}
-		if(height != null && typeof height !== 'number') {
-			throw httpError(400, "Invalid height");
-		}
+		// parse width and height
+		const width = parseIntQueryParam(req.query.width);
+		const height = parseIntQueryParam(req.query.height);
 		// parse url
 		let url = req.query['url'];
 		if(url instanceof Array) {
@@ -2133,11 +2117,29 @@ export class PseuplexApp {
 		if(overlayName instanceof Array) {
 			overlayName = overlayName[0] as string;
 		}
+		if(!overlayName) {
+			throw httpError(400, "Missing overlay parameter");
+		}
 		if(typeof overlayName !== 'string') {
 			throw httpError(400, `Invalid overlay ${overlayName}`);
 		}
-		if(!overlayName) {
-			throw httpError(400, "Missing overlay parameter");
+		await this.sendOverlayedImageResponse({
+			origin: req.headers['origin'],
+			url,
+			width, height,
+			overlayName
+		}, res);
+	}
+
+	async sendOverlayedImageResponse({origin, url, width, height, overlayName}: {
+		origin?: string,
+		url: string,
+		width?: number,
+		height?: number,
+		overlayName: string,
+	}, res: express.Response) {
+		if(!this.overlayImageCache) {
+			throw httpError(500, "Overlays are disabled");
 		}
 		if(!overlayName || !overlayImageNameRegex.test(overlayName)) {
 			throw httpError(400, "Invalid overlay");
@@ -2155,7 +2157,6 @@ export class PseuplexApp {
 		if(contentType) {
 			res.setHeader('Content-Type', contentType);
 		}
-		const origin = req.headers['origin'];
 		if(origin) {
 			res.setHeader('Access-Control-Allow-Origin', origin);
 		}
@@ -2166,6 +2167,38 @@ export class PseuplexApp {
 		res.setHeader('Content-Length', outputImageBuffer.length);
 		res.setHeader('X-Plex-Protocol', '1.0');
 		res.end(outputImageBuffer);
+	}
+
+	async sendImageResponse({filepath, width, height}: {
+		filepath: string,
+		width?: number,
+		height?: number,
+	}, res: express.Response) {
+		// if not resizing, just serve image directly
+		if(!width && !height) {
+			await new Promise<void>((resolve, reject) => {
+				res.sendFile(filepath, (error) => {
+					if(error) {
+						if(!res.headersSent) {
+							reject(error);
+							return;
+						}
+						console.error(`Error sending ${filepath} response:`);
+						console.error(error);
+					}
+					resolve();
+				});
+			});
+			return;
+		}
+
+		const {image,meta} = await getResizedImageFromFile(filepath, {
+			width,
+			height,
+			keepAspectRatio: true
+		});
+		res.set('Content-Type', `image/${meta.format}`);
+		image.pipe(res);
 	}
 
 

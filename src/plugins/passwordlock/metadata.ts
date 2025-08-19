@@ -12,7 +12,6 @@ import {
 	PseuplexPartialMetadataIDsFromKey,
 	PseuplexRelatedHubsParams,
 	qualifyPartialMetadataID,
-	stringifyMetadataID,
 	stringifyPartialMetadataID,
 } from '../../pseuplex';
 import { httpError } from '../../utils/error';
@@ -23,12 +22,24 @@ export enum PasswordLockMetadataID {
 	Instructions = 'instructions',
 }
 
+const LockInstructionsItemTitle = "Instructions";
+const LockInstructionsItemSummary =
+`This client has not yet been authorized for this IP address.
+To log in, add this item to a new playlist, and enter the password for the server as the playlist name.`;
+
+export type PasswordLockMetadataProviderOptions = {
+	lockInstructionsThumbEndpoint: string,
+	lockInstructionsItemTitle?: string,
+	lockInstructionsItemSummary?: string,
+};
+
 export class PasswordLockMetadataProvider implements PseuplexMetadataProvider {
 	readonly sourceDisplayName = "Password Lock";
 	readonly sourceSlug = 'passwordlock';
+	readonly options: PasswordLockMetadataProviderOptions;
 
-	constructor() {
-		//
+	constructor(options: PasswordLockMetadataProviderOptions) {
+		this.options = options;
 	}
 
 	async get(ids: string[], options: PseuplexMetadataProviderParams): Promise<PseuplexMetadataPage> {
@@ -51,7 +62,9 @@ export class PasswordLockMetadataProvider implements PseuplexMetadataProvider {
 								: stringifyPartialMetadataID(idParts)
 						}`,
 						ratingKey: fullMetadataId,
-						title: "Instructions",
+						title: this.options.lockInstructionsItemTitle ?? LockInstructionsItemTitle,
+						thumb: this.options.lockInstructionsThumbEndpoint,
+						summary: this.options.lockInstructionsItemSummary ?? LockInstructionsItemSummary,
 						Pseuplex: {
 							isOnServer: false,
 							unavailable: true,

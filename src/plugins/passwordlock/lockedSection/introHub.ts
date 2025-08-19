@@ -13,18 +13,21 @@ import { arrayFromArrayOrSingle } from '../../../utils/misc';
 
 export class PasswordLockedSectionIntroHub extends PseuplexHub {
 	readonly path: string;
+	readonly title: string;
 	readonly metadataProvider: PasswordLockMetadataProvider;
 	readonly metadataTransformOptions: PseuplexMetadataTransformOptions;
 	section?: PseuplexHubSectionInfo | undefined;
 
 	constructor(options: {
 		path: string,
+		title: string,
 		metadataProvider: PasswordLockMetadataProvider,
 		metadataTransformOptions: PseuplexMetadataTransformOptions,
 		section?: PseuplexHubSectionInfo,
 	}) {
 		super();
 		this.path = options.path;
+		this.title = options.title;
 		this.metadataProvider = options.metadataProvider;
 		this.metadataTransformOptions = options.metadataTransformOptions;
 		this.section = options.section;
@@ -34,7 +37,7 @@ export class PasswordLockedSectionIntroHub extends PseuplexHub {
 		return {
 			hub: {
 				key: this.path,
-				title: "",
+				title: this.title,
 				type: plexTypes.PlexMediaItemType.Mixed,
 				hubIdentifier: `hub.custom.lockedpasswordsection.intro`,
 				context: `hub.custom.lockedpasswordsection.intro`,

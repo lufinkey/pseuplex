@@ -1,7 +1,9 @@
 import { PseuplexConfigBase } from '../../pseuplex';
 
 type PasswordLockFlags = {
-	//
+	passwordLock?: {
+		password?: string;
+	}
 };
 type PasswordLockPerUserPluginConfig = {
 	//
@@ -9,7 +11,12 @@ type PasswordLockPerUserPluginConfig = {
 export type PasswordLockPluginConfig = PseuplexConfigBase<PasswordLockPerUserPluginConfig> & PasswordLockFlags & {
 	passwordLock?: {
 		enabled?: boolean;
-		sectionUUID?: string;
 		authCachePath?: string;
+		sectionUUID?: string;
+		sectionTitle?: string;
+		hubsPivotTitle?: string;
+		introHubTitle?: string;
+		instructionsItemTitle?: string;
+		instructionsItemSummary?: string;
 	}
 };

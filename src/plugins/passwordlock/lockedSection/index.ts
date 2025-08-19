@@ -12,16 +12,27 @@ import {
 import { PasswordLockPluginDef } from '../plugindef';
 import { PasswordLockedSectionIntroHub } from './introHub';
 
-export class PasswordLockedSection extends PseuplexSectionBase {
+export type PasswordLockSectionOptions = PseuplexSectionOptions & {
+	hubsPivotTitle?: string,
+	introHubTitle?: string,
+};
+
+const SectionHubsPivotTitle = "Library Locked";
+const SectionIntroHubTitle = "Sorry! Please Log in";
+
+export class PasswordLockSection extends PseuplexSectionBase {
 	readonly plugin: PasswordLockPluginDef;
+	readonly hubsPivotTitle: string;
 	readonly introHub: PasswordLockedSectionIntroHub;
 
-	constructor(plugin: PasswordLockPluginDef, options: PseuplexSectionOptions) {
+	constructor(plugin: PasswordLockPluginDef, options: PasswordLockSectionOptions) {
 		super(options);
 		this.plugin = plugin;
 
+		this.hubsPivotTitle = options.hubsPivotTitle ?? SectionHubsPivotTitle;
 		this.introHub = new PasswordLockedSectionIntroHub({
 			path: `${this.hubsPath}/intro`,
+			title: options.introHubTitle ?? SectionIntroHubTitle,
 			metadataProvider: plugin.metadata,
 			metadataTransformOptions: {
 				metadataBasePath: '/library/metadata',
@@ -42,7 +53,7 @@ export class PasswordLockedSection extends PseuplexSectionBase {
 				id: plexTypes.PlexPivotID.Recommended,
 				key: this.hubsPath,
 				type: plexTypes.PlexPivotType.Hub,
-				title: "Library Locked",
+				title: this.hubsPivotTitle,
 				context: plexTypes.PlexPivotContext.Discover,
 				symbol: plexTypes.PlexSymbol.Star,
 			}

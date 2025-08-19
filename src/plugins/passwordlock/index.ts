@@ -13,17 +13,25 @@ import { PasswordLockMetadataProvider } from './metadata';
 import { PasswordLockPluginConfig } from './config';
 import { PasswordLockPluginDef } from './plugindef';
 import { PasswordLockAuthenticationCache } from './authcache';
+import { PasswordLockSection } from './lockedSection';
 import { asyncRequestHandler, remoteAddressOfRequest } from '../../utils/requesthandling';
 import { httpError } from '../../utils/error';
-import { PasswordLockedSection } from './lockedSection';
+import { getModuleRootPath } from '../../utils/compat';
+import { parseIntQueryParam } from '../../utils/queryparams';
+import { parseURLPath } from '../../utils/url';
+
+const lockInstructionsThumbFilepath = `${getModuleRootPath()}/images/lockedSectionInstructions.png`;
+const SectionTitle = "Login";
 
 export default (class PasswordLockPlugin implements PasswordLockPluginDef, PseuplexPlugin {
 	static slug = 'passwordlock';
 	readonly slug = PasswordLockPlugin.slug;
 	readonly app: PseuplexApp;
 	readonly metadata: PasswordLockMetadataProvider;
-	readonly section: PasswordLockedSection;
+	readonly section: PasswordLockSection;
 	readonly authCache: PasswordLockAuthenticationCache;
+
+	readonly lockInstructionsThumbEndpoint: string;
 	
 	constructor(app: PseuplexApp) {
 		this.app = app;
@@ -43,16 +51,24 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 			});
 		}
 
-		this.metadata = new PasswordLockMetadataProvider();
+		this.lockInstructionsThumbEndpoint = `${this.basePath}/images/thumb/instructions`;
 
-		this.section = new PasswordLockedSection(this, {
+		this.metadata = new PasswordLockMetadataProvider({
+			lockInstructionsThumbEndpoint: this.lockInstructionsThumbEndpoint,
+			lockInstructionsItemTitle: this.config.passwordLock?.instructionsItemTitle,
+			lockInstructionsItemSummary: this.config.passwordLock?.instructionsItemSummary,
+		});
+
+		this.section = new PasswordLockSection(this, {
 			id: `${this.slug}`,
 			uuid: this.config.passwordLock?.sectionUUID ?? "b332948b-9bf1-44a2-8637-15324bac8222",
 			path: `${this.basePath}`,
 			hubsPath: `${this.basePath}/hubs`,
-			title: "Introduction",
+			title: this.config.passwordLock?.sectionTitle ?? SectionTitle,
 			type: plexTypes.PlexMediaItemType.Mixed,
 			allowSync: false,
+			hubsPivotTitle: this.config.passwordLock?.hubsPivotTitle,
+			introHubTitle: this.config.passwordLock?.introHubTitle,
 		});
 	}
 	
@@ -69,7 +85,7 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 	}
 	
 	defineRoutes(router: express.Express) {
-
+		
 		// define unauthenticated router
 		const unauthRouter = express.Router();
 
@@ -194,9 +210,6 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 				responseModifier: (proxyRes, resData: plexTypes.PlexPrefsPage, userReq, userRes): plexTypes.PlexPrefsPage => {
 					if(resData.MediaContainer.Setting) {
 						resData.MediaContainer.Setting = resData.MediaContainer.Setting.filter((setting) => {
-							if(!setting.id) {
-								console.error(`wtf: ${JSON.stringify(setting)}`);
-							}
 							return !sensitivePrefs.has(setting.id);
 						});
 					}
@@ -221,6 +234,58 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 				res.status(200).send();
 				this.app.logger?.logIncomingUserRequestResponse(req, res, undefined);
 				return true;
+			}),
+		]);
+
+		unauthRouter.get(this.lockInstructionsThumbEndpoint, [
+			asyncRequestHandler(async (req, res) => {
+				// parse width and height
+				const width = parseIntQueryParam(req.query.width);
+				const height = parseIntQueryParam(req.query.height);
+				// send image response
+				await this.app.sendImageResponse({
+					filepath: lockInstructionsThumbFilepath,
+					width,
+					height,
+				}, res);
+				return true;
+			}),
+		]);
+
+		router.get('/photo/\\:/transcode', [
+			asyncRequestHandler(async (req: IncomingPlexAPIRequest, res) => {
+				try {
+					const urlParts = parseURLPath(req.url);
+					let photoUrl = urlParts.queryItems?.['url'];
+					if(!photoUrl || typeof photoUrl !== 'string') {
+						return false;
+					}
+					const rewrittenPhotoUrl = this.app.rewritePhotoEndpointLocalhostURL(photoUrl);
+					photoUrl = rewrittenPhotoUrl.url;
+					if(!photoUrl.startsWith('/')) {
+						return false;
+					}
+					const photoUrlParts = parseURLPath(photoUrl);
+					switch(photoUrlParts.path) {
+						case this.lockInstructionsThumbEndpoint: {
+							// parse width and height
+							const width = parseIntQueryParam(req.query.width);
+							const height = parseIntQueryParam(req.query.height);
+							// send image response
+							await this.app.sendImageResponse({
+								filepath: lockInstructionsThumbFilepath,
+								width,
+								height,
+							}, res);
+							return true;
+						}
+					}
+					return false;
+				} catch(error) {
+					console.error(`Error rewriting plex photo url:`);
+					console.error(error);
+				}
+				return false;
 			}),
 		]);
 		
