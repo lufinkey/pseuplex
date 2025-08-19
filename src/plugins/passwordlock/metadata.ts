@@ -38,6 +38,7 @@ export type PasswordLockMetadataProviderOptions = {
 	loginSuccessTitle?: string,
 	loginSuccessSummary?: string,
 };
+
 export class PasswordLockMetadataProvider implements PseuplexMetadataProvider {
 	readonly sourceDisplayName = "Password Lock";
 	readonly sourceSlug = 'passwordlock';
