@@ -42,6 +42,12 @@ This is an unofficial project that is **NOT** endorsed by or associated with Ple
 
 	![Letterboxd Friends Reviews](docs/images/letterboxd_friends_reviews.png)
 
+- ### Password Locking
+
+	Password-protect your server by easily whitelisting IPs per user! To log into your server, add the instructions item to a new playlist, and input the password as the playlist title. If successful, then once you refresh the page (or restart the app), you will be "logged in" for the IP you're connecting from.
+
+	![Password Locking](docs/images/passwordlock.png)
+
 ## Contributing
 
 This app is structured to have different ["plugins"](src/plugins) to provide different functionality. The [example plugin](pluginexample) and the [plugin template](src/plugins/template) are provided to give a starting point for anyone implementing a new plugin. If you would like to add your own set of functionality unrelated to letterboxd or any existing functionality, you should create your own plugin.
@@ -129,6 +135,10 @@ Create a `config.json` file with the following structure, and fill in the config
 		- **plugin**: The name of the plugin that this hub comes from (for example, `letterboxd` for letterboxd hubs)
 		- **hub**: The name of the hub within the plugin (for example, `userFollowingActivity` the activity feed of users that a given user is following)
 		- **arg**: The argument to pass to the hub provider for this hub. (for `letterboxd`.`userFollowingActivity` hub, this would be a letterboxd username slug, for example `crew`)
+- **passwordLock**:
+	- **enabled**: Controls whether to password protect this server.
+	- **password**: The custom password of your server.
+	- **authCachePath**: The file path to store the auth cache json file. This stores the mapping of tokens to their whitelisted IPs.
 - **perUser**: A map of settings to configure for each user on your server. The map keys are the plex email for each user.
 	- **letterboxd**:
 		- **username**: The letterboxd username for this user

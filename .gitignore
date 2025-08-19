@@ -139,3 +139,4 @@ dist
 /keys
 /config/config.json
 /config/csr.conf
+/config/authCache.json
