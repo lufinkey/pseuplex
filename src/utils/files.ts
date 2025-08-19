@@ -80,8 +80,10 @@ export const watchFilepathChanges = (filePath: string, opts: WatchOptions, callb
 	};
 	if(fs.existsSync(filePath)) {
 		watcher = fs.watch(filePath, fileWatcherCallback);
+		opts.logger?.logWatchingFile(filePath);
 	} else {
 		watcher = fs.watch(dirname, dirWatcherCallback);
+		opts.logger?.logWatchingDirectory(dirname);
 	}
 	return {
 		close: () => {
