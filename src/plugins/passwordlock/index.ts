@@ -179,7 +179,7 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 				return await this.section.getHubsPage(reqParams,context);
 			}),
 		]);
-
+		
 		const sensitivePrefs = new Set<string>([
 			"customCertificatePath",
 			"customCertificateKey",
@@ -204,38 +204,15 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 				},
 			}),
 		]);
-
-		// TODO figure out if/how we should protect these endpoints
-		unauthRouter.use('/updater', [
+		
+		unauthRouter.get('/updater/status', [
 			this.app.middlewares.plexProxy(),
 		]);
-		/*
-		unauthRouter.get('/updater/status', [
-			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexUpdaterStatusPage> => {
-				return {
-					MediaContainer: {
-						size: 0,
-						autoUpdateVersion: true,
-						canInstall: false,
-						checkedAt: (new Date()).getTime() / 1000,
-						status: false,
-					}
-				};
-			}),
-		]);
-
+		
 		unauthRouter.options('/updater/check', [
-			asyncRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<boolean> => {
-				res.setHeader('Access-Control-Allow-Origin', 'https://app.plex.tv');
-				res.setHeader('Access-Control-Allow-Methods', 'PUT');
-				res.setHeader('Vary', 'Origin, X-Plex-Token');
-				res.setHeader('X-Plex-Protocol', '1.0');
-				res.status(200).send();
-				this.app.logger?.logIncomingUserRequestResponse(req, res, undefined);
-				return true;
-			}),
+			this.app.middlewares.plexProxy(),
 		]);
-
+		
 		unauthRouter.put('/updater/check', [
 			asyncRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<boolean> => {
 				res.setHeader('Access-Control-Allow-Origin', 'https://app.plex.tv');
@@ -246,7 +223,6 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 				return true;
 			}),
 		]);
-		*/
 		
 		unauthRouter.use((req, res, next) => {
 			// all other requests should return a 403
