@@ -6,7 +6,6 @@ import express from 'express';
 import * as httpolyglot from '@httptoolkit/httpolyglot';
 import sharp from 'sharp';
 import HttpProxyServer from 'http-proxy';
-import { Netmask } from 'netmask';
 import * as plexTypes from '../plex/types';
 import * as plexServerAPI from '../plex/api';
 import { PlexServerPropertiesStore } from '../plex/serverproperties';
@@ -183,7 +182,6 @@ export type PseuplexAppOptions = {
 	sendMetadataUnavailability?: boolean;
 	overwritePlexPrivatePort?: number | boolean;
 	alwaysUseLibraryMetadataPath?: boolean;
-	localNetmasks?: Netmask[];
 	tlsCertOptions: TLSCertificateOptions;
 	plexServerHost: string;
 	plexServerHostSecure?: string;
@@ -221,7 +219,6 @@ export class PseuplexApp {
 	readonly metadataProviders: { [sourceSlug: string]: PseuplexMetadataProvider } = {};
 	readonly responseFilters: PseuplexResponseFilterLists = {};
 	readonly alwaysUseLibraryMetadataPath: boolean;
-	readonly localNetmasks?: Netmask[];
 	readonly metadataIdMappings?: PseuplexIDRemappings;
 
 	readonly plexServerHost: string;
@@ -284,7 +281,6 @@ export class PseuplexApp {
 		this.sendsMetadataUnavailability = options.sendMetadataUnavailability ?? true;
 		this.overwritePlexPrivatePort = options.overwritePlexPrivatePort ?? true;
 		this.alwaysUseLibraryMetadataPath = (options.mapPseuplexMetadataIds || this.forwardsMetadataRefreshToPluginMetadata || options.alwaysUseLibraryMetadataPath) ?? false;
-		this.localNetmasks = options.localNetmasks;
 		this.plexServerNotificationsOptions = options.plexServerNotifications ?? {};
 		this.logger = options.logger;
 		if(options.mapPseuplexMetadataIds) {

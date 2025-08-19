@@ -11,6 +11,7 @@ type PasswordLockPerUserPluginConfig = {
 export type PasswordLockPluginConfig = PseuplexConfigBase<PasswordLockPerUserPluginConfig> & PasswordLockFlags & {
 	passwordLock?: {
 		enabled?: boolean;
+		autoWhitelistedNetmask?: string;
 		authCachePath?: string;
 		sectionUUID?: string;
 		sectionTitle?: string;

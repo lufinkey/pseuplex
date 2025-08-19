@@ -1,5 +1,6 @@
 
 import express from 'express';
+import IPCIDR from 'ip-cidr';
 import * as plexTypes from '../../plex/types';
 import { authenticatePlexRequest, IncomingPlexAPIRequest } from '../../plex/requesthandling';
 import {
@@ -38,6 +39,7 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 	readonly metadata: PasswordLockMetadataProvider;
 	readonly section: PasswordLockSection;
 	readonly authCache: PasswordLockAuthenticationCache;
+	readonly autoWhitelistedNetmasks?: IPCIDR[];
 	
 	constructor(app: PseuplexApp) {
 		this.app = app;
@@ -57,6 +59,11 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 			});
 		}
 
+		const autoWhitelistedNetmaskString = this.config.passwordLock?.autoWhitelistedNetmask;
+		this.autoWhitelistedNetmasks = autoWhitelistedNetmaskString
+			? autoWhitelistedNetmaskString.split(',').map((maskString) => new IPCIDR(maskString))
+			: undefined;
+		
 		this.metadata = new PasswordLockMetadataProvider({
 			lockInstructionsThumbEndpoint: `${this.basePath}/images/thumb/instructions`,
 			loginSuccessEndpoint: `${this.basePath}/${PasswordLockMetadataID.LoginSuccess}`,
@@ -427,6 +434,7 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 		router.use([
 			async (req: IncomingPlexAPIRequest, res, next) => {
 				try {
+					const remoteAddress = remoteAddressOfRequest(req);
 					// check if password lock is enabled
 					if(!this.config?.passwordLock?.enabled) {
 						next()
@@ -469,6 +477,11 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 		const remoteAddress = remoteAddressOfRequest(req);
 		if(!remoteAddress) {
 			throw httpError(400, "No remote address");
+		}
+		// check if we're on an auto-whitelisted network
+		// TODO make this per-user
+		if(this.autoWhitelistedNetmasks && this.autoWhitelistedNetmasks.findIndex((n: IPCIDR) => n.contains(remoteAddress)) != -1) {
+			return true;
 		}
 		const plexToken = req.plex.authContext['X-Plex-Token']!;
 		return this.authCache.isIPWhitelistedForToken(plexToken, remoteAddress);

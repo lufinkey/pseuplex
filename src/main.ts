@@ -1,7 +1,6 @@
 #!/usr/bin/env node --enable-source-maps
 import tls from 'tls';
 import sharp from 'sharp';
-import { Netmask } from 'netmask';
 import * as constants from './constants';
 import {
 	Config,
@@ -176,9 +175,6 @@ let args: CommandArguments;
 		sendMetadataUnavailability: cfg.sendMetadataUnavailability,
 		overwritePlexPrivatePort: cfg.plex.overwritePrivatePort,
 		mapPseuplexMetadataIds: cfg.remapMetadataIds,
-		localNetmasks: cfg.localNetmask != null
-			? cfg.localNetmask.split(',').map((maskString) => new Netmask(maskString))
-			: undefined,
 		tlsCertOptions: {
 			...sslCertData
 		},

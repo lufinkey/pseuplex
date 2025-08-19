@@ -22,7 +22,6 @@ export type Config = {
 	sendMetadataUnavailability?: boolean;
 	forwardMetadataRefreshToPluginMetadata?: boolean;
 	redirectPlexStreams?: boolean;
-	localNetmask?: string;
 	imageOverlays?: {
 		enabled?: boolean;
 		overrides?: {[overlayName: string]: string};
