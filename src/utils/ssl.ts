@@ -94,10 +94,8 @@ export const extractP12DataForBun = (p12Data: string | Buffer, password: string 
 
 	const intermediatesPem = certBags
 		.slice(1)
-		.map(b => b.cert)
-		.filter((c): c is forge.pki.Certificate => !!c)
-		.filter(c => !isSelfSigned(c))
-		.map(c => forge.pki.certificateToPem(c))
+		.filter((b) => (b.cert && !isSelfSigned(b.cert)))
+		.map(b => forge.pki.certificateToPem(b.cert!))
 		.join("");
 
 	const cert = leafPem + intermediatesPem; // chain in cert (required by Bun)
