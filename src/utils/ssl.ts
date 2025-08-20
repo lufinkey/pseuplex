@@ -2,6 +2,7 @@
 import forge from 'node-forge';
 import fs from 'fs';
 import path from 'path';
+import { isRunningViaBun } from './compat';
 import { watchFilepathChanges } from './files';
 import { createDebouncer } from './timing';
 import type { Logger } from '../logging';
@@ -14,24 +15,40 @@ export type SSLConfig = {
 };
 
 export type TLSCertificateOptions = {
-	ca?: (string | Buffer)[];
-	cert?: string | Buffer;
+	ca?: (string | Buffer)[] | Buffer;
+	cert?: string | Buffer | (string | Buffer)[];
 	key?: string | Buffer;
 };
 
-export const extractP12Data = (p12Data: string | Buffer, password: string | null | undefined): TLSCertificateOptions => {
+const readP12Data = (p12Data: string | Buffer, password: string | null | undefined) => {
 	if(p12Data instanceof Buffer) {
 		p12Data = p12Data.toString('binary');
 	}
 	const p12Asn1 = forge.asn1.fromDer(p12Data as string);
-	let p12: forge.pkcs12.Pkcs12Pfx;
-	if(password != null) {
-		p12 = forge.pkcs12.pkcs12FromAsn1(p12Asn1, password);
-	} else {
-		p12 = forge.pkcs12.pkcs12FromAsn1(p12Asn1);
+	return password != null
+		? forge.pkcs12.pkcs12FromAsn1(p12Asn1, password)
+		: forge.pkcs12.pkcs12FromAsn1(p12Asn1);
+};
+
+const getPrivateKeyFromP12 = (p12: forge.pkcs12.Pkcs12Pfx) => {
+	for (const safeContents of p12.safeContents) {
+		for (const safeBag of safeContents.safeBags) {
+			if (safeBag.type === forge.pki.oids.keyBag || safeBag.type === forge.pki.oids.pkcs8ShroudedKeyBag) {
+				const key = safeBag.key;
+				if(key) {
+					return forge.pki.privateKeyToPem(key);
+				}
+			}
+		}
 	}
+	throw new Error("Private key not found");
+};
+
+export const extractP12DataForNode = (p12Data: string | Buffer, password: string | null | undefined): TLSCertificateOptions => {
+	const p12 = readP12Data(p12Data, password);
+
 	// get ca certificates
-	let ca: (string | Buffer)[] | undefined;
+	let ca: string[] | Buffer | undefined;
 	const certBags = p12.getBags({bagType: forge.pki.oids.certBag})[forge.pki.oids.certBag];
 	if(certBags) {
 		// Check if it's a CA certificate (you might need more robust checks depending on your needs)
@@ -41,31 +58,63 @@ export const extractP12Data = (p12Data: string | Buffer, password: string | null
 				if(!ca) {
 					ca = [];
 				}
-				ca.push(pem);
+				(ca as string[]).push(pem);
 			}
 		}
 	}
+
 	// get certificate
 	const firstCertBag = certBags?.[0];
 	if(!firstCertBag?.cert) {
 		throw new Error('No certificates found');
 	}
-	const cert = forge.pki.certificateToPem(firstCertBag.cert);
+	const cert: Buffer | string = forge.pki.certificateToPem(firstCertBag.cert);
+
 	// get private key
-	let privateKey: string | undefined;
-	for (const safeContents of p12.safeContents) {
-		for (const safeBag of safeContents.safeBags) {
-			if (safeBag.type === forge.pki.oids.keyBag || safeBag.type === forge.pki.oids.pkcs8ShroudedKeyBag) {
-				const key = safeBag.key;
-				privateKey = key != null ? forge.pki.privateKeyToPem(key) : undefined;
-				break;
-			}
-		}
-	}
-	if (!privateKey) {
-		throw new Error("Private key not found");
-	}
+	const privateKey = getPrivateKeyFromP12(p12);
+
 	return {cert, key:privateKey, ca};
+};
+
+export const extractP12DataForBun = (p12Data: string | Buffer, password: string | null | undefined): TLSCertificateOptions => {
+	const p12 = readP12Data(p12Data, password);
+	
+	// collect all certs
+	const certBags = p12.getBags({bagType: forge.pki.oids.certBag})[forge.pki.oids.certBag];
+	if (!certBags?.length || !certBags[0].cert) {
+		throw new Error("No certificates found");
+	}
+	
+	// leaf first
+	const leaf = certBags[0].cert;
+	const leafPem = forge.pki.certificateToPem(leaf);
+	
+	// intermediates (skip root CAs)
+	const isSelfSigned = (c: forge.pki.Certificate) => (c.isIssuer(c) && c.subject.hash === c.issuer.hash);
+
+	const intermediatesPem = certBags
+		.slice(1)
+		.map(b => b.cert)
+		.filter((c): c is forge.pki.Certificate => !!c)
+		.filter(c => !isSelfSigned(c))
+		.map(c => forge.pki.certificateToPem(c))
+		.join("");
+
+	const cert = leafPem + intermediatesPem; // chain in cert (required by Bun)
+
+	// private key
+	const privateKey = getPrivateKeyFromP12(p12);
+
+	// IMPORTANT: don't set `ca` for the server chain in Bun
+	return { cert, key:privateKey };
+};
+
+export const extractP12Data = (p12Data: string | Buffer, password: string | null | undefined): TLSCertificateOptions => {
+	if(isRunningViaBun()) {
+		return extractP12DataForBun(p12Data, password);
+	} else {
+		return extractP12DataForNode(p12Data, password);
+	}
 };
 
 export const readSSLCertAndKey = async (sslConfig: SSLConfig): Promise<TLSCertificateOptions> => {
