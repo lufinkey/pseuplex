@@ -226,7 +226,7 @@ export default (class RequestsPlugin implements RequestsPluginDef, PseuplexPlugi
 
 			// get metadata for requested item
 			router.get(endpoint, [
-				this.app.middlewares.plexAuthentication,
+				this.app.middlewares.plexAuthentication(),
 				this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res) => {
 					// get request properties
 					const { providerSlug, mediaType, plexId } = req.params;

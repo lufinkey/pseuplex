@@ -252,7 +252,7 @@ export class PseuplexApp {
 	private _plexServerNotificationsSocketRetryTimeout?: NodeJS.Timeout | undefined;
 	
 	readonly middlewares: {
-		plexAuthentication: express.RequestHandler;
+		plexAuthentication: (alwaysCheck?: boolean) => express.RequestHandler;
 		plexServerOwnerOnly: PlexAuthedRequestHandler;
 		plexAPIRequestHandler: <TResult>(handler: PlexAPIRequestHandler<TResult>) => express.RequestHandler;
 		plexAPIProxy: (filters: PlexAPIProxyFilters) => express.RequestHandler;
@@ -343,8 +343,20 @@ export class PseuplexApp {
 		} else {
 			plexGeneralProxySecure = plexGeneralProxy;
 		}
+		const plexAuthMiddleware = createPlexAuthenticationMiddleware(this.plexServerAccounts);
 		this.middlewares = {
-			plexAuthentication: createPlexAuthenticationMiddleware(this.plexServerAccounts),
+			plexAuthentication: (alwaysCheck?: boolean): express.RequestHandler => {
+				return (req: IncomingPlexAPIRequest, res, next) => {
+					if(req.plex) {
+						if(!alwaysCheck) {
+							// already authenticated
+							next();
+							return;
+						}
+					}
+					return plexAuthMiddleware(req, res, next);
+				};
+			},
 			plexServerOwnerOnly: (req: IncomingPlexAPIRequest, res, next) => {
 				if(!req.plex) {
 					next(httpError(500, "Cannot access endpoint without plex authentication"));
@@ -571,7 +583,7 @@ export class PseuplexApp {
 		}
 
 		router.get('/media/providers', [
-			this.middlewares.plexAuthentication,
+			this.middlewares.plexAuthentication(),
 			this.middlewares.plexAPIProxy({
 				filter: async (req: IncomingPlexAPIRequest, res) => {
 					const context = this.contextForRequest(req);
@@ -595,7 +607,7 @@ export class PseuplexApp {
 		]);
 
 		router.get(['/library/sections', '/library/sections/all'], [
-			this.middlewares.plexAuthentication,
+			this.middlewares.plexAuthentication(),
 			this.middlewares.plexAPIProxy({
 				filter: async (req: IncomingPlexAPIRequest, res) => {
 					const context = this.contextForRequest(req);
@@ -619,7 +631,7 @@ export class PseuplexApp {
 		]);
 
 		router.get('/hubs', [
-			this.middlewares.plexAuthentication,
+			this.middlewares.plexAuthentication(),
 			this.middlewares.plexAPIProxy({
 				responseModifier: async (proxyRes, resData: plexTypes.PlexLibraryHubsPage, userReq: IncomingPlexAPIRequest, userRes) => {
 					const context = this.contextForRequest(userReq);
@@ -658,7 +670,7 @@ export class PseuplexApp {
 		]);
 
 		router.get('/hubs/promoted', [
-			this.middlewares.plexAuthentication,
+			this.middlewares.plexAuthentication(),
 			this.middlewares.plexAPIProxy({
 				responseModifier: async (proxyRes, resData: plexTypes.PlexLibraryHubsPage, userReq: IncomingPlexAPIRequest, userRes) => {
 					const context = this.contextForRequest(userReq);
@@ -705,7 +717,7 @@ export class PseuplexApp {
 		]);
 
 		router.get('/hubs/sections/:sectionId', [
-			this.middlewares.plexAuthentication,
+			this.middlewares.plexAuthentication(),
 			// TODO handle custom sections
 			this.middlewares.plexAPIProxy({
 				responseModifier: async (proxyRes, resData: plexTypes.PlexSectionHubsPage, userReq: IncomingPlexAPIRequest, userRes) => {
@@ -724,7 +736,7 @@ export class PseuplexApp {
 		]);
 
 		router.get(`/library/metadata/:metadataId`, [
-			this.middlewares.plexAuthentication,
+			this.middlewares.plexAuthentication(),
 			pseuplexMetadataIdsRequestMiddleware(plexReqHandlerOpts, async (req: PseuplexRemappedMetadataIdsRequest, res, metadataIds): Promise<PseuplexMetadataPage> => {
 				const privateToPublicIds = req.remappedPlexMetadataIds;
 				const context = this.contextForRequest(req);
@@ -842,7 +854,7 @@ export class PseuplexApp {
 		]);
 
 		router.get(`/library/metadata/:metadataId/children`, [
-			this.middlewares.plexAuthentication,
+			this.middlewares.plexAuthentication(),
 			pseuplexMetadataIdRequestMiddleware(plexReqHandlerOpts, async (req: PseuplexRemappedMetadataIdsRequest, res, metadataId): Promise<plexTypes.PlexMetadataPage | PseuplexMetadataPage> => {
 				const privateToPublicIds = req.remappedPlexMetadataIds;
 				const context = this.contextForRequest(req);
@@ -908,7 +920,7 @@ export class PseuplexApp {
 
 		for(const hubsSource of Object.values(PseuplexRelatedHubsSource)) {
 			router.get(`/${hubsSource}/metadata/:metadataId/related`, [
-				this.middlewares.plexAuthentication,
+				this.middlewares.plexAuthentication(),
 				pseuplexMetadataIdRequestMiddleware(plexReqHandlerOpts, async (req: PseuplexRemappedMetadataIdsRequest, res, metadataId): Promise<plexTypes.PlexHubsPage> => {
 					const privateToPublicIds = req.remappedPlexMetadataIds;
 					const context = this.contextForRequest(req);
@@ -958,7 +970,7 @@ export class PseuplexApp {
 		}
 
 		router.get(`/library/all`, [
-			this.middlewares.plexAuthentication,
+			this.middlewares.plexAuthentication(),
 			this.middlewares.plexAPIProxy({
 				filter: (req, res) => {
 					// only filter if guid is included
@@ -982,7 +994,7 @@ export class PseuplexApp {
 		]);
 
 		router.get('/myplex/account', [
-			this.middlewares.plexAuthentication,
+			this.middlewares.plexAuthentication(),
 			// ensure that this endpoint NEVER gives data to non-owners
 			this.middlewares.plexServerOwnerOnly,
 			this.middlewares.plexAPIProxy({
@@ -1010,7 +1022,7 @@ export class PseuplexApp {
 		]);
 
 		router.post('/playQueues', [
-			this.middlewares.plexAuthentication,
+			this.middlewares.plexAuthentication(),
 			asyncRequestHandler(async (req, res) => {
 				const context = this.contextForRequest(req);
 				// parse url path
@@ -1084,7 +1096,7 @@ export class PseuplexApp {
 		}
 
 		router.get('/photo/\\:/transcode', [
-			this.middlewares.plexAuthentication,
+			this.middlewares.plexAuthentication(),
 			asyncRequestHandler(async (req: IncomingPlexAPIRequest, res) => {
 				try {
 					const urlParts = parseURLPath(req.url);
@@ -1149,7 +1161,7 @@ export class PseuplexApp {
 			
 			this.overlayedImageEndpoint = `/${this.slug}/image/withoverlay`;
 			router.get(this.overlayedImageEndpoint, [
-				this.middlewares.plexAuthentication,
+				this.middlewares.plexAuthentication(),
 				asyncRequestHandler(async (req, res) => {
 					await this._handleOverlayedImageRequest(req, res);
 					this.logger?.logIncomingUserRequestResponse(req, res, undefined);
@@ -1217,7 +1229,7 @@ export class PseuplexApp {
 			plexSSEProxySecure = plexSSEProxy;
 		}
 		router.get('/\\:/eventsource/notifications', [
-			this.middlewares.plexAuthentication,
+			this.middlewares.plexAuthentication(),
 			(req, res) => {
 				if(requestIsEncrypted(req)) {
 					plexSSEProxySecure.web(req,res);

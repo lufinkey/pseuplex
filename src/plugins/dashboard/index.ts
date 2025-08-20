@@ -46,7 +46,7 @@ export default (class DashboardPlugin implements DashboardPluginDef, PseuplexPlu
 
 	defineRoutes(router: express.Express) {
 		router.get(this.section.path, [
-			this.app.middlewares.plexAuthentication,
+			this.app.middlewares.plexAuthentication(),
 			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res) => {
 				const context = this.app.contextForRequest(req);
 				return await this.section.getSectionPage(context);
@@ -54,7 +54,7 @@ export default (class DashboardPlugin implements DashboardPluginDef, PseuplexPlu
 		]);
 
 		router.get(this.section.hubsPath, [
-			this.app.middlewares.plexAuthentication,
+			this.app.middlewares.plexAuthentication(),
 			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res) => {
 				const context = this.app.contextForRequest(req);
 				const reqParams = req.plex.requestParams;
