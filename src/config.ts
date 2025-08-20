@@ -1,11 +1,8 @@
 import fs from 'fs';
 import type { SSLConfig } from './utils/ssl';
 import type { IPv4NormalizeModeKey } from './utils/ip';
-import type {
-	PseuplexAppPerUserConfig,
-	PseuplexConfigBase,
-	PseuplexServerProtocol,
-} from './pseuplex';
+import type { PseuplexConfigBase } from './pseuplex/configbase';
+import type { PseuplexServerProtocol } from './pseuplex/types/server';
 import type { LetterboxdPluginConfig } from './plugins/letterboxd/config';
 import type { RequestsPluginConfig } from './plugins/requests/config';
 import type { DashboardPluginConfig } from './plugins/dashboard/config';
@@ -49,7 +46,7 @@ export type Config = {
 	plugins?: {
 		[id: string]: string
 	}
-} & PseuplexConfigBase<PseuplexAppPerUserConfig>
+} & PseuplexConfigBase<{[key: string]: any}>
 	& LetterboxdPluginConfig
 	& RequestsPluginConfig
 	& DashboardPluginConfig

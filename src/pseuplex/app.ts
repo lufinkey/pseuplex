@@ -157,10 +157,6 @@ type PseuplexAppMetadataChildrenParams = {
 	cachePluginMetadataAccess?: boolean;
 };
 
-export type PseuplexAppPerUserConfig = {
-	redirectPlexStreams: boolean;
-};
-
 type PseuplexAppConfig = PseuplexConfigBase<{[key: string]: any}>;
 
 type PseuplexPlexServerNotificationsOptions = {
@@ -1056,19 +1052,14 @@ export class PseuplexApp {
 		const pathEndingChars = ['/','?',undefined];
 
 		// redirect streams if needed
-		const shouldRedirectStreams =
-			this.redirectPlexStreams
-			|| Object.values(this.config.perUser || {})
-				.findIndex((c: PseuplexAppPerUserConfig) => c.redirectPlexStreams) != -1;
-		if(shouldRedirectStreams) {
+		if(this.redirectPlexStreams) {
 			router.use([
 				'/video/\\:/transcode/universal/session',
 				'/library/parts',
 			], [
-				this.middlewares.plexAuthentication,
 				asyncRequestHandler(async (req: IncomingPlexAPIRequest, res: express.Response) => {
 					// check if we should redirect this request
-					const redirectPlexStreams = this.config.perUser[req.plex.userInfo.email].redirectPlexStreams ?? this.redirectPlexStreams;
+					const redirectPlexStreams = this.redirectPlexStreams;
 					if(!redirectPlexStreams) {
 						return false;
 					}
