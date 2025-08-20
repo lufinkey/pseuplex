@@ -29,6 +29,9 @@ export type PseuplexSectionOptions = {
 	title: string;
 	path: string;
 	hubsPath: string;
+	agent?: plexTypes.PlexLibraryAgent;
+	scanner?: plexTypes.PlexLibraryScanner;
+	language?: string; // "en-US"
 	hidden?: boolean;
 };
 
@@ -36,18 +39,25 @@ export class PseuplexSectionBase implements PseuplexSection {
 	readonly id: string | number;
 	readonly uuid?: string | undefined;
 	readonly type: plexTypes.PlexMediaItemType;
-	readonly title: string;
 	readonly path: string;
 	readonly hubsPath: string;
+	title: string;
+	agent?: plexTypes.PlexLibraryAgent;
+	scanner?: plexTypes.PlexLibraryScanner;
+	language?: string; // "en-US"
 	allowSync: boolean;
+	refreshing = false;
 
 	constructor(options: PseuplexSectionOptions) {
 		this.id = options.id;
 		this.uuid = options.uuid;
 		this.type = options.type ?? plexTypes.PlexMediaItemType.Mixed;
-		this.title = options.title;
 		this.path = options.path;
 		this.hubsPath = options.hubsPath;
+		this.title = options.title;
+		this.agent = options.agent;
+		this.scanner = options.scanner;
+		this.language = options.language;
 		this.allowSync = options.allowSync ?? false;
 	}
 
@@ -82,7 +92,10 @@ export class PseuplexSectionBase implements PseuplexSection {
 			title: await titlePromise,
 			uuid: this.uuid,
 			type: this.type,
-			refreshing: false,
+			refreshing: this.refreshing,
+			agent: this.agent,
+			scanner: this.scanner,
+			language: this.language,
 			Pivot: await pivotsPromise,
 		};
 	}
@@ -97,7 +110,10 @@ export class PseuplexSectionBase implements PseuplexSection {
 			uuid: this.uuid!,
 			type: this.type,
 			title: await titlePromise,
-			refreshing: false,
+			refreshing: this.refreshing,
+			agent: this.agent,
+			scanner: this.scanner,
+			language: this.language,
 			filters: true,
 			content: true,
 			directory: true,
