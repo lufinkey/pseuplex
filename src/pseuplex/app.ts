@@ -1207,10 +1207,20 @@ export class PseuplexApp {
 		const plexSSEProxy = plexHttpProxy(this.plexServerHost, plexProxyOpts, {
 			onProxyResponse: onPlexSSEProxyResponse,
 		});
+		plexSSEProxy.on('error', (error) => {
+			console.error();
+			console.error(`Got proxy error:`);
+			console.error(error);
+		});
 		let plexSSEProxySecure: HttpProxyServer;
 		if(plexServerHostSecureIsDifferent) {
 			plexSSEProxySecure = plexHttpProxy(this.plexServerHostSecure, plexProxyOpts, {
 				onProxyResponse: onPlexSSEProxyResponse,
+			});
+			plexSSEProxySecure.on('error', (error) => {
+				console.error();
+				console.error(`Got proxy error:`);
+				console.error(error);
 			});
 		} else {
 			plexSSEProxySecure = plexSSEProxy;
