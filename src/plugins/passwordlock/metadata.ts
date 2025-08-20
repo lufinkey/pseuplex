@@ -1,6 +1,5 @@
-
-import qs from 'querystring';
 import * as plexTypes from '../../plex/types';
+import { parseMetadataIDFromKey } from '../../plex/metadataidentifier';
 import {
 	parsePartialMetadataID,
 	PseuplexMetadataChildrenPage,
@@ -13,17 +12,16 @@ import {
 	PseuplexRelatedHubsParams,
 	qualifyPartialMetadataID,
 	stringifyPartialMetadataID,
+	parseMetadataIdsFromPathParam,
 } from '../../pseuplex';
 import { httpError } from '../../utils/error';
-import { parseMetadataIDFromKey } from '../../plex/metadataidentifier';
-import { parseMetadataIdsFromPathParam } from '../../pseuplex/requesthandling';
 
 export enum PasswordLockMetadataID {
 	Instructions = 'instructions',
 	LoginSuccess = 'loginsuccess',
 }
 
-const LockInstructionsItemTitle = "Instructions";
+const LockInstructionsItemTitle = "Enter the password";
 const LockInstructionsItemSummary =
 `This client has not yet been authorized for this IP address.
 To log in, add this item to a new playlist, and enter the password for the server as the playlist name.
