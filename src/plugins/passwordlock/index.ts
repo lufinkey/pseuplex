@@ -85,7 +85,7 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 			path: `${this.basePath}`,
 			hubsPath: `${this.basePath}/hubs`,
 			title: this.config.passwordLock?.sectionTitle ?? SectionTitle,
-			type: plexTypes.PlexMediaItemType.Mixed,
+			type: plexTypes.PlexMediaItemType.Movie,
 			allowSync: false,
 			hubsPivotTitle: this.config.passwordLock?.hubsPivotTitle,
 			introHubTitle: this.config.passwordLock?.introHubTitle,
@@ -167,6 +167,14 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 				return await this.section.getHubsPage(reqParams,context);
 			}),
 		]);
+
+		unauthRouter.get(this.section.introHub.path, [
+			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res) => {
+				const context = this.app.contextForRequest(req);
+				const reqParams = req.plex.requestParams;
+				return await this.section.introHub.getHubPage(reqParams,context);
+			}),
+		])
 
 		unauthRouter.get('/hubs', [
 			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexHubsPage> => {
@@ -253,7 +261,7 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 			]);
 		}
 
-		unauthRouter.get('/hubs/continueWatching', [
+		unauthRouter.get([ '/hubs/continueWatching', '/hubs/home/continueWatching' ], [
 			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexHubsPage> => {
 				return {
 					MediaContainer: {
