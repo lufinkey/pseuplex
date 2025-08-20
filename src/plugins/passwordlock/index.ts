@@ -238,6 +238,18 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 			]);
 		}
 
+		unauthRouter.get('/hubs/continueWatching', [
+			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexHubsPage> => {
+				return {
+					MediaContainer: {
+						size: 0,
+						allowSync: false,
+						identifier: plexTypes.PlexPluginIdentifier.PlexAppLibrary,
+					}
+				};
+			}),
+		]);
+
 		unauthRouter.get('/status/sessions', [
 			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<{MediaContainer:plexTypes.PlexMediaContainer}> => {
 				return {
