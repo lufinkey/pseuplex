@@ -28,7 +28,9 @@
     },
   },
   "trustedDependencies": [
+    "express-http-proxy",
     "letterboxd-retriever",
+    "http-proxy",
   ],
   "packages": {
     "@emnapi/runtime": ["@emnapi/runtime@1.4.5", "", { "dependencies": { "tslib": "^2.4.0" } }, "sha512-++LApOtY0pEEz1zrd9vy1/zXVaVJJ/EbAF3u0fXIzPJEDtnITsBGbbK0EkM72amhl/R5b+5xx0Y/QhcVOpuulg=="],
