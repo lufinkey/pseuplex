@@ -9,6 +9,9 @@ type PasswordLockPerUserPluginConfig = {
 	//
 } & PasswordLockFlags;
 export type PasswordLockPluginConfig = PseuplexConfigBase<PasswordLockPerUserPluginConfig> & PasswordLockFlags & {
+	plex: {
+		assumedTopSectionId?: string | number;
+	}
 	passwordLock?: {
 		enabled?: boolean;
 		autoWhitelistedNetmask?: string;

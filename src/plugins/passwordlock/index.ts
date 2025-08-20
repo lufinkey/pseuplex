@@ -2,7 +2,11 @@
 import express from 'express';
 import IPCIDR from 'ip-cidr';
 import * as plexTypes from '../../plex/types';
-import { authenticatePlexRequest, IncomingPlexAPIRequest } from '../../plex/requesthandling';
+import {
+	authenticatePlexRequest,
+	doesRequestIncludeFirstPinnedContentDirectory,
+	IncomingPlexAPIRequest
+} from '../../plex/requesthandling';
 import {
 	PseuplexApp,
 	PseuplexMetadataProvider,
@@ -180,6 +184,17 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 		
 		unauthRouter.get('/hubs/promoted', [
 			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexHubsPage> => {
+				if (!doesRequestIncludeFirstPinnedContentDirectory(req.query, {
+					plexAuthContext: req.plex.authContext,
+					assumedTopSectionID: this.config.plex?.assumedTopSectionId,
+				})) {
+					return {
+						MediaContainer: {
+							size: 0,
+							allowSync: false,
+						}
+					};
+				}
 				const context = this.app.contextForRequest(req);
 				const reqParams = req.plex.requestParams;
 				// get hubs for each section
