@@ -24,7 +24,7 @@
 		"node:start": "tsc && node --enable-source-maps dist/main.js",
 		"node:start_test": "tsc && node --enable-source-maps --trace-deprecation dist/main.js --config=config/config.json --verbose --verbose-traffic",
 		"debug": "tsc && node --enable-source-maps --inspect dist/main.js --config=config/config.json --verbose",
-		"bun:start": "bun run src/main.ts",
+		"bun:start": "bun run ./src/main.ts",
 		"if:windows": "node -e \"if (process.platform !== 'win32') process.exit(1)\"",
 		"if:notwindows": "node -e \"if (process.platform === 'win32') process.exit(1)\""
 	},
