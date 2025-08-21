@@ -112,6 +112,7 @@ export class PasswordLockMetadataProvider implements PseuplexMetadataProvider {
 			MediaContainer: {
 				offset: 0,
 				size: metadatas.length,
+				identifier: plexTypes.PlexPluginIdentifier.PlexAppLibrary,
 				Metadata: metadatas,
 			}
 		};
@@ -127,6 +128,7 @@ export class PasswordLockMetadataProvider implements PseuplexMetadataProvider {
 				offset: 0,
 				size: 0,
 				totalSize: 0,
+				identifier: plexTypes.PlexPluginIdentifier.PlexAppLibrary,
 				Hub: []
 			}
 		};

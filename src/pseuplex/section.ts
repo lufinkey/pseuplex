@@ -146,6 +146,7 @@ export class PseuplexSectionBase implements PseuplexSection {
 				librarySectionID: this.id,
 				librarySectionTitle: await titlePromise,
 				librarySectionUUID: this.uuid!,
+				identifier: plexTypes.PlexPluginIdentifier.PlexAppLibrary,
 				Hub: await hubEntriesPromise,
 			}
 		};

@@ -80,7 +80,7 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 		});
 
 		this.section = new PasswordLockSection(this, {
-			id: `${this.slug}`,
+			id: this.config.passwordLock?.sectionID ?? -24,
 			uuid: this.config.passwordLock?.sectionUUID ?? crypto.randomUUID(),
 			path: `${this.basePath}`,
 			hubsPath: `${this.basePath}/hubs`,
@@ -180,6 +180,19 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexHubsPage> => {
 				const context = this.app.contextForRequest(req);
 				const reqParams = req.plex.requestParams;
+				// ensure the section is included
+				const contentDirectoryID = reqParams.contentDirectoryID;
+				const contentDirIds = (typeof contentDirectoryID == 'string') ? contentDirectoryID.split(',') : contentDirectoryID;
+				if(contentDirIds && contentDirIds.length > 0) {
+					if(contentDirIds.findIndex(id => (id == this.section.id)) == -1) {
+						return {
+							MediaContainer: {
+								size: 0,
+								allowSync: false,
+							}
+						};
+					}
+				}
 				// get hubs for each section
 				const hubsPage: plexTypes.PlexHubsPage = await this.section.getHubsPage(reqParams, context);
 				delete hubsPage.MediaContainer.librarySectionID;
@@ -192,19 +205,21 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 		
 		unauthRouter.get('/hubs/promoted', [
 			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexHubsPage> => {
-				if (!doesRequestIncludeFirstPinnedContentDirectory(req.query, {
-					plexAuthContext: req.plex.authContext,
-					assumedTopSectionID: this.config.plex?.assumedTopSectionId,
-				})) {
-					return {
-						MediaContainer: {
-							size: 0,
-							allowSync: false,
-						}
-					};
-				}
 				const context = this.app.contextForRequest(req);
 				const reqParams = req.plex.requestParams;
+				// ensure the section is included
+				const contentDirectoryID = reqParams.contentDirectoryID;
+				const contentDirIds = (typeof contentDirectoryID == 'string') ? contentDirectoryID.split(',') : contentDirectoryID;
+				if(contentDirIds && contentDirIds.length > 0) {
+					if(contentDirIds.findIndex(id => (id == this.section.id)) == -1) {
+						return {
+							MediaContainer: {
+								size: 0,
+								allowSync: false,
+							}
+						};
+					}
+				}
 				// get hubs for each section
 				const hubsPage: plexTypes.PlexHubsPage = await this.section.getPromotedHubsPage(reqParams, context);
 				delete hubsPage.MediaContainer.librarySectionID;

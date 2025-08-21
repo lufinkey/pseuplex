@@ -1,4 +1,4 @@
-
+import crypto from 'crypto';
 import express from 'express';
 import * as plexTypes from '../../plex/types';
 import { IncomingPlexAPIRequest } from '../../plex/requesthandling';
@@ -23,8 +23,8 @@ export default (class DashboardPlugin implements DashboardPluginDef, PseuplexPlu
 	constructor(app: PseuplexApp) {
 		this.app = app;
 		this.section = new DashboardSection(this, {
-			id: 'dashboard',
-			uuid: this.config.dashboard?.uuid ?? '81596aaa-14b1-4b74-8433-ff564d3020ff',
+			id: this.config.dashboard?.id ?? -23,
+			uuid: this.config.dashboard?.uuid ?? crypto.randomUUID(),
 			type: plexTypes.PlexMediaItemType.Mixed,
 			title: "Dashboard",
 			path: `${this.basePath}`,

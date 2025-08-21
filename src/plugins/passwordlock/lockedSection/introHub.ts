@@ -38,8 +38,8 @@ export class PasswordLockedSectionIntroHub extends PseuplexHub {
 			hub: {
 				key: this.path,
 				title: this.title,
-				type: plexTypes.PlexMediaItemType.Mixed,
-				hubIdentifier: `hub.custom.lockedpasswordsection.intro`,
+				type: plexTypes.PlexMediaItemType.Movie,
+				hubIdentifier: `hub.custom.lockedpasswordsection.intro${this.section?.id != null ? `.${this.section.id}` : ''}`,
 				context: `hub.custom.lockedpasswordsection.intro`,
 				style: plexTypes.PlexHubStyle.Shelf,
 				promoted: true,

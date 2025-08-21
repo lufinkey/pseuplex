@@ -130,6 +130,7 @@ Create a `config.json` file with the following structure, and fill in the config
 	- **friendsReviewsEnabled**: Display letterboxd friends reviews for all users with a letterboxd username configured
 - **dashboard**:
 	- **enabled**: Controls whether to show a pseudo "Dashboard" section for all users, which will show custom hubs
+	- **id**: The section id for the dashboard section. This must be a number not already in use by another section or metadata.
 	- **uuid**: The unique uuid for the dashboard section. If enabling the dashboard, you should specify your own [randomly generated uuid](https://www.uuidgenerator.net), to ensure it's unique to your server.
 	- **title**: The title to display for the section
 	- **hubs**: An array of hubs to show on the dashboard section for all users. For a list of built-in hubs that can be configured, see [here](docs/Dashboard.md#hubs).
@@ -138,6 +139,8 @@ Create a `config.json` file with the following structure, and fill in the config
 		- **arg**: The argument to pass to the hub provider for this hub. (for `letterboxd`.`userFollowingActivity` hub, this would be a letterboxd username slug, for example `crew`)
 - **passwordLock**:
 	- **enabled**: Controls whether to password protect this server.
+	- **sectionID**: The section id for the initial section when the library is locked. This must be a number not already in use by another section or metadata.
+	- **sectionUUID**: A unique . This must be a number not already in use by another section or metadata.
 	- **password**: The custom password of your server.
 	- **authCachePath**: The file path to store the auth cache json file. This stores the mapping of tokens to their whitelisted IPs.
 - **perUser**: A map of settings to configure for each user on your server. The map keys are the plex email for each user.

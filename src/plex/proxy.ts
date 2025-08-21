@@ -246,6 +246,7 @@ export const plexApiProxy = (host: HostOrHostGetter, options: PlexProxyOptions, 
 			if(userRes.headersSent) {
 				console.error("Too late to remove headers");
 			} else {
+				userRes.removeHeader('content-encoding');
 				userRes.removeHeader('x-plex-content-original-length');
 				userRes.removeHeader('x-plex-content-compressed-length');
 				userRes.removeHeader('content-length');
@@ -273,18 +274,17 @@ export const plexApiProxy = (host: HostOrHostGetter, options: PlexProxyOptions, 
 				}
 			}
 			// serialize response
-			const resDataString = (await serializeResponseContent(userReq, userRes, resData)).data;
-			let encodedResData: (Buffer | string) = resDataString;
+			const serializedRes = await serializeResponseContent(userReq, userRes, resData);
+			let encodedResData = serializedRes.data;
 			// encode user response
 			if(proxyRes.headers['content-encoding']) {
 				const encoding = proxyRes.headers['content-encoding'];
 				// need to do this so this proxy library doesn't encode the content later
 				delete proxyRes.headers['content-encoding'];
-				userRes.removeHeader('content-encoding');
 				// encode
 				if(encoding == 'gzip') {
 					encodedResData = await new Promise((resolve, reject) => {
-						zlib.gzip(resDataString, (error, result) => {
+						zlib.gzip(serializedRes.data, (error, result) => {
 							if(error) {
 								reject(error);
 							} else {
@@ -293,13 +293,13 @@ export const plexApiProxy = (host: HostOrHostGetter, options: PlexProxyOptions, 
 						});
 					});
 					userRes.setHeader('Content-Encoding', encoding);
-					userRes.setHeader('X-Plex-Content-Original-Length', resDataString.length);
+					userRes.setHeader('X-Plex-Content-Original-Length', serializedRes.data.length);
 					userRes.setHeader('X-Plex-Content-Compressed-Length', encodedResData.length);
-					userRes.setHeader('Content-Length', encodedResData.length);
 				}
 			}
+			userRes.setHeader('Content-Length', encodedResData.length);
 			// log user response if needed
-			options.logger?.logIncomingUserRequestResponse(userReq, userRes, resDataString);
+			options.logger?.logIncomingUserRequestResponse(userReq, userRes, serializedRes.dataString);
 			return encodedResData;
 		} : undefined
 	});

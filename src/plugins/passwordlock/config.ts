@@ -16,6 +16,7 @@ export type PasswordLockPluginConfig = PseuplexConfigBase<PasswordLockPerUserPlu
 		enabled?: boolean;
 		autoWhitelistedNetmask?: string;
 		authCachePath?: string;
+		sectionID?: number;
 		sectionUUID?: string;
 		sectionTitle?: string;
 		hubsPivotTitle?: string;

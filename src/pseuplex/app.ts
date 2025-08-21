@@ -370,6 +370,7 @@ export class PseuplexApp {
 			},
 			plexAPIRequestHandler: <TResult>(handler: PlexAPIRequestHandler<TResult>) => {
 				return async (req: IncomingPlexAPIRequest, res: express.Response) => {
+					res.header(constants.APP_CUSTOM_HEADER, 'yes');
 					await handlePlexAPIRequest(req, res, handler, options);
 				};
 			},
@@ -477,6 +478,7 @@ export class PseuplexApp {
 
 		// create router and define routes
 		const router = express();
+		router.set('etag', false);
 
 		// log request if needed
 		router.use((req, res, next) => {
