@@ -1,4 +1,4 @@
-
+import crypto from 'crypto';
 import express from 'express';
 import IPCIDR from 'ip-cidr';
 import * as plexTypes from '../../plex/types';
@@ -81,7 +81,7 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 
 		this.section = new PasswordLockSection(this, {
 			id: `${this.slug}`,
-			uuid: this.config.passwordLock?.sectionUUID ?? "b332948b-9bf1-44a2-8637-15324bac8222",
+			uuid: this.config.passwordLock?.sectionUUID ?? crypto.randomUUID(),
 			path: `${this.basePath}`,
 			hubsPath: `${this.basePath}/hubs`,
 			title: this.config.passwordLock?.sectionTitle ?? SectionTitle,
