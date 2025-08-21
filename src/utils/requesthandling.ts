@@ -32,7 +32,7 @@ export const expressErrorHandler = (error: Error, req: express.Request, res: exp
 		console.error('Got error while handling request:\n'
 			+ `\ttimestamp: ${(new Date()).toString()}\n`
 			+ `\turl: ${req.originalUrl}\n`
-			+ `\tip: ${req.connection?.remoteAddress || req.socket?.remoteAddress}\n`
+			+ `\tip: ${remoteAddressOfRequest(req)}\n`
 			+ `\theaders:\n${reqHeaderLines.join('\n')}`);
 		console.error(error);
 		let statusCode =

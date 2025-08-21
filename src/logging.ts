@@ -3,7 +3,7 @@ import express from 'express';
 import type { PlexServerAccountInfo } from './plex/accounts';
 import { PlexNotificationSender, PlexNotificationSenderTypeToName } from './plex/notifications';
 import { urlFromClientRequest } from './utils/requests';
-import { requestIsEncrypted } from './utils/requesthandling';
+import { remoteAddressOfRequest, requestIsEncrypted } from './utils/requesthandling';
 import type { WebSocketEventMap } from './utils/websocket';
 import type * as overseerrTypes from './plugins/requests/providers/overseerr/apitypes';
 
@@ -361,7 +361,19 @@ export class Logger {
 
 	logPlexRequestHandlerFailed(userReq: express.Request, userRes: express.Response, error: Error): boolean {
 		const logsAnyUrls = this.options.logUserRequests || this.options.logProxyRequests || this.options.logProxyResponses;
-		console.error(`Plex request handler failed${!logsAnyUrls ? ` for ${userReq.originalUrl} :` : ':'}`);
+		const reqHeaderList = userReq.rawHeaders;
+		let reqHeaderLines: string[] = []
+		for(let i=0; i<reqHeaderList.length; i++) {
+			const headerKey = reqHeaderList[i];
+			i++;
+			const headerVal = reqHeaderList[i];
+			reqHeaderLines.push(`\t\t${headerKey}: ${headerVal}`);
+		}
+		console.error(`Plex request handler failed${!logsAnyUrls ? ` for ${userReq.originalUrl} :` : ':'}\n`
+			+ `\ttimestamp: ${(new Date()).toString()}\n`
+			+ `\turl: ${userReq.originalUrl}\n`
+			+ `\tip: ${remoteAddressOfRequest(userReq)}\n`
+			+ `\theaders:\n${reqHeaderLines.join('\n')}`);
 		console.error(error);
 		return true;
 	}
