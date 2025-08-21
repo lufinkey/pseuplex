@@ -21,7 +21,7 @@ export enum PasswordLockMetadataID {
 	LoginSuccess = 'loginsuccess',
 }
 
-const LockInstructionsItemTitle = "Enter the password";
+const LockInstructionsItemTitle = "Enter password";
 const LockInstructionsItemSummary =
 `This client has not yet been authorized for this IP address.
 To log in, add this item to a new playlist, and enter the password for the server as the playlist name.
