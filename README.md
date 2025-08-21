@@ -79,6 +79,7 @@ Create a `config.json` file with the following structure, and fill in the config
 	},
 	"dashboard": {
 		"enabled": true,
+		"uuid": "<YOUR RANDOMLY GENERATED UUID>"
 	},
 	"perUser": {
 		"yourplexuseremail@example.com": {
