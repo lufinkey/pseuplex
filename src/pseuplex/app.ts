@@ -1066,7 +1066,7 @@ export class PseuplexApp {
 		const pathEndingChars = ['/','?',undefined];
 
 		// redirect streams if needed
-		if(this.redirectPlexStreams) {
+		if(this.redirectPlexStreams && (this.plexServerRedirectHost || this.plexServerRedirectHostSecure)) {
 			router.use([
 				'/video/\\:/transcode/universal/session',
 				'/library/parts',
