@@ -347,6 +347,8 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 										const plexToken = req.plex.authContext['X-Plex-Token']!;
 										const remoteAddress = remoteAddressOfRequest(req);
 										if(!remoteAddress) {
+											console.error(`Remote address was undefined for some reason:`);
+											console.error(req);
 											throw httpError(400, "No remote address for some reason");
 										}
 										this.authCache.whitelistIPForPlexToken(plexToken, remoteAddress);
@@ -532,6 +534,8 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 		await this.authCache.waitForLoad();
 		const remoteAddress = remoteAddressOfRequest(req);
 		if(!remoteAddress) {
+			console.error(`Remote address was undefined for some reason:`);
+			console.error(req);
 			throw httpError(400, "No remote address");
 		}
 		// check if we're on an auto-whitelisted network
