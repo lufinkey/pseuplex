@@ -109,6 +109,10 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 		// define unauthenticated router
 		const unauthRouter = express.Router();
 
+		unauthRouter.get('/', [
+			this.app.middlewares.plexProxy(),
+		]);
+
 		unauthRouter.get('/media/providers', [
 			this.app.middlewares.plexAPIProxy({
 				responseModifier: async (proxyRes, resData: plexTypes.PlexServerMediaProvidersPage, userReq: IncomingPlexAPIRequest, userRes) => {
@@ -406,10 +410,6 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 			this.app.middlewares.plexProxy(),
 		]);
 		
-		unauthRouter.options('/updater/check', [
-			this.app.middlewares.plexProxy(),
-		]);
-		
 		unauthRouter.put('/updater/check', [
 			asyncRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<boolean> => {
 				res.setHeader('Access-Control-Allow-Origin', 'https://app.plex.tv');
@@ -487,18 +487,18 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 		router.use([
 			async (req: IncomingPlexAPIRequest, res, next) => {
 				try {
-					const remoteAddress = remoteAddressOfRequest(req);
 					// check if password lock is enabled
 					if(!this.config?.passwordLock?.enabled) {
-						next()
+						next();
 						return;
 					}
 					// ignore paths that don't need authentication
 					const reqPath = req.path;
-					if(reqPath == '/identity' || reqPath.startsWith('/web/') || reqPath == 'web'
+					if(req.method === 'OPTIONS' || reqPath == '/identity' || reqPath.startsWith('/web/') || reqPath == '/web'
 						|| (reqPath.startsWith(videoTranscodePathPrefix) && reqPath.length > videoTranscodePathPrefix.length && passthroughVideoTranscodeMethods.indexOf(req.method) != -1)
+						|| ((reqPath.endsWith('.png') || reqPath.endsWith('.ico')) && reqPath.indexOf('/', 1) == -1)
 					) {
-						next()
+						next();
 						return;
 					}
 					// authenticate the request
