@@ -50,7 +50,12 @@ export const expressErrorHandler = (error: Error, req: express.Request, res: exp
 };
 
 export function remoteAddressOfRequest(req: http.IncomingMessage) {
-	return req.connection?.remoteAddress || req.socket?.remoteAddress;
+	let remoteAddress = req.connection?.remoteAddress || req.socket?.remoteAddress;
+	if(!remoteAddress) {
+		console.error(`Remote address was undefined for some reason:`);
+		console.dir(req);
+	}
+	return remoteAddress;
 };
 
 export function requestIsEncrypted(req: http.IncomingMessage) {
