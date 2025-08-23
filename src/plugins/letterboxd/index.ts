@@ -499,6 +499,7 @@ export default (class LetterboxdPlugin implements LetterboxdPluginDef, PseuplexP
 					}
 					// attach letterboxd friends reviews
 					const getFilmOpts = lbTransform.getFilmOptsFromPartialMetadataId(letterboxdMetadataId);
+					console.log(`Fetching letterboxd friend reviews for film ${JSON.stringify(getFilmOpts)} and user ${letterboxdUsername}`);
 					const friendViewings = await letterboxd.getReviews({
 						...getFilmOpts,
 						userSlug: letterboxdUsername,

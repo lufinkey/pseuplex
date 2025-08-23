@@ -21,8 +21,12 @@ import {
 	combinePathSegments
 } from '../../utils/misc';
 import { LetterboxdMetadataProvider } from './metadata';
+import { httpError } from '../../utils/error';
 
 export const partialMetadataIdFromFilmInfo = (filmInfo: letterboxd.FilmPage): PseuplexPartialMetadataIDString => {
+	if(!filmInfo.pageData.slug) {
+		throw httpError(500, "Missing film slug in letterboxd film info");
+	}
 	return stringifyPartialMetadataID({
 		directory: filmInfo.pageData.type,
 		id: filmInfo.pageData.slug
@@ -43,6 +47,9 @@ export const getFilmOptsFromPartialMetadataId = (metadataId: PseuplexPartialMeta
 };
 
 export const fullMetadataIdFromFilmInfo = (filmInfo: letterboxd.FilmPage, opts?: {asUrl?: boolean}): PseuplexMetadataIDString => {
+	if(!filmInfo.pageData.slug) {
+		throw httpError(500, "Missing film slug in letterboxd film info");
+	}
 	return stringifyMetadataID({
 		isURL: opts?.asUrl,
 		source: PseuplexMetadataSource.Letterboxd,
@@ -120,6 +127,9 @@ export const filmInfoGuids = (filmInfo: letterboxd.FilmPage) => {
 };
 
 export const partialMetadataIdFromFilm = (film: letterboxd.Film): PseuplexPartialMetadataIDString => {
+	if(!film.slug) {
+		throw httpError(500, "Missing film slug in letterboxd film");
+	}
 	return stringifyPartialMetadataID({
 		directory: film.type,
 		id: film.slug
@@ -127,6 +137,9 @@ export const partialMetadataIdFromFilm = (film: letterboxd.Film): PseuplexPartia
 };
 
 export const fullMetadataIdFromFilm = (film: letterboxd.Film, opts:{asUrl:boolean}): PseuplexMetadataIDString => {
+	if(!film.slug) {
+		throw httpError(500, "Missing film slug in letterboxd film");
+	}
 	return stringifyMetadataID({
 		isURL: opts.asUrl,
 		source: PseuplexMetadataSource.Letterboxd,
