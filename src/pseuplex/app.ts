@@ -2193,7 +2193,7 @@ export class PseuplexApp {
 		if(!this.overlayImageCache) {
 			throw httpError(500, "Overlays are disabled");
 		}
-		if(!overlayName || !overlayImageNameRegex.test(overlayName)) {
+		if(!overlayName || !overlayImageNameRegex.test(overlayName) || overlayName == '..' || overlayName == '.') {
 			throw httpError(400, "Invalid overlay");
 		}
 		// get overlay image
