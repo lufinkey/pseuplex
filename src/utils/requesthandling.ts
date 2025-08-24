@@ -54,8 +54,8 @@ export const expressErrorHandler = (error: Error, req: express.Request, res: exp
 	}
 };
 
-export function remoteAddressOfRequest(req: http.IncomingMessage) {
-	let remoteAddress = req.connection?.remoteAddress || req.socket?.remoteAddress;
+export function remoteAddressOfRequest(req: http.IncomingMessage | express.Request) {
+	let remoteAddress = req.connection?.remoteAddress || req.socket?.remoteAddress || (req as express.Request).ip;
 	if(!remoteAddress) {
 		console.error(`Remote address was undefined for some reason:`);
 		console.dir(req);
