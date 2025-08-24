@@ -11,6 +11,7 @@ import {
 	PseuplexPartialMetadataIDString
 } from './metadataidentifier';
 import { PseuplexSection } from './section';
+import { PseuplexRouterApp } from './router';
 
 
 export type PseuplexResponseFilterContext = {
@@ -73,8 +74,8 @@ export interface PseuplexPlugin {
 	readonly hubs?: { readonly [hubName: string]: PseuplexHubProvider };
 	readonly responseFilters?: PseuplexReadOnlyResponseFilters;
 
-	defineRoutes?: (router: express.Express) => void;
-	defineFallbackRoutes?: (router: express.Express) => void;
+	defineRoutes?: (router: PseuplexRouterApp) => void;
+	defineFallbackRoutes?: (router: PseuplexRouterApp) => void;
 	hasSections?: (context: PseuplexRequestContext) => Promise<boolean>;
 	getSections?: (context: PseuplexRequestContext) => Promise<PseuplexSection[]>;
 	shouldListenToPlexServerNotifications?: () => boolean;

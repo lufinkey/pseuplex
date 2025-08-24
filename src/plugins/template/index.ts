@@ -1,5 +1,3 @@
-
-import express from 'express';
 import * as plexTypes from '../../plex/types';
 import { IncomingPlexAPIRequest } from '../../plex/requesthandling';
 import {
@@ -7,7 +5,8 @@ import {
 	PseuplexMetadataProvider,
 	PseuplexPlugin,
 	PseuplexPluginClass,
-	PseuplexReadOnlyResponseFilters
+	PseuplexReadOnlyResponseFilters,
+	PseuplexRouterApp,
 } from '../../pseuplex';
 //import { TemplateMetadataProvider } from './metadata'; // uncomment if defining a custom metadata provider
 import { TemplatePluginConfig } from './config';
@@ -52,7 +51,7 @@ export default (class TemplatePlugin implements TemplatePluginDef, PseuplexPlugi
 		// TODO define any functions to modify plex server responses
 	}
 
-	defineRoutes(router: express.Express) {
+	defineRoutes(router: PseuplexRouterApp) {
 		// TODO define any custom routes
 	}
 

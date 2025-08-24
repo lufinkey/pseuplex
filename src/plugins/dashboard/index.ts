@@ -1,5 +1,4 @@
 import crypto from 'crypto';
-import express from 'express';
 import * as plexTypes from '../../plex/types';
 import { IncomingPlexAPIRequest } from '../../plex/requesthandling';
 import {
@@ -8,6 +7,7 @@ import {
 	PseuplexPluginClass,
 	PseuplexReadOnlyResponseFilters,
 	PseuplexRequestContext,
+	PseuplexRouterApp,
 	PseuplexSection
 } from '../../pseuplex';
 import { DashboardHubConfig, DashboardPluginConfig } from './config';
@@ -44,7 +44,7 @@ export default (class DashboardPlugin implements DashboardPluginDef, PseuplexPlu
 		//
 	}
 
-	defineRoutes(router: express.Express) {
+	defineRoutes(router: PseuplexRouterApp) {
 		router.get(this.section.path, [
 			this.app.middlewares.plexAuthentication(),
 			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res) => {

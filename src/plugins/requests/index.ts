@@ -17,7 +17,8 @@ import {
 	PseuplexPluginClass,
 	PseuplexReadOnlyResponseFilters,
 	PseuplexRequestContext,
-	PseuplexResponseFilterContext
+	PseuplexResponseFilterContext,
+	PseuplexRouterApp
 } from '../../pseuplex';
 import * as extPlexTransform from '../../pseuplex/externalplex/transform';
 import {
@@ -214,7 +215,7 @@ export default (class RequestsPlugin implements RequestsPluginDef, PseuplexPlugi
 		},
 	}
 
-	defineRoutes(router: express.Express) {
+	defineRoutes(router: PseuplexRouterApp) {
 		// handle different paths for a plex request
 		for(const endpoint of [
 			`${this.requestsHandler.basePath}/:providerSlug/:mediaType/:plexId`,

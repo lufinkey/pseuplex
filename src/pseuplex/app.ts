@@ -127,6 +127,7 @@ import type { WebSocketEventMap } from '../utils/websocket';
 import { applyOverlayToImage, getResizedImageFromFile } from '../utils/images';
 import { getModuleRootPath } from '../utils/compat';
 import { TLSCertificateOptions } from '../utils/ssl';
+import { pseuplexRouterApp, UpgradeRequest, UpgradeResponse } from './router';
 
 
 // plugins
@@ -477,7 +478,7 @@ export class PseuplexApp {
 		}
 
 		// create router and define routes
-		const router = express();
+		const router = pseuplexRouterApp(express());
 		router.set('etag', false);
 
 		// log request if needed
@@ -1099,7 +1100,7 @@ export class PseuplexApp {
 
 		router.get('/photo/\\:/transcode', [
 			this.middlewares.plexAuthentication(),
-			asyncRequestHandler(async (req: IncomingPlexAPIRequest, res) => {
+			asyncRequestHandler(async (req: IncomingPlexAPIRequest, res: express.Response) => {
 				try {
 					const urlParts = parseURLPath(req.url);
 					let photoUrl = urlParts.queryItems?.['url'];
@@ -1164,7 +1165,7 @@ export class PseuplexApp {
 			this.overlayedImageEndpoint = `/${this.slug}/image/withoverlay`;
 			router.get(this.overlayedImageEndpoint, [
 				this.middlewares.plexAuthentication(),
-				asyncRequestHandler(async (req, res) => {
+				asyncRequestHandler(async (req: express.Request, res: express.Response) => {
 					await this._handleOverlayedImageRequest(req, res);
 					this.logger?.logIncomingUserRequestResponse(req, res, undefined);
 					return true;
@@ -1276,11 +1277,11 @@ export class PseuplexApp {
 			}
 		}
 		console.assert(servers.length > 0, "No servers were created");
-		
-		for(const server of servers) {
-			// handle upgrade to socket
-			server.on('upgrade', (req, socket, head) => {
-				this.logger?.logIncomingUserUpgradeRequest(req);
+
+		router.upgradeRouter.use([
+			// add socket to list
+			asyncRequestHandler((req: UpgradeRequest, res: UpgradeResponse) => {
+				const { socket } = res;
 				// socket endpoints seem to only get passed the token
 				const plexToken = plexTypes.parsePlexTokenFromRequest(req);
 				if(plexToken) {
@@ -1293,7 +1294,7 @@ export class PseuplexApp {
 					}
 					const socketInfo: PseuplexPossiblyConfirmedClientWebSocketInfo = {
 						endpoint,
-						socket,
+						socket: res.socket,
 						proxySocket: undefined,
 					};
 					if(sockets) {
@@ -1330,10 +1331,28 @@ export class PseuplexApp {
 						this.logger?.logIncomingWebsocketClosed(req);
 					});
 				}
-				plexGeneralProxy.ws(req, socket, head);
+				return false;
+			})
+		]);
+		
+		for(const server of servers) {
+			// handle upgrade to socket
+			server.on('upgrade', (req, socket, head) => {
+				this.logger?.logIncomingUserUpgradeRequest(req);
+				
+				router.upgradeRouter(req as express.Request, {socket, head, locals:Object.create(null)}, (error) => {
+					if(error != null) {
+						console.error(`Error while handling upgrade request:`);
+						console.error(error);
+						socket.destroy();
+						req.destroy();
+						return;
+					}
+					plexGeneralProxy.ws(req, socket, head);
+				});
 			});
 		}
-
+		
 		// set servers
 		this.httpServer = httpServer;
 		this.httpsServer = httpsServer;

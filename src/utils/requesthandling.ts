@@ -2,13 +2,18 @@ import http from 'http';
 import express from 'express';
 import { HttpError, HttpResponseError } from './error';
 
-export const asyncRequestHandler = <TRequest extends express.Request = express.Request>(
-	handler: (req: TRequest, res: express.Response) => Promise<boolean>
+export const asyncRequestHandler = <TRequest = express.Request, TResponse = express.Response>(
+	handler: (req: TRequest, res: TResponse) => boolean | Promise<boolean>
 ) => {
-	return async (req: TRequest, res: express.Response, next: (error?: Error) => void) => {
+	return async (req: TRequest, res: TResponse, next: (error?: Error) => void) => {
 		let done: boolean;
 		try {
-			done = await handler(req,res);
+			const donePromise = handler(req,res);
+			if(donePromise instanceof Promise) {
+				done = await donePromise;
+			} else {
+				done = donePromise;
+			}
 		} catch(error) {
 			next(error);
 			return;

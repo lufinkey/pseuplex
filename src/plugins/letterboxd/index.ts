@@ -1,5 +1,4 @@
 import qs from 'querystring';
-import express from 'express';
 import * as letterboxd from 'letterboxd-retriever';
 import * as plexTypes from '../../plex/types';
 import {
@@ -28,6 +27,7 @@ import {
 	getPlexRelatedHubsEndpoints,
 	PseuplexMetadataRelatedHubsResponseFilterContext,
 	PseuplexMetadataItem,
+	PseuplexRouterApp,
 } from '../../pseuplex';
 import { LetterboxdPluginConfig } from './config';
 import {
@@ -242,7 +242,7 @@ export default (class LetterboxdPlugin implements LetterboxdPluginDef, PseuplexP
 		},
 	}
 
-	defineRoutes(router: express.Express) {
+	defineRoutes(router: PseuplexRouterApp) {
 		// get metadata item(s)
 		router.get(`${this.metadata.basePath}/:id`, [
 			this.app.middlewares.plexAuthentication(),

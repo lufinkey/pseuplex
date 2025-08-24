@@ -14,6 +14,7 @@ import {
 	PseuplexPluginClass,
 	PseuplexReadOnlyResponseFilters,
 	PseuplexRelatedHubsSource,
+	PseuplexRouterApp,
 	parseMetadataID,
 	parseMetadataIdFromPathParam,
 	parseMetadataIdsFromPathParam,
@@ -104,7 +105,7 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 		// TODO define any functions to modify plex server responses
 	}
 	
-	defineRoutes(router: express.Express) {
+	defineRoutes(router: PseuplexRouterApp) {
 		
 		// define unauthenticated router
 		const unauthRouter = express.Router();
