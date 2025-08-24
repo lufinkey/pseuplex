@@ -1199,7 +1199,7 @@ export class PseuplexApp {
 			}
 			// remove subscriber when response ends
 			let done = false;
-			const onResponseDone = () => {
+			const onDone = () => {
 				if(done) {
 					return;
 				}
@@ -1215,8 +1215,9 @@ export class PseuplexApp {
 					console.error(`Couldn't find notification eventsource subscriber to remove`);
 				}
 			};
-			userRes.once('finish', onResponseDone);
-			userRes.once('close', onResponseDone);
+			userReq.once('close', onDone);
+			userRes.once('finish', onDone);
+			userRes.once('close', onDone);
 		};
 		// proxy SSE events
 		const plexSSEProxy = plexHttpProxy(this.plexServerHost, plexProxyOpts, {

@@ -62,6 +62,7 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 	readonly autoWhitelistedNetmasks?: IPCIDR[];
 
 	readonly notificationWebsocketServer: ws.Server<(typeof ws.WebSocket) & PlexClientWebsocketMixin>;
+	readonly notificationEventsourceSubscribers: Set<{req: IncomingPlexAPIRequest, res: express.Response}> = new Set();
 	
 	constructor(app: PseuplexApp) {
 		this.app = app;
@@ -495,6 +496,33 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 				return false;
 			}),
 		]);
+
+		unauthRouter.get('/\\:/eventsource/notifications', [
+			asyncRequestHandler(async (req, res) => {
+				// add subscriber to set
+				const subscriber = {req,res};
+				this.notificationEventsourceSubscribers.add(subscriber);
+				let done = false;
+				const onDone = () => {
+					if(done) {
+						return;
+					}
+					done = true;
+					this.notificationEventsourceSubscribers.delete(subscriber);
+				};
+				req.once('close', onDone);
+				res.once('finish', onDone);
+				res.once('close', onDone);
+				// set response headers
+				res.set({
+					'Content-Type': 'text/event-stream',
+					'Cache-Control': 'no-cache',
+					'Connection': 'keep-alive'
+				});
+				res.flushHeaders();
+				return true;
+			}),
+		]);
 		
 		unauthRouter.use((req, res, next) => {
 			// all other requests should return a 403
@@ -641,6 +669,14 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 			const cmpPlexToken = client.plex.authContext['X-Plex-Token'];
 			if(plexToken == cmpPlexToken && remoteAddress == client.remoteAddress) {
 				client.close();
+			}
+		}
+		// disconnect any unauthed eventsource subscribers
+		for(const subscriber of this.notificationEventsourceSubscribers) {
+			const cmpPlexToken = subscriber.req.plex.authContext['X-Plex-Token'];
+			const cmpRemoteAddress = remoteAddressOfRequest(subscriber.req);
+			if(plexToken == cmpPlexToken && remoteAddress == cmpRemoteAddress) {
+				subscriber.res.end();
 			}
 		}
 	}
