@@ -1,4 +1,5 @@
 import http from 'http';
+import stream from 'stream';
 import express from 'express';
 import type { PlexServerAccountInfo } from './plex/accounts';
 import { PlexNotificationSender, PlexNotificationSenderTypeToName } from './plex/notifications';
@@ -299,19 +300,24 @@ export class Logger {
 		return true;
 	}
 
-	logIncomingUserUpgradeRequest(userReq: http.IncomingMessage): boolean {
+	logIncomingUserUpgradeRequest(req: http.IncomingMessage, socket: stream, head: Buffer): boolean {
 		if(!(this.options.logUserRequests || this.options.logWebsocketConnections)) {
 			return false;
 		}
-		console.log(`\n\x1b[104mupgrade ws ${userReq.url}\x1b[0m`);
+		console.log(`\n\x1b[104mupgrade ${req.headers['upgrade'] ?? ''} ${req.method ?? ''} ${req.url}\x1b[0m`);
 		if(this.options.logUserRequestHeaders) {
-			const reqHeaderList = userReq.rawHeaders;
+			const reqHeaderList = req.rawHeaders;
 			for(let i=0; i<reqHeaderList.length; i++) {
 				const headerKey = reqHeaderList[i];
 				i++;
 				const headerVal = reqHeaderList[i];
 				console.log(`\t${headerKey}: ${headerVal}`);
 			}
+		}
+		if(req.headers['upgrade']?.toLowerCase().trim() == 'websocket') {
+			socket.once('close', () => {
+				this.logIncomingWebsocketClosed(req);
+			})
 		}
 		return true;
 	}

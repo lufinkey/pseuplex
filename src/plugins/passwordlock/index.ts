@@ -1,11 +1,14 @@
+import http from 'http';
 import crypto from 'crypto';
 import express from 'express';
 import IPCIDR from 'ip-cidr';
+import ws from 'ws';
 import * as plexTypes from '../../plex/types';
 import {
 	authenticatePlexRequest,
-	doesRequestIncludeFirstPinnedContentDirectory,
-	IncomingPlexAPIRequest
+	IncomingPlexAPIRequest,
+	IncomingPlexAPIRequestMixin,
+	PlexRequestInfo
 } from '../../plex/requesthandling';
 import {
 	PseuplexApp,
@@ -15,6 +18,9 @@ import {
 	PseuplexReadOnlyResponseFilters,
 	PseuplexRelatedHubsSource,
 	PseuplexRouterApp,
+	UpgradeRequest,
+	UpgradeResponse,
+	createUpgradeRouter,
 	parseMetadataID,
 	parseMetadataIdFromPathParam,
 	parseMetadataIdsFromPathParam,
@@ -40,6 +46,10 @@ const passthroughVideoTranscodeMethods = ['GET','OPTIONS','HEAD'];
 const lockInstructionsThumbFilepath = `${getModuleRootPath()}/images/lockedSectionInstructions.png`;
 const SectionTitle = "Login";
 
+type PlexClientWebsocket = ws.WebSocket & {
+	plex: PlexRequestInfo
+};
+
 export default (class PasswordLockPlugin implements PasswordLockPluginDef, PseuplexPlugin {
 	static slug = 'passwordlock';
 	readonly slug = PasswordLockPlugin.slug;
@@ -48,6 +58,8 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 	readonly section: PasswordLockSection;
 	readonly authCache: PasswordLockAuthenticationCache;
 	readonly autoWhitelistedNetmasks?: IPCIDR[];
+
+	readonly notificationWebsocketServer: ws.Server;
 	
 	constructor(app: PseuplexApp) {
 		this.app = app;
@@ -72,12 +84,25 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 			? autoWhitelistedNetmaskString.split(',').map((maskString) => new IPCIDR(maskString))
 			: undefined;
 		
+		this.notificationWebsocketServer = new ws.Server({
+			noServer: true,
+		});
+		this.notificationWebsocketServer.on('connection', (client, req) => {
+			client.on('error', (error) => {
+				console.error(`Websocket client error:`);
+				console.error(error);
+			});
+			client.on('close', (code, reason) => {
+				console.log(`Client websocket closed: ${code} ${reason?.toString('utf8')}`);
+			});
+		});
+		
 		this.metadata = new PasswordLockMetadataProvider({
 			lockInstructionsThumbEndpoint: `${this.basePath}/images/thumb/instructions`,
 			loginSuccessEndpoint: `${this.basePath}/${PasswordLockMetadataID.LoginSuccess}`,
 			lockInstructionsItemTitle: this.config.passwordLock?.instructionsItemTitle,
 			lockInstructionsItemSummary: this.config.passwordLock?.instructionsItemSummary,
-			loginSuccessItemUUID: this.config.passwordLock?.loginSuccessItemUUID ?? "47ebccd2-3324-4ad6-8497-5e478e0641ef"
+			loginSuccessItemUUID: this.config.passwordLock?.loginSuccessItemUUID ?? crypto.randomUUID(),
 		});
 
 		this.section = new PasswordLockSection(this, {
@@ -108,7 +133,12 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 	defineRoutes(router: PseuplexRouterApp) {
 		
 		// define unauthenticated router
-		const unauthRouter = express.Router();
+		const unauthRouterOptions: express.RouterOptions = {
+			caseSensitive: router.enabled('case sensitive routing'),
+			strict: router.enabled('strict routing'),
+		};
+		const unauthRouter = express.Router(unauthRouterOptions);
+		const unauthUpgradeRouter = createUpgradeRouter(unauthRouterOptions);
 
 		unauthRouter.get('/', [
 			this.app.middlewares.plexProxy(),
@@ -483,6 +513,56 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 			// all other requests should return a 403
 			next(httpError(403, "Library is locked"));
 		});
+
+		unauthUpgradeRouter.get('/\\:/websockets/notifications', [
+			asyncRequestHandler(async (req: UpgradeRequest & IncomingPlexAPIRequestMixin, res: UpgradeResponse) => {
+				if(req.headers['upgrade']?.toLowerCase().trim() != 'websocket') {
+					// continue
+					return false;
+				}
+				const { socket, head } = res;
+				this.notificationWebsocketServer.handleUpgrade(req, socket, head, (client: PlexClientWebsocket, req: UpgradeRequest & IncomingPlexAPIRequestMixin) => {
+					client.plex = req.plex;
+					this.notificationWebsocketServer.emit('connection', client, req);
+				});
+				// handled
+				return true;
+			}),
+		]);
+
+		unauthUpgradeRouter.use((req: UpgradeRequest, res: UpgradeResponse, next) => {
+			req.destroy();
+			res.socket.destroy();
+		});
+
+		router.upgradeRouter.use([
+			async (req, res, next) => {
+				// check if password lock is enabled
+				if(!this.config?.passwordLock?.enabled) {
+					// continue
+					next();
+					return;
+				}
+				// authenticate the request
+				let allowedAccess: boolean;
+				try {
+					// authenticate request as plex user
+					await authenticatePlexRequest(req, this.app.plexServerAccounts);
+					// validate that we're allowed to continue
+					allowedAccess = await this.isUserAllowedAccess(req);
+				} catch(error) {
+					next(error);
+					return;
+				}
+				// continue if allowed access
+				if(allowedAccess) {
+					next();
+					return;
+				}
+				// forward to unauthed router
+				unauthUpgradeRouter(req, res, next);
+			},
+		]);
 		
 		// catch and authenticate all api requests
 		router.use([
@@ -528,7 +608,7 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 		]);
 	}
 	
-	async isUserAllowedAccess(req: IncomingPlexAPIRequest): Promise<boolean> {
+	async isUserAllowedAccess(req: (http.IncomingMessage & IncomingPlexAPIRequestMixin)): Promise<boolean> {
 		// check if source IP is confirmed
 		await this.authCache.waitForLoad();
 		const remoteAddress = remoteAddressOfRequest(req);

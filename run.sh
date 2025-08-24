@@ -9,4 +9,4 @@ npm run build || exit $?
 
 # run the app
 export NODE_ENV=production
-npm start -- --config=config/config.json || exit $?
+npm start -- --config=config/config.json --verbose-ws-traffic || exit $?

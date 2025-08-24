@@ -1,4 +1,4 @@
-
+import http from 'http';
 import express from 'express';
 import * as plexTypes from './types';
 import {
@@ -94,21 +94,25 @@ export const handlePlexAPIRequest = async <TResult>(req: express.Request, res: e
 	options?.logger?.logIncomingUserRequestResponse(req, res, serializedRes.dataString);
 };
 
-export type IncomingPlexAPIRequest = express.Request & {
-	plex: {
-		authContext: plexTypes.PlexAuthContext;
-		userInfo: PlexServerAccountInfo;
-		requestParams: {[key: string]: any}
-	}
+export type PlexRequestInfo = {
+	authContext: plexTypes.PlexAuthContext;
+	userInfo: PlexServerAccountInfo;
+	requestParams: {[key: string]: any}
 };
 
-export const authenticatePlexRequest = async (req: express.Request, accountsStore: PlexServerAccountsStore) => {
+export type IncomingPlexAPIRequestMixin = {
+	plex: PlexRequestInfo;
+};
+
+export type IncomingPlexAPIRequest = express.Request & IncomingPlexAPIRequestMixin;
+
+export const authenticatePlexRequest = async <TRequest extends http.IncomingMessage,TResponse>(req: TRequest, accountsStore: PlexServerAccountsStore) => {
 	const authContext = plexTypes.parseAuthContextFromRequest(req);
 	const userInfo = await accountsStore.getUserInfoOrNull(authContext);
 	if(!userInfo) {
 		throw httpError(401, "Not Authorized");
 	}
-	const plexReq = req as IncomingPlexAPIRequest;
+	const plexReq = req as any as IncomingPlexAPIRequestMixin;
 	plexReq.plex = {
 		authContext,
 		userInfo,
@@ -116,9 +120,10 @@ export const authenticatePlexRequest = async (req: express.Request, accountsStor
 	};
 };
 
-export const createPlexAuthenticationMiddleware = (accountsStore: PlexServerAccountsStore) => {
-	return asyncRequestHandler(async (req: express.Request, res: express.Response) => {
-		if((req as IncomingPlexAPIRequest).plex && (req as IncomingPlexAPIRequest).plex.authContext['X-Plex-Token'] == plexTypes.parsePlexTokenFromRequest(req)) {
+export const createPlexAuthenticationMiddleware = <TRequest extends http.IncomingMessage,TResponse>(accountsStore: PlexServerAccountsStore) => {
+	return asyncRequestHandler(async (req: TRequest, res: TResponse) => {
+		const plexReq = (req as any as IncomingPlexAPIRequestMixin);
+		if(plexReq.plex && plexReq.plex.authContext['X-Plex-Token'] == plexTypes.parsePlexTokenFromRequest(req)) {
 			return false;
 		}
 		await authenticatePlexRequest(req, accountsStore);

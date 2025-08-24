@@ -1,10 +1,11 @@
+import http from 'http';
 import stream from 'stream';
 import express from 'express';
 import Router from 'router';
 import Layer from 'router/lib/layer';
 import debug from 'debug';
 
-export type UpgradeRequest = express.Request;
+export type UpgradeRequest = http.IncomingMessage;
 
 export type UpgradeResponse = {
 	head: Buffer;
@@ -49,25 +50,25 @@ function RouteWithUpgrade_upgrade(this: RouteWithUpgrade, handler: UpgradeReques
 
 
 
-export type UpgradeRequestRouter = ((req: UpgradeRequest, res: UpgradeResponse, next: (error?: Error) => void) => void) & express.Router & {
+export type UpgradeRequestRouter = ((req: UpgradeRequest, res: UpgradeResponse, next: (error?: Error) => void) => void) & {
+	route: (path: string) => RouteWithUpgrade;
 	use: ((path: string, handler: UpgradeRequestHandlerParams) => UpgradeRequestRouter)
 		& ((handler: UpgradeRequestHandlerParams) => UpgradeRequestRouter);
-	upgrade: (path: string, handler: UpgradeRequestHandlerParams) => UpgradeRequestRouter;
+	get: (path: string, handler: UpgradeRequestHandlerParams) => UpgradeRequestRouter;
+	post: (path: string, handler: UpgradeRequestHandlerParams) => UpgradeRequestRouter;
+	put: (path: string, handler: UpgradeRequestHandlerParams) => UpgradeRequestRouter;
+	patch: (path: string, handler: UpgradeRequestHandlerParams) => UpgradeRequestRouter;
+	delete: (path: string, handler: UpgradeRequestHandlerParams) => UpgradeRequestRouter;
 };
 
 export function UpgradeRouter_upgrade(this: UpgradeRequestRouter, path: string, handler: UpgradeRequestHandlerParams) {
-	const route = this.route(path) as RouteWithUpgrade;
-	if(!route.upgrade) {
-		route.upgrade = RouteWithUpgrade_upgrade;
-	}
+	const route = this.route(path);
     route.upgrade(handler);
     return this;
-}
+};
 
 export const createUpgradeRouter = (options: express.RouterOptions) => {
-	const router = new Router(options) as UpgradeRequestRouter;
-	router.upgrade = UpgradeRouter_upgrade;
-	return router;
+	return new Router(options) as UpgradeRequestRouter;
 };
 
 
@@ -75,11 +76,6 @@ export const createUpgradeRouter = (options: express.RouterOptions) => {
 export type PseuplexRouterApp = express.Express & {
 	upgradeRouter: UpgradeRequestRouter;
 	upgrade: (path: string, handler: UpgradeRequestHandlerParams) => void;
-};
-
-function PseuplexApp_upgrade(this: PseuplexRouterApp, path: string, handler: UpgradeRequestHandlerParams) {
-	this.upgradeRouter.upgrade(path, handler);
-	return this;
 };
 
 export const pseuplexRouterApp = (app: express.Express): PseuplexRouterApp => {
@@ -98,6 +94,5 @@ export const pseuplexRouterApp = (app: express.Express): PseuplexRouterApp => {
 			return upgradeRouter;
 		}
 	});
-	pseuApp.upgrade = PseuplexApp_upgrade;
 	return pseuApp;
 };

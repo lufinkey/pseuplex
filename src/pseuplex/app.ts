@@ -31,6 +31,7 @@ import {
 	createPlexAuthenticationMiddleware,
 	handlePlexAPIRequest,
 	IncomingPlexAPIRequest,
+	IncomingPlexAPIRequestMixin,
 	PlexAPIRequestHandler,
 	PlexAPIRequestHandlerOptions,
 	PlexAuthedRequestHandler
@@ -253,7 +254,7 @@ export class PseuplexApp {
 	private _plexServerNotificationsSocketRetryTimeout?: NodeJS.Timeout | undefined;
 	
 	readonly middlewares: {
-		plexAuthentication: (alwaysCheck?: boolean) => express.RequestHandler;
+		plexAuthentication: <TRequest extends http.IncomingMessage,TResponse>(alwaysCheck?: boolean) => ((req: TRequest, res: TResponse, next: (error?: Error) => void) => void);
 		plexServerOwnerOnly: PlexAuthedRequestHandler;
 		plexAPIRequestHandler: <TResult>(handler: PlexAPIRequestHandler<TResult>) => express.RequestHandler;
 		plexAPIProxy: (filters: PlexAPIProxyFilters) => express.RequestHandler;
@@ -346,16 +347,16 @@ export class PseuplexApp {
 		}
 		const plexAuthMiddleware = createPlexAuthenticationMiddleware(this.plexServerAccounts);
 		this.middlewares = {
-			plexAuthentication: (alwaysCheck?: boolean): express.RequestHandler => {
-				return (req: IncomingPlexAPIRequest, res, next) => {
-					if(req.plex) {
+			plexAuthentication: (alwaysCheck?: boolean) => {
+				return (req, res, next) => {
+					if((req as any as IncomingPlexAPIRequestMixin).plex) {
 						if(!alwaysCheck) {
 							// already authenticated
 							next();
 							return;
 						}
 					}
-					return plexAuthMiddleware(req, res, next);
+					plexAuthMiddleware(req, res, next);
 				};
 			},
 			plexServerOwnerOnly: (req: IncomingPlexAPIRequest, res, next) => {
@@ -486,6 +487,14 @@ export class PseuplexApp {
 			this.logger?.logIncomingUserRequest(req);
 			next();
 		});
+
+		router.use('/\\:/websockets/notifications', [
+			asyncRequestHandler((req, res) => {
+				console.log('we got da websocket:');
+				console.dir(req);
+				return false;
+			}),
+		]);
 		
 		// handle remapping public to private metadata IDs, if enabled
 		if(this.metadataIdMappings) {
@@ -1281,6 +1290,10 @@ export class PseuplexApp {
 		router.upgradeRouter.use([
 			// add socket to list
 			asyncRequestHandler((req: UpgradeRequest, res: UpgradeResponse) => {
+				// only handle if upgrading to websocket
+				if(req.headers['upgrade']?.toLowerCase().trim() != 'websocket') {
+					return false;
+				}
 				const { socket } = res;
 				// socket endpoints seem to only get passed the token
 				const plexToken = plexTypes.parsePlexTokenFromRequest(req);
@@ -1328,27 +1341,35 @@ export class PseuplexApp {
 						} else {
 							console.error(`Couldn't find socket to remove for ${req.url}`);
 						}
-						this.logger?.logIncomingWebsocketClosed(req);
 					});
 				}
 				return false;
-			})
+			}),
 		]);
 		
 		for(const server of servers) {
 			// handle upgrade to socket
 			server.on('upgrade', (req, socket, head) => {
-				this.logger?.logIncomingUserUpgradeRequest(req);
-				
+				this.logger?.logIncomingUserUpgradeRequest(req, socket, head);
+				// send to upgrade middleware
 				router.upgradeRouter(req as express.Request, {socket, head, locals:Object.create(null)}, (error) => {
+					// handle error if any
 					if(error != null) {
 						console.error(`Error while handling upgrade request:`);
 						console.error(error);
-						socket.destroy();
 						req.destroy();
+						socket.destroy();
 						return;
 					}
-					plexGeneralProxy.ws(req, socket, head);
+					// handle type of upgrade
+					if(req.headers['upgrade']?.toLowerCase().trim() == 'websocket') {
+						// proxy websocket
+						plexGeneralProxy.ws(req, socket, head);
+					} else {
+						// destroy other type of socket
+						req.destroy();
+						socket.destroy();
+					}
 				});
 			});
 		}

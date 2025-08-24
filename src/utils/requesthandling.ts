@@ -2,7 +2,7 @@ import http from 'http';
 import express from 'express';
 import { HttpError, HttpResponseError } from './error';
 
-export const asyncRequestHandler = <TRequest = express.Request, TResponse = express.Response>(
+export const asyncRequestHandler = <TRequest extends http.IncomingMessage = express.Request, TResponse = express.Response>(
 	handler: (req: TRequest, res: TResponse) => boolean | Promise<boolean>
 ) => {
 	return async (req: TRequest, res: TResponse, next: (error?: Error) => void) => {
