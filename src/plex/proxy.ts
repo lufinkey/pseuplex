@@ -48,7 +48,7 @@ type XForwardedHeaders = {
 	'X-Real-IP': string | undefined,
 };
 
-const xForwardedHeaders = (req: express.Request, options: {ipv4Mode: IPv4NormalizeMode, trustProxy: boolean}): XForwardedHeaders => {
+const xForwardedHeaders = (req: http.IncomingMessage, options: {ipv4Mode: IPv4NormalizeMode, trustProxy: boolean}): XForwardedHeaders => {
 	const headers: Partial<XForwardedHeaders> = {};
 	const encrypted = requestIsEncrypted(req);
 	const remoteAddress = remoteAddressOfRequest(req);
@@ -362,6 +362,7 @@ export const plexHttpProxy = (serverURL: string, options: PlexProxyOptions, even
 		//autoRewrite: true,
 	});
 	const shouldHandleProxyResponse = (events?.onProxyResponse || options.logger?.options.logProxyResponses || options.logger?.options.logUserResponses || options.logger?.options.logProxyErrorResponseBody);
+	// handle proxy request
 	plexGeneralProxy.on('proxyReq', (proxyReq, userReq: express.Request, userRes: express.Response) => {
 		const ipv4Mode = ((options.ipv4Mode instanceof Function) ? options.ipv4Mode() : options.ipv4Mode)
 			?? IPv4NormalizeMode.DontChange;
@@ -384,6 +385,26 @@ export const plexHttpProxy = (serverURL: string, options: PlexProxyOptions, even
 			(userRes as ProxyingUserResponse).___proxyReq = proxyReq;
 		}
 	});
+	// handle websocket proxy request
+	plexGeneralProxy.on('proxyReqWs', (proxyReq, userReq, socket, reqOpts, head) => {
+		const ipv4Mode = ((options.ipv4Mode instanceof Function) ? options.ipv4Mode() : options.ipv4Mode)
+			?? IPv4NormalizeMode.DontChange;
+		// add x-forwarded headers
+		const xFwdHeaders = xForwardedHeaders(userReq, {
+			ipv4Mode,
+			trustProxy:options.trustProxy
+		});
+		for(const headerName of Object.keys(xFwdHeaders)) {
+			proxyReq.removeHeader(headerName);
+			proxyReq.removeHeader(headerName.toLowerCase());
+			const headerVal = xFwdHeaders[headerName];
+			if(headerVal) {
+				proxyReq.setHeader(headerName, headerVal);
+			}
+		}
+		// TODO log proxied websocket request if needed?
+	});
+	// handle proxy response if needed
 	if(shouldHandleProxyResponse) {
 		plexGeneralProxy.on('proxyRes', (proxyRes, userReq: express.Request, userRes: express.Response) => {
 			const encoding = proxyRes.headers['content-encoding'];
