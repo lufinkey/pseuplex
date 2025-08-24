@@ -17,6 +17,7 @@ import {
 	PseuplexPluginClass,
 	PseuplexReadOnlyResponseFilters,
 	PseuplexRelatedHubsSource,
+	PseuplexRequestContext,
 	PseuplexRouterApp,
 	UpgradeRequest,
 	UpgradeResponse,
@@ -358,54 +359,42 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 		unauthRouter.post('/playlists', [
 			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexPlaylistsPage> => {
 				const context = this.app.contextForRequest(req);
+				// get the uri of the metadata being added
 				const metadataItemURIString = req.query['uri'];
 				if(metadataItemURIString && (typeof metadataItemURIString === 'string')) {
+					// split the item into parts
 					const metadataItemURIParts = plexTypes.parsePlexServerItemURI(metadataItemURIString);
+					// validate that the item is for this server
 					const plexServerIdentifier = await this.app.plexServerProperties.getMachineIdentifier();
 					if(metadataItemURIParts.path && (metadataItemURIParts.machineIdentifier == plexServerIdentifier || metadataItemURIParts.machineIdentifier == "x")) {
+						// get the key of the item
 						const metadataKeyParts = parseMetadataIDFromKey(metadataItemURIParts.path, '/library/metadata');
 						if(metadataKeyParts) {
+							// split the item key into parts
 							const metadataIdParts = parseMetadataID(metadataKeyParts.id);
 							if(metadataIdParts.source == this.metadata.sourceSlug) {
+								// check the type of item
 								if(!metadataIdParts.directory && metadataIdParts.id == PasswordLockMetadataID.Instructions) {
-									const inputPassword = req.query['title'];
-									const password = this.config.perUser?.[req.plex.userInfo.email]?.passwordLock?.password
-										?? this.config.passwordLock?.password
-										?? "";
-									if(password == inputPassword) {
-										// success
-										// whitelist the IP
-										const plexToken = req.plex.authContext['X-Plex-Token']!;
-										const remoteAddress = remoteAddressOfRequest(req);
-										if(!remoteAddress) {
-											throw httpError(400, "No remote address for some reason");
-										}
-										this.authCache.whitelistIPForPlexToken(plexToken, remoteAddress);
-										if(!this.authCache.isSaveQueued) {
-											this.authCache.save().catch((error) => {
-												console.error("Error saving auth cache:");
-												console.error(error);
-											});
-										}
-										// return successfully
-										const successItem = firstOrSingle((await this.metadata.get([PasswordLockMetadataID.LoginSuccess], {
-											context,
-											includeUnmatched: true,
-											includeMetadataUnavailability: true,
-										})).MediaContainer.Metadata);
-										return {
-											MediaContainer: {
-												size: 1,
-												Metadata: [
-													successItem as any as plexTypes.PlexPlaylist
-												]
-											}
-										};
-									} else {
-										// failure, delay atleast 5 seconds to prevent brute force
-										await delay(6000);
-										throw httpError(401, "Wrong password");
+									// item is the instructions item, so treat this as password input
+									let inputPassword = req.query['title'] || "";
+									if(typeof inputPassword !== 'string') {
+										throw httpError(400, "Invalid input password");
 									}
+									await this.login(req, inputPassword);
+									// return successfully
+									const successItem = firstOrSingle((await this.metadata.get([PasswordLockMetadataID.LoginSuccess], {
+										context,
+										includeUnmatched: true,
+										includeMetadataUnavailability: true,
+									})).MediaContainer.Metadata);
+									return {
+										MediaContainer: {
+											size: 1,
+											Metadata: [
+												successItem as any as plexTypes.PlexPlaylist
+											]
+										}
+									};
 								}
 							}
 						}
@@ -622,6 +611,31 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 		}
 		const plexToken = req.plex.authContext['X-Plex-Token']!;
 		return this.authCache.isIPWhitelistedForToken(plexToken, remoteAddress);
+	}
+
+	async login(req: IncomingPlexAPIRequest, inputPassword: string) {
+		const password = this.config.perUser?.[req.plex.userInfo.email]?.passwordLock?.password
+			?? this.config.passwordLock?.password
+			?? "";
+		if(password != inputPassword) {
+			// failure, delay atleast 5 seconds to prevent brute force
+			await delay(6000);
+			throw httpError(401, "Wrong password");
+		}
+		// success
+		// whitelist the IP
+		const plexToken = req.plex.authContext['X-Plex-Token']!;
+		const remoteAddress = remoteAddressOfRequest(req);
+		if(!remoteAddress) {
+			throw httpError(400, "No remote address for some reason");
+		}
+		this.authCache.whitelistIPForPlexToken(plexToken, remoteAddress);
+		if(!this.authCache.isSaveQueued) {
+			this.authCache.save().catch((error) => {
+				console.error("Error saving auth cache:");
+				console.error(error);
+			});
+		}
 	}
 	
 } satisfies PseuplexPluginClass);
