@@ -206,11 +206,11 @@ export class PlexRequestsHandler implements PseuplexMetadataProvider {
 			librarySectionKey: `/library/sections/${librarySectionID}`,
 			childCount: (options.mediaType == plexTypes.PlexMediaItemTypeNumeric.Show) ? 0 : undefined, //metadataItem.childCount,
 			Media: [{
-				id: 1,
+				id: 99999999999,
 				videoResolution: requestActionTitle,
 				Part: [
 					{
-						id: 1
+						id: 99999999998,
 					}
 				]
 			}]

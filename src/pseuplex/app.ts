@@ -983,6 +983,7 @@ export class PseuplexApp {
 
 		router.get(`/library/all`, [
 			this.middlewares.plexAuthentication(),
+			// filter requests that are asking for a specific guid
 			this.middlewares.plexAPIProxy({
 				filter: (req, res) => {
 					// only filter if guid is included

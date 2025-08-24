@@ -12,6 +12,7 @@ import {
 } from '../../plex/requesthandling';
 import {
 	PseuplexApp,
+	PseuplexMetadataPage,
 	PseuplexMetadataProvider,
 	PseuplexPlugin,
 	PseuplexPluginClass,
@@ -39,7 +40,7 @@ import { parseIntQueryParam } from '../../utils/queryparams';
 import { parseURLPath } from '../../utils/url';
 import { parseMetadataIDFromKey } from '../../plex/metadataidentifier';
 import { delay } from '../../utils/timing';
-import { firstOrSingle } from '../../utils/misc';
+import { firstOrSingle, pushToArray } from '../../utils/misc';
 
 const videoTranscodePathPrefix = '/video/:/transcode/universal/session/';
 const passthroughVideoTranscodeMethods = ['GET','OPTIONS','HEAD'];
@@ -311,6 +312,58 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 			]);
 		}
 
+		unauthRouter.get('/library/all', [
+			// filter requests that are asking for a specific guid
+			this.app.middlewares.plexAPIProxy({
+				filter: (req, res) => {
+					// only filter if guid is included
+					if(req.query['guid'] || req.query['show.guid']) {
+						return true;
+					}
+					return false
+				},
+				responseModifier: async (proxyRes, resData: plexTypes.PlexMetadataPage, userReq: IncomingPlexAPIRequest, userRes): Promise<PseuplexMetadataPage> => {
+					const context = this.app.contextForRequest(userReq);
+					// clear response data first, in case an error is thrown later
+					resData.MediaContainer.Metadata = [];
+					resData.MediaContainer.size = 0;
+					if(resData.MediaContainer.totalSize != null) {
+						resData.MediaContainer.totalSize = 0;
+					}
+					// get password metadata item
+					const unlockMetadata = firstOrSingle((await this.metadata.get([PasswordLockMetadataID.Instructions], {
+						context,
+						includeUnmatched: true,
+						includeMetadataUnavailability: true,
+					})).MediaContainer.Metadata);
+					if(unlockMetadata) {
+						// add extra fields to metadata
+						const actionTitle = "Unlock Server :";
+						unlockMetadata.title = actionTitle;
+						unlockMetadata.librarySectionTitle = actionTitle;
+						unlockMetadata.librarySectionID = this.section.id;
+						unlockMetadata.librarySectionKey = this.section.path;
+						unlockMetadata.Media = [{
+							id: 99999999999,
+							videoResolution: actionTitle,
+							Part: [
+								{
+									id: 99999999998,
+								}
+							]
+						} as plexTypes.PlexMedia];
+						// add password metadata to response
+						resData.MediaContainer.Metadata = pushToArray(resData.MediaContainer.Metadata, unlockMetadata);
+						resData.MediaContainer.size += 1;
+						if(resData.MediaContainer.totalSize != null) {
+							resData.MediaContainer.totalSize += 1;
+						}
+					}
+					return resData as PseuplexMetadataPage;
+				}
+			})
+		]);
+		
 		unauthRouter.get([ '/hubs/continueWatching', '/hubs/home/continueWatching' ], [
 			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexHubsPage> => {
 				return {

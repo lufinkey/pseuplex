@@ -137,6 +137,9 @@ export default (class RequestsPlugin implements RequestsPluginDef, PseuplexPlugi
 			}
 			resData.MediaContainer.Metadata = pushToArray(resData.MediaContainer.Metadata, metadataItem);
 			resData.MediaContainer.size += 1;
+			if(resData.MediaContainer.totalSize != null) {
+				resData.MediaContainer.totalSize += 1;
+			}
 		},
 
 		metadataChildren: async (resData, filterContext) => {
