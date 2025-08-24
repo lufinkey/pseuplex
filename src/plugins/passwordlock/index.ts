@@ -47,8 +47,9 @@ const passthroughVideoTranscodeMethods = ['GET','OPTIONS','HEAD'];
 const lockInstructionsThumbFilepath = `${getModuleRootPath()}/images/lockedSectionInstructions.png`;
 const SectionTitle = "Login";
 
-type PlexClientWebsocket = ws.WebSocket & {
-	plex: PlexRequestInfo
+type PlexClientWebsocketMixin = {
+	remoteAddress: string;
+	plex: PlexRequestInfo;
 };
 
 export default (class PasswordLockPlugin implements PasswordLockPluginDef, PseuplexPlugin {
@@ -60,7 +61,7 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 	readonly authCache: PasswordLockAuthenticationCache;
 	readonly autoWhitelistedNetmasks?: IPCIDR[];
 
-	readonly notificationWebsocketServer: ws.Server;
+	readonly notificationWebsocketServer: ws.Server<(typeof ws.WebSocket) & PlexClientWebsocketMixin>;
 	
 	constructor(app: PseuplexApp) {
 		this.app = app;
@@ -92,9 +93,6 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 			client.on('error', (error) => {
 				console.error(`Websocket client error:`);
 				console.error(error);
-			});
-			client.on('close', (code, reason) => {
-				console.log(`Client websocket closed: ${code} ${reason?.toString('utf8')}`);
 			});
 		});
 		
@@ -510,7 +508,8 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 					return false;
 				}
 				const { socket, head } = res;
-				this.notificationWebsocketServer.handleUpgrade(req, socket, head, (client: PlexClientWebsocket, req: UpgradeRequest & IncomingPlexAPIRequestMixin) => {
+				this.notificationWebsocketServer.handleUpgrade(req, socket, head, (client: (ws & PlexClientWebsocketMixin), req: UpgradeRequest & IncomingPlexAPIRequestMixin) => {
+					client.remoteAddress = remoteAddressOfRequest(req)!;
 					client.plex = req.plex;
 					this.notificationWebsocketServer.emit('connection', client, req);
 				});
@@ -635,6 +634,14 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 				console.error("Error saving auth cache:");
 				console.error(error);
 			});
+		}
+		// TODO send section change notifications to add library sections and remove login section
+		// disconnect any unauthed websockets
+		for(const client of this.notificationWebsocketServer.clients as Set<ws & PlexClientWebsocketMixin>) {
+			const cmpPlexToken = client.plex.authContext['X-Plex-Token'];
+			if(plexToken == cmpPlexToken && remoteAddress == client.remoteAddress) {
+				client.close();
+			}
 		}
 	}
 	
