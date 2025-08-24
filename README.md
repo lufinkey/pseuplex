@@ -4,7 +4,7 @@ A middleware proxy for the plex server API. This sits in between the plex client
 
 Inspired by [Replex](https://github.com/lostb1t/replex)
 
-This project is still very much a WIP. While I've tried to do my due diligence in terms of security ([middleware](src/plex/requesthandling.ts#L83) prevents unauthorized requests from tokens not listed in the shared account list), I'm really the only contributor right now. Use at your own risk.
+This project is still very much a WIP. While I've tried to do my due diligence in terms of security ([middleware](src/plex/requesthandling.ts#L123) prevents unauthorized requests from tokens not listed in the shared account list), I'm really the only contributor right now. Use at your own risk.
 
 This is an unofficial project that is **NOT** endorsed by or associated with Plexinc.
 
