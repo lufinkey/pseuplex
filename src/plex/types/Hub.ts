@@ -57,16 +57,17 @@ export type PlexHubPageParams = {
 };
 
 export const parsePlexHubPageParams = (req: express.Request, options: {fromListPage: boolean}): PlexHubPageParams => {
-	const query = req.query;
-	if(!query) {
-		return {};
+	if(options.fromListPage) {
+		const hubListParams = parsePlexHubListPageParams(req);
+		return plexHubPageParamsFromHubListParams(hubListParams);
 	}
+	const query = req.query ?? {};
 	return {
-		'X-Plex-Container-Start': options.fromListPage ? undefined : (parseIntQueryParam(query['X-Plex-Container-Start'] ?? req.header('x-plex-container-start'))),
-		'X-Plex-Container-Size': options.fromListPage ? parseIntQueryParam(query['count']) : (parseIntQueryParam(query['X-Plex-Container-Size'] ?? req.header('x-plex-container-size'))),
+		'X-Plex-Container-Start': parseIntQueryParam(query['X-Plex-Container-Start'] ?? req.header('x-plex-container-start')),
+		'X-Plex-Container-Size': parseIntQueryParam(query['X-Plex-Container-Size'] ?? req.header('x-plex-container-size')),
 		excludeFields: parseStringArrayQueryParam(query['excludeFields']),
-		includeMeta: parseBooleanQueryParam(query['includeMeta'])
-	};
+		includeMeta: parseBooleanQueryParam(query['includeMeta']),
+	} satisfies (PlexHubPageParams & Partial<PlexHubPageParams>);
 };
 
 export const plexHubPageParamsFromHubListParams = (hubListParams: PlexHubListPageParams): PlexHubPageParams => {

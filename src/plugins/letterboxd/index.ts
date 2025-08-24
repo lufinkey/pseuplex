@@ -325,11 +325,11 @@ export default (class LetterboxdPlugin implements LetterboxdPluginDef, PseuplexP
 				this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexHubsPage> => {
 					const metadataId = req.params.id;
 					const context = this.app.contextForRequest(req);
-					const params = plexTypes.parsePlexHubPageParams(req, {fromListPage:true});
+					const plexParams = plexTypes.parsePlexHubListPageParams(req);
 					// add similar items hub
 					const metadataProvider = this.metadata;
 					const resData = await metadataProvider.getRelatedHubs(metadataId, {
-						plexParams: params,
+						plexParams,
 						context,
 						from: hubsSource,
 					});
@@ -402,9 +402,9 @@ export default (class LetterboxdPlugin implements LetterboxdPluginDef, PseuplexP
 		const friendsActvityHubEnabled = userPrefs?.letterboxd?.friendsActivityHubEnabled ?? config.letterboxd?.friendsActivityHubEnabled ?? false;
 		// add friends activity feed hub if enabled
 		if(friendsActvityHubEnabled && userPrefs?.letterboxd?.username) {
-			const params = plexTypes.parsePlexHubPageParams(context.userReq, {fromListPage:true});
+			const plexParams = plexTypes.parsePlexHubPageParams(context.userReq, {fromListPage:true});
 			const hub = await this.hubs.userFollowingActivity.get(userPrefs.letterboxd.username);
-			const page = await hub.getHubListEntry(params, this.app.contextForRequest(context.userReq));
+			const page = await hub.getHubListEntry(plexParams, this.app.contextForRequest(context.userReq));
 			if(!resData.MediaContainer.Hub) {
 				resData.MediaContainer.Hub = [];
 			} else if(!(resData.MediaContainer.Hub instanceof Array)) {
