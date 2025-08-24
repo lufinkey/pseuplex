@@ -632,7 +632,7 @@ export class PseuplexApp {
 				},
 				responseModifier: async (proxyRes, resData: plexTypes.PlexLibrarySectionsPage, userReq: IncomingPlexAPIRequest, userRes) => {
 					const context = this.contextForRequest(userReq);
-					const reqParams = userReq.plex.requestParams;
+					const reqParams: plexTypes.PlexLibrarySectionsPageParams = userReq.plex.requestParams;
 					// add sections
 					const allSections = await this.getPluginSections(context);
 					const existingSections = resData.MediaContainer.Directory ?? [];
@@ -652,7 +652,7 @@ export class PseuplexApp {
 			this.middlewares.plexAPIProxy({
 				responseModifier: async (proxyRes, resData: plexTypes.PlexLibraryHubsPage, userReq: IncomingPlexAPIRequest, userRes) => {
 					const context = this.contextForRequest(userReq);
-					const reqParams = userReq.plex.requestParams;
+					const reqParams = plexTypes.parsePlexHubListPageParams(userReq);
 					// get hubs for each section
 					// TODO maybe add some sort of sorting?
 					const hubsPromisesForSections = (await this.getPluginSections(context)).map((section) => {
@@ -691,19 +691,16 @@ export class PseuplexApp {
 			this.middlewares.plexAPIProxy({
 				responseModifier: async (proxyRes, resData: plexTypes.PlexLibraryHubsPage, userReq: IncomingPlexAPIRequest, userRes) => {
 					const context = this.contextForRequest(userReq);
-					const reqParams = userReq.plex.requestParams;
-					// get section IDs to include
-					const contentDirectoryID = userReq.query?.['contentDirectoryID'];
-					const contentDirIds = ((typeof contentDirectoryID == 'string') ? contentDirectoryID.split(',') : contentDirectoryID) as (string[] | undefined);
+					const plexParams = plexTypes.parsePlexHubListPageParams(userReq);
 					// get promoted hubs for included sections
 					// TODO maybe add some sort of sorting?
 					const hubsPromisesForSections = (await this.getPluginSections(context)).map((section) => {
 						// ensure we're including this section
-						if(!contentDirIds || contentDirIds.findIndex((id) => (id == section.id)) == -1) {
+						if(!plexParams.contentDirectoryID || plexParams.contentDirectoryID.findIndex((id) => (id == section.id)) == -1) {
 							return null;
 						}
 						// get promoted hubs for this section
-						return section.getPromotedHubsPage(reqParams, context);
+						return section.getPromotedHubsPage(plexParams, context);
 					});
 					// add hubs from sections
 					const allSectionHubs: plexTypes.PlexHubWithItems[] = [];
@@ -757,10 +754,10 @@ export class PseuplexApp {
 			pseuplexMetadataIdsRequestMiddleware(plexReqHandlerOpts, async (req: PseuplexRemappedMetadataIdsRequest, res, metadataIds): Promise<PseuplexMetadataPage> => {
 				const privateToPublicIds = req.remappedPlexMetadataIds;
 				const context = this.contextForRequest(req);
-				const params: plexTypes.PlexMetadataPageParams = req.plex.requestParams;
+				const plexParams: plexTypes.PlexMetadataPageParams = req.plex.requestParams;
 				// get metadatas
 				const resData = await this.getMetadata(metadataIds, {
-					plexParams: req.plex.requestParams,
+					plexParams,
 					context,
 					cachePluginMetadataAccess: true,
 				});
@@ -774,7 +771,7 @@ export class PseuplexApp {
 						}
 					}
 					// filter related hubs if included
-					if(params.includeRelated == 1) {
+					if(plexParams.includeRelated == 1) {
 						// get metadata id
 						let metadataIdString = parseMetadataIDFromKey(metadataItem.key, '/library/metadata/')?.id;
 						if(!metadataIdString) {
@@ -814,7 +811,7 @@ export class PseuplexApp {
 					});
 				}
 				// send unavailable notifications if needed
-				this.sendMetadataUnavailableNotificationsIfNeeded(resData, params, context);
+				this.sendMetadataUnavailableNotificationsIfNeeded(resData, plexParams, context);
 				return resData;
 			}),
 			this.middlewares.plexAPIProxy({
@@ -875,14 +872,10 @@ export class PseuplexApp {
 			pseuplexMetadataIdRequestMiddleware(plexReqHandlerOpts, async (req: PseuplexRemappedMetadataIdsRequest, res, metadataId): Promise<plexTypes.PlexMetadataPage | PseuplexMetadataPage> => {
 				const privateToPublicIds = req.remappedPlexMetadataIds;
 				const context = this.contextForRequest(req);
-				const plexParams: plexTypes.PlexMetadataChildrenPageParams = {
-					...req.plex.requestParams,
-					'X-Plex-Container-Start': parseIntQueryParam(req.query['X-Plex-Container-Start'] ?? req.header('x-plex-container-start')),
-					'X-Plex-Container-Size': parseIntQueryParam(req.query['X-Plex-Container-Size'] ?? req.header('x-plex-container-size'))
-				};
+				const plexParams = plexTypes.parsePlexMetadataChildrenPageParams(req);
 				// get metadatas
 				const resData = await this.getMetadataChildren(metadataId, {
-					plexParams: plexParams,
+					plexParams,
 					context,
 					cachePluginMetadataAccess: true,
 				});
@@ -906,11 +899,7 @@ export class PseuplexApp {
 				responseModifier: async (proxyRes, resData: plexTypes.PlexMetadataChildrenPage, userReq: IncomingPlexAPIRequest, userRes) => {
 					const context = this.contextForRequest(userReq);
 					const metadataId = parseMetadataIdFromPathParam(userReq.params.metadataId);
-					const plexParams: plexTypes.PlexMetadataChildrenPageParams = {
-						...userReq.plex.requestParams,
-						'X-Plex-Container-Start': parseIntQueryParam(userReq.query['X-Plex-Container-Start'] ?? userReq.header('x-plex-container-start')),
-						'X-Plex-Container-Size': parseIntQueryParam(userReq.query['X-Plex-Container-Size'] ?? userReq.header('x-plex-container-size'))
-					};
+					const plexParams = plexTypes.parsePlexMetadataChildrenPageParams(userReq);
 					// process metadata items
 					await forArrayOrSingleAsyncParallel(resData.MediaContainer.Metadata, async (metadataItem: PseuplexMetadataItem) => {
 						const metadataId = parseMetadataIDFromKey(metadataItem.key, '/library/metadata/')?.id;
@@ -941,9 +930,10 @@ export class PseuplexApp {
 				pseuplexMetadataIdRequestMiddleware(plexReqHandlerOpts, async (req: PseuplexRemappedMetadataIdsRequest, res, metadataId): Promise<plexTypes.PlexHubsPage> => {
 					const privateToPublicIds = req.remappedPlexMetadataIds;
 					const context = this.contextForRequest(req);
+					const plexParams = plexTypes.parsePlexHubListPageParams(req);
 					// get metadata
 					const resData = await this.getMetadataRelatedHubs(metadataId, {
-						plexParams: req.plex.requestParams,
+						plexParams,
 						context,
 						from: hubsSource,
 					});
@@ -1203,7 +1193,7 @@ export class PseuplexApp {
 				subscribers = [subscriberInfo];
 				this.eventSourceSubscribers[plexToken] = subscribers;
 			}
-			// remove subscriber when response ends
+			// remove subscriber when request or response ends
 			let done = false;
 			const onDone = () => {
 				if(done) {

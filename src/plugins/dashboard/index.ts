@@ -57,7 +57,7 @@ export default (class DashboardPlugin implements DashboardPluginDef, PseuplexPlu
 			this.app.middlewares.plexAuthentication(),
 			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res) => {
 				const context = this.app.contextForRequest(req);
-				const reqParams = req.plex.requestParams;
+				const reqParams = plexTypes.parsePlexHubListPageParams(req);
 				return await this.section.getHubsPage(reqParams,context);
 			}),
 		]);

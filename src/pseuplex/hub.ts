@@ -112,6 +112,14 @@ export abstract class PseuplexHub {
 
 
 
+export const pseuplexHubPageParamsFromHubListParams = (hubListParams: plexTypes.PlexHubPageParams) => {
+	const hubPageParams: PseuplexHubPageParams = plexTypes.plexHubPageParamsFromHubListParams(hubListParams);
+	delete hubPageParams.listStartToken;
+	return hubPageParams;
+};
+
+
+
 export abstract class PseuplexHubProvider<THub extends PseuplexHub = PseuplexHub> {
 	readonly cache: CachedFetcher<THub>;
 
@@ -134,13 +142,3 @@ export abstract class PseuplexHubProvider<THub extends PseuplexHub = PseuplexHub
 		return this.cache.getOrFetch(id);
 	}
 }
-
-
-
-export const pseuplexHubPageParamsFromHubListParams = (hubListParams: plexTypes.PlexHubListPageParams): PseuplexHubPageParams => {
-	const params: plexTypes.PlexHubListPageParams = {...hubListParams};
-	delete params.count;
-	delete (params as PseuplexHubPageParams).start;
-	delete (params as PseuplexHubPageParams).listStartToken;
-	return params;
-};

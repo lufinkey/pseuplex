@@ -358,7 +358,7 @@ export const plexHttpProxy = (serverURL: string, options: PlexProxyOptions, even
 	const plexGeneralProxy = httpProxy.createProxyServer({
 		target: serverURL,
 		ws: true,
-		xfwd: false,
+		xfwd: false, // we'll set this later
 		preserveHeaderKeyCase: true,
 		//changeOrigin: false,
 		//autoRewrite: true,

@@ -149,11 +149,10 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 			this.app.middlewares.plexAPIProxy({
 				responseModifier: async (proxyRes, resData: plexTypes.PlexServerMediaProvidersPage, userReq: IncomingPlexAPIRequest, userRes) => {
 					const context = this.app.contextForRequest(userReq);
-					// remove all non-home hubs
+					// remove all non-home sections
 					for(const mediaProvider of resData.MediaContainer.MediaProvider) {
 						for(const feature of mediaProvider.Feature) {
 							if(feature.type == plexTypes.PlexFeatureType.Content) {
-								// remove all sections except for "home"
 								const contentFeature = feature as plexTypes.PlexContentFeature;
 								contentFeature.Directory = contentFeature.Directory.filter((dir) => {
 									return dir.hubKey === '/hubs';
@@ -175,8 +174,8 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 		unauthRouter.get(['/library/sections', '/library/sections/all'], [
 			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexLibrarySectionsPage> => {
 				const context = this.app.contextForRequest(req);
-				const reqParams = req.plex.requestParams;
-				// add sections
+				const reqParams: plexTypes.PlexLibrarySectionsPageParams = req.plex.requestParams;
+				// return singular section
 				return {
 					MediaContainer: {
 						title1: "Plex Library",
@@ -199,7 +198,7 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 		unauthRouter.get(this.section.hubsPath, [
 			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res) => {
 				const context = this.app.contextForRequest(req);
-				const reqParams = req.plex.requestParams;
+				const reqParams = plexTypes.parsePlexHubListPageParams(req);
 				return await this.section.getHubsPage(reqParams,context);
 			}),
 		]);
@@ -207,7 +206,7 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 		unauthRouter.get(this.section.introHub.path, [
 			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res) => {
 				const context = this.app.contextForRequest(req);
-				const reqParams = req.plex.requestParams;
+				const reqParams = plexTypes.parsePlexHubPageParams(req, {fromListPage:false});
 				return await this.section.introHub.getHubPage(reqParams,context);
 			}),
 		])
@@ -215,12 +214,10 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 		unauthRouter.get('/hubs', [
 			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexHubsPage> => {
 				const context = this.app.contextForRequest(req);
-				const reqParams = req.plex.requestParams;
+				const reqParams = plexTypes.parsePlexHubListPageParams(req);
 				// ensure the section is included
-				const contentDirectoryID = reqParams.contentDirectoryID;
-				const contentDirIds = (typeof contentDirectoryID == 'string') ? contentDirectoryID.split(',') : contentDirectoryID;
-				if(contentDirIds && contentDirIds.length > 0) {
-					if(contentDirIds.findIndex(id => (id == this.section.id)) == -1) {
+				if(reqParams.contentDirectoryID && reqParams.contentDirectoryID.length > 0) {
+					if(reqParams.contentDirectoryID.findIndex(id => (id == this.section.id)) == -1) {
 						return {
 							MediaContainer: {
 								size: 0,
@@ -242,12 +239,10 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 		unauthRouter.get('/hubs/promoted', [
 			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexHubsPage> => {
 				const context = this.app.contextForRequest(req);
-				const reqParams = req.plex.requestParams;
+				const reqParams = plexTypes.parsePlexHubListPageParams(req);
 				// ensure the section is included
-				const contentDirectoryID = reqParams.contentDirectoryID;
-				const contentDirIds = (typeof contentDirectoryID == 'string') ? contentDirectoryID.split(',') : contentDirectoryID;
-				if(contentDirIds && contentDirIds.length > 0) {
-					if(contentDirIds.findIndex(id => (id == this.section.id)) == -1) {
+				if(reqParams.contentDirectoryID && reqParams.contentDirectoryID.length > 0) {
+					if(reqParams.contentDirectoryID.findIndex(id => (id == this.section.id)) == -1) {
 						return {
 							MediaContainer: {
 								size: 0,
@@ -269,7 +264,7 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 		unauthRouter.get('/library/metadata/:metadataId', [
 			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexMetadataPage> => {
 				const context = this.app.contextForRequest(req);
-				const reqParams = req.plex.requestParams;
+				const reqParams: plexTypes.PlexMetadataPageParams = req.plex.requestParams;
 				// get metadata ids
 				const metadataIds = parseMetadataIdsFromPathParam(req.params.metadataId);
 				for(const metadataIdParts of metadataIds) {
@@ -296,7 +291,7 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 			unauthRouter.get(`/${hubsSource}/metadata/:metadataId/related`, [
 				this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexHubsPage> => {
 					const context = this.app.contextForRequest(req);
-					const reqParams = req.plex.requestParams;
+					const reqParams = plexTypes.parsePlexHubListPageParams(req);
 					// get metadata ids
 					const metadataIdParts = parseMetadataIdFromPathParam(req.params.metadataId);
 					if(metadataIdParts.source != this.metadata.sourceSlug) {

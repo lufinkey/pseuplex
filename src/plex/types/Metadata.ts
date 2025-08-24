@@ -1,4 +1,4 @@
-
+import express from 'express';
 import {
 	PlexContentRating,
 	PlexMediaItemType,
@@ -10,7 +10,11 @@ import {
 import {
 	PlexMediaContainer
 } from './MediaContainer';
-import { BooleanQueryParam } from '../../utils/queryparams';
+import {
+	BooleanQueryParam,
+	parseBooleanQueryParam,
+	parseIntQueryParam
+} from '../../utils/queryparams';
 
 export type PlexMetadataPageParams = {
 	includeConcerts?: BooleanQueryParam;
@@ -34,9 +38,18 @@ export type PlexMetadataPageParams = {
 };
 
 export type PlexMetadataChildrenPageParams = {
-	excludeAllLeaves?: boolean;
 	'X-Plex-Container-Start'?: number;
 	'X-Plex-Container-Size'?: number;
+	excludeAllLeaves?: boolean;
+};
+
+export const parsePlexMetadataChildrenPageParams = (req: express.Request): PlexMetadataChildrenPageParams => {
+	const query = req.query;
+	return {
+		'X-Plex-Container-Start': parseIntQueryParam(query['X-Plex-Container-Start'] ?? req.header('x-plex-container-start')),
+		'X-Plex-Container-Size': parseIntQueryParam(query['X-Plex-Container-Size'] ?? req.header('x-plex-container-size')),
+		excludeAllLeaves: parseBooleanQueryParam(query['excludeAllLeaves']),
+	}
 };
 
 export type PlexMetadataCollection = {

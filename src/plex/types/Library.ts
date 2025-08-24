@@ -1,3 +1,4 @@
+import express from 'express';
 import {
 	PlexLanguage,
 	PlexLibraryAgent,
@@ -8,7 +9,15 @@ import {
 } from './common';
 import { PlexMediaContainer } from './MediaContainer';
 import { PlexSetting } from './Prefs';
-import { BooleanQueryParam } from '../../utils/queryparams';
+import {
+	BooleanQueryParam,
+	parseBooleanQueryParam,
+	parseIntQueryParam,
+	parseStringQueryParam
+} from '../../utils/queryparams';
+
+
+
 
 export type PlexGetLibraryMatchesParams = {
 	guid?: string,
@@ -66,6 +75,59 @@ export type PlexLibrarySectionsPage = {
 		title1: string;
 		Directory: PlexLibrarySection[];
 	}
+};
+
+export type PlexSectionAllItemsParams = {
+	// TODO figure out what these are
+};
+
+
+
+export enum PlexLibrarySortField {
+	Random = 'random',
+	// TODO add other fields
+};
+
+export enum PlexLibrarySortOrder {
+	Ascending = 'asc',
+	Descending = 'desc',
+};
+
+export type PlexLibrarySortParam = `${PlexLibrarySortField}:${PlexLibrarySortOrder}` | PlexLibrarySortField | PlexLibrarySortOrder;
+
+export type PlexLibraryAllItemsParams = {
+	'X-Plex-Container-Start'?: number;
+	'X-Plex-Container-Size'?: number;
+	type?: PlexMediaItemTypeNumeric;
+	guid?: string;
+	'show.guid'?: string;
+	season?: number;
+	sort?: PlexLibrarySortParam | string;
+	includeCollections?: boolean;
+	includeExternalMedia?: boolean;
+	includeAdvanced?: boolean;
+	includeMeta?: boolean;
+};
+
+export const parsePlexLibraryAllItemsPageParams = (req: express.Request, options: {fromListPage: boolean}): PlexLibraryAllItemsParams => {
+	const query = req.query;
+	if(!query) {
+		return {};
+	}
+	// TODO some of these may be arrays sometimes
+	return {
+		'X-Plex-Container-Start': options.fromListPage ? undefined : parseIntQueryParam(query['X-Plex-Container-Start'] ?? req.header('x-plex-container-start')),
+		'X-Plex-Container-Size': options.fromListPage ? parseIntQueryParam(query['count']) : parseIntQueryParam(query['X-Plex-Container-Size'] ?? req.header('x-plex-container-size')),
+		type: parseIntQueryParam(query['type']),
+		guid: parseStringQueryParam(query['guid']),
+		'show.guid': parseStringQueryParam(query['guid']),
+		season: parseIntQueryParam(query['season']),
+		sort: parseStringQueryParam(query['sort']),
+		includeCollections: parseBooleanQueryParam(query),
+		includeExternalMedia: parseBooleanQueryParam(query),
+		includeAdvanced: parseBooleanQueryParam(query),
+		includeMeta: parseBooleanQueryParam(query),
+	};
 };
 
 

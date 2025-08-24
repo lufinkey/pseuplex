@@ -50,12 +50,10 @@ export type PlexHubWithItems = PlexHub & {
 
 
 export type PlexHubPageParams = {
-	contentDirectoryID?: string[];
-	pinnedContentDirectoryID?: string[];
 	includeMeta?: boolean;
 	excludeFields?: string[]; // "summary"
-	start?: number;
-	count?: number;
+	'X-Plex-Container-Start'?: number;
+	'X-Plex-Container-Size'?: number;
 };
 
 export const parsePlexHubPageParams = (req: express.Request, options: {fromListPage: boolean}): PlexHubPageParams => {
@@ -64,13 +62,19 @@ export const parsePlexHubPageParams = (req: express.Request, options: {fromListP
 		return {};
 	}
 	return {
-		start: options.fromListPage ? undefined : parseIntQueryParam(query['X-Plex-Container-Start'] ?? req.header('x-plex-container-start')),
-		count: options.fromListPage ? parseIntQueryParam(query['count']) : parseIntQueryParam(query['X-Plex-Container-Size'] ?? req.header('x-plex-container-size')),
-		contentDirectoryID: parseStringArrayQueryParam(query['contentDirectoryID']),
-		pinnedContentDirectoryID: parseStringArrayQueryParam(query['pinnedContentDirectoryID']),
+		'X-Plex-Container-Start': options.fromListPage ? undefined : (parseIntQueryParam(query['X-Plex-Container-Start'] ?? req.header('x-plex-container-start'))),
+		'X-Plex-Container-Size': options.fromListPage ? parseIntQueryParam(query['count']) : (parseIntQueryParam(query['X-Plex-Container-Size'] ?? req.header('x-plex-container-size'))),
 		excludeFields: parseStringArrayQueryParam(query['excludeFields']),
 		includeMeta: parseBooleanQueryParam(query['includeMeta'])
 	};
+};
+
+export const plexHubPageParamsFromHubListParams = (hubListParams: PlexHubListPageParams): PlexHubPageParams => {
+	const params: Partial<PlexHubListPageParams & PlexHubPageParams> = {...hubListParams};
+	params['X-Plex-Container-Size'] = params.count;
+	delete params.count;
+	delete params['X-Plex-Container-Start'];
+	return params;
 };
 
 export type PlexHubPage = {
@@ -81,7 +85,10 @@ export type PlexHubPage = {
 };
 
 
+
 export type PlexHubListPageParams = {
+	contentDirectoryID?: string[];
+	pinnedContentDirectoryID?: string[];
 	count?: number;
 	includeLibraryPlaylists?: boolean;
 	includeStations?: boolean;
@@ -97,6 +104,8 @@ export const parsePlexHubListPageParams = (req: express.Request): PlexHubListPag
 		return {};
 	}
 	return {
+		contentDirectoryID: parseStringArrayQueryParam(query['contentDirectoryID']),
+		pinnedContentDirectoryID: parseStringArrayQueryParam(query['pinnedContentDirectoryID']),
 		count: parseIntQueryParam(query['count']),
 		includeLibraryPlaylists: parseBooleanQueryParam(query['includeLibraryPlaylists']),
 		includeStations: parseBooleanQueryParam(query['includeStations']),

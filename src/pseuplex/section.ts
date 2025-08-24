@@ -1,9 +1,10 @@
 import express from 'express';
 import * as plexTypes from '../plex/types';
 import type { PseuplexRequestContext } from './types';
-import type {
-	PseuplexHub,
-	PseuplexHubPageParams
+import {
+	pseuplexHubPageParamsFromHubListParams,
+	type PseuplexHub,
+	type PseuplexHubPageParams,
 } from './hub';
 
 export interface PseuplexSection {
@@ -19,6 +20,7 @@ export interface PseuplexSection {
 	getLibrarySectionsEntry(params: plexTypes.PlexLibrarySectionsPageParams, context: PseuplexRequestContext): Promise<plexTypes.PlexLibrarySection>;
 	getPromotedHubsPage(params: plexTypes.PlexHubListPageParams, context: PseuplexRequestContext): Promise<plexTypes.PlexSectionHubsPage>;
 	getHubsPage(params: plexTypes.PlexHubListPageParams, context: PseuplexRequestContext): Promise<plexTypes.PlexSectionHubsPage>;
+	getAllItemsPage(params: plexTypes.PlexSectionAllItemsParams, context: PseuplexRequestContext): Promise<plexTypes.PlexMetadataPage>;
 }
 
 export type PseuplexSectionOptions = {
@@ -123,21 +125,17 @@ export class PseuplexSectionBase implements PseuplexSection {
 	getHubs?(params: plexTypes.PlexHubListPageParams, context: PseuplexRequestContext): Promise<PseuplexHub[]>;
 	getPromotedHubs?(params: plexTypes.PlexHubListPageParams, context: PseuplexRequestContext): Promise<PseuplexHub[]>;
 
-	private async hubPageFromHubs(
-		params: plexTypes.PlexHubListPageParams,
+	private async hubPageFromHubs(options: {
+		plexParams: plexTypes.PlexHubListPageParams,
 		context: PseuplexRequestContext,
 		hubsPromise: (PseuplexHub[] | Promise<PseuplexHub[] | undefined> | undefined),
 		promoted: boolean,
-	): Promise<plexTypes.PlexSectionHubsPage> {
-		const titlePromise = this.getTitle(context);
-		const hubs = (await hubsPromise) ?? [];
-		const hubPageParams: PseuplexHubPageParams = {
-			count: params.count,
-			includeMeta: params.includeMeta,
-			excludeFields: params.excludeFields
-		};
+	}): Promise<plexTypes.PlexSectionHubsPage> {
+		const titlePromise = this.getTitle(options.context);
+		const hubs = (await options.hubsPromise) ?? [];
+		const hubPageParams = pseuplexHubPageParamsFromHubListParams(options.plexParams);
 		const hubEntriesPromise = Promise.all(hubs.map((hub) => {
-			return hub.getHubListEntry(hubPageParams, context)
+			return hub.getHubListEntry(hubPageParams, options.context);
 		}));
 		return {
 			MediaContainer: {
@@ -152,21 +150,45 @@ export class PseuplexSectionBase implements PseuplexSection {
 		};
 	}
 	
-	async getHubsPage(params: plexTypes.PlexHubListPageParams, context: PseuplexRequestContext): Promise<plexTypes.PlexSectionHubsPage> {
-		return await this.hubPageFromHubs(
-			params,
+	async getHubsPage(plexParams: plexTypes.PlexHubListPageParams, context: PseuplexRequestContext): Promise<plexTypes.PlexSectionHubsPage> {
+		return await this.hubPageFromHubs({
+			plexParams,
 			context,
-			this.getHubs?.(params, context),
-			false
-		);
+			hubsPromise: this.getHubs?.(plexParams, context),
+			promoted: false,
+		});
 	}
 	
-	async getPromotedHubsPage(params: plexTypes.PlexHubListPageParams, context: PseuplexRequestContext): Promise<plexTypes.PlexSectionHubsPage> {
-		return await this.hubPageFromHubs(
-			params,
+	async getPromotedHubsPage(plexParams: plexTypes.PlexHubListPageParams, context: PseuplexRequestContext): Promise<plexTypes.PlexSectionHubsPage> {
+		return await this.hubPageFromHubs({
+			plexParams,
 			context,
-			this.getPromotedHubs?.(params, context),
-			true
-		);
+			hubsPromise: this.getPromotedHubs?.(plexParams, context),
+			promoted: true,
+		});
+	}
+
+
+
+	getAllItems?(params: plexTypes.PlexSectionAllItemsParams, context: PseuplexRequestContext): Promise<{
+		totalItemCount?: number;
+		items: plexTypes.PlexMetadataItem[];
+	}>;
+
+	async getAllItemsPage(params: plexTypes.PlexSectionAllItemsParams, context: PseuplexRequestContext): Promise<plexTypes.PlexMetadataPage> {
+		const titlePromise = this.getTitle(context);
+		const itemPage = await this.getAllItems?.(params, context);
+		return {
+			MediaContainer: {
+				size: itemPage?.items.length ?? 0,
+				totalSize: itemPage ? itemPage.totalItemCount : 0,
+				allowSync: false,
+				librarySectionID: this.id,
+				librarySectionTitle: await titlePromise,
+				librarySectionUUID: this.uuid!,
+				identifier: plexTypes.PlexPluginIdentifier.PlexAppLibrary,
+				Metadata: itemPage?.items ?? [],
+			}
+		};
 	}
 }

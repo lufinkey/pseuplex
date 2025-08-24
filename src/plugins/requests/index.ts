@@ -144,6 +144,7 @@ export default (class RequestsPlugin implements RequestsPluginDef, PseuplexPlugi
 
 		metadataChildren: async (resData, filterContext) => {
 			const reqContext = this.app.contextForRequest(filterContext.userReq);
+			const plexParams = plexTypes.parsePlexMetadataChildrenPageParams(filterContext.userReq);
 			const plexUserToken = filterContext.userReq.plex.authContext?.['X-Plex-Token'];
 			if(!plexUserToken) {
 				return;
@@ -167,7 +168,6 @@ export default (class RequestsPlugin implements RequestsPluginDef, PseuplexPlugi
 					&& plexGuidParts.type == plexTypes.PlexMediaItemType.TVShow
 					&& plexGuidParts.protocol == plexTypes.PlexMetadataGuidProtocol.Plex
 				) {
-					const plexParams = filterContext.userReq.plex.requestParams;
 					// add requestable seasons if needed
 					if(showRequestableSeasons) {
 						const fullIdString = reqsTransform.createRequestFullMetadataId({
@@ -178,7 +178,7 @@ export default (class RequestsPlugin implements RequestsPluginDef, PseuplexPlugi
 						await this.requestsHandler.addRequestableSeasons(resData, {
 							plexId: plexGuidParts.id,
 							plexType: plexGuidParts.type,
-							plexParams: plexParams,
+							plexParams,
 							transformMatchKeys: false,
 							metadataBasePath: '/library/metadata',
 							qualifiedMetadataIds: true,
@@ -235,7 +235,7 @@ export default (class RequestsPlugin implements RequestsPluginDef, PseuplexPlugi
 					// get request properties
 					const { providerSlug, mediaType, plexId } = req.params;
 					const season = parseIntQueryParam(req.params.season);
-					const plexParams = req.plex.requestParams;
+					const plexParams: plexTypes.PlexMetadataPageParams = req.plex.requestParams;
 					const context = this.app.contextForRequest(req);
 					// handle request
 					const resData = await this.requestsHandler.handlePlexRequest({

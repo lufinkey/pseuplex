@@ -473,7 +473,7 @@ export default (class LetterboxdPlugin implements LetterboxdPluginDef, PseuplexP
 	async _addFriendReviewsIfNeeded(resData: PseuplexMetadataPage, context: PseuplexResponseFilterContext) {
 		const userInfo = context.userReq.plex.userInfo;
 		const plexAuthContext = context.userReq.plex.authContext;
-		const reqParams = context.userReq.plex.requestParams;
+		const reqParams: plexTypes.PlexMetadataPageParams = context.userReq.plex.requestParams;
 		// get prefs
 		const config = this.config;
 		const userPrefs = config.perUser[userInfo.email];
