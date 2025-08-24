@@ -46,6 +46,7 @@ type XForwardedHeaders = {
 	'X-Forwarded-Proto': string,
 	'X-Forwarded-Host': string | undefined,
 	'X-Real-IP': string | undefined,
+	'Forwarded': undefined,
 };
 
 const xForwardedHeaders = (req: http.IncomingMessage, options: {ipv4Mode: IPv4NormalizeMode, trustProxy: boolean}): XForwardedHeaders => {
@@ -94,6 +95,7 @@ const xForwardedHeaders = (req: http.IncomingMessage, options: {ipv4Mode: IPv4No
 	let realIP = (options.trustProxy && incomingRealIPHeader) ? incomingRealIPHeader : fwdHeaders.For;
 	realIP = (realIP instanceof Array) ? realIP.flat(Infinity)[0] : realIP;
 	headers['X-Real-IP'] = realIP || undefined;
+	headers['Forwarded'] = undefined; // just delete this header always for now
 	return headers as XForwardedHeaders;
 };
 
