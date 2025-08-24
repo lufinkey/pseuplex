@@ -176,6 +176,7 @@ export type PseuplexAppOptions = {
 	httpPort?: number;
 	httpsPort?: number;
 	ipv4ForwardingMode?: IPv4NormalizeMode;
+	trustProxy?: boolean;
 	forwardMetadataRefreshToPluginMetadata?: boolean;
 	sendMetadataUnavailability?: boolean;
 	overwritePlexPrivatePort?: number | boolean;
@@ -208,6 +209,7 @@ export class PseuplexApp {
 	readonly config: PseuplexAppConfig;
 	readonly httpPort?: number;
 	readonly httpsPort?: number;
+	readonly trustProxy: boolean;
 	readonly forwardsMetadataRefreshToPluginMetadata: boolean;
 	sendsMetadataUnavailability: boolean;
 	readonly overwritePlexPrivatePort: number | boolean;
@@ -275,6 +277,7 @@ export class PseuplexApp {
 		this.config = options.config;
 		this.httpPort = httpPort;
 		this.httpsPort = httpsPort;
+		this.trustProxy = options.trustProxy ?? false;
 		this.forwardsMetadataRefreshToPluginMetadata = options.forwardMetadataRefreshToPluginMetadata ?? true;
 		this.sendsMetadataUnavailability = options.sendMetadataUnavailability ?? true;
 		this.overwritePlexPrivatePort = options.overwritePlexPrivatePort ?? true;
@@ -322,6 +325,7 @@ export class PseuplexApp {
 			logger: this.logger,
 		};
 		const plexProxyOpts: PlexProxyOptions = {
+			trustProxy: this.trustProxy,
 			logger: this.logger,
 			ipv4Mode: options.ipv4ForwardingMode
 		};
@@ -480,6 +484,7 @@ export class PseuplexApp {
 
 		// create router and define routes
 		const router = pseuplexRouterApp(express());
+		router.set('trust proxy', this.trustProxy);
 		router.set('etag', false);
 
 		// log request if needed

@@ -171,6 +171,7 @@ let args: CommandArguments;
 		httpPort: cfg.httpPort ?? cfg.port,
 		httpsPort: cfg.httpsPort ?? cfg.port,
 		ipv4ForwardingMode: cfg.ipv4ForwardingMode ? IPv4NormalizeMode[cfg.ipv4ForwardingMode] : undefined,
+		trustProxy: cfg.trustProxy,
 		forwardMetadataRefreshToPluginMetadata: cfg.forwardMetadataRefreshToPluginMetadata,
 		sendMetadataUnavailability: cfg.sendMetadataUnavailability,
 		overwritePlexPrivatePort: cfg.plex.overwritePrivatePort,

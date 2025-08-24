@@ -16,6 +16,7 @@ export type Config = {
 	httpPort?: number;
 	httpsPort?: number;
 	ipv4ForwardingMode?: IPv4NormalizeModeKey;
+	trustProxy?: boolean;
 	sendMetadataUnavailability?: boolean;
 	forwardMetadataRefreshToPluginMetadata?: boolean;
 	redirectPlexStreams?: boolean;
