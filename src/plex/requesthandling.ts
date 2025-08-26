@@ -105,6 +105,7 @@ export type IncomingPlexAPIRequestMixin = {
 };
 
 export type IncomingPlexAPIRequest = express.Request & IncomingPlexAPIRequestMixin;
+export type IncomingPlexHttpRequest = http.IncomingMessage & IncomingPlexAPIRequestMixin;
 
 export const authenticatePlexRequest = async <TRequest extends http.IncomingMessage,TResponse>(req: TRequest, accountsStore: PlexServerAccountsStore) => {
 	const authContext = plexTypes.parseAuthContextFromRequest(req);
@@ -134,6 +135,20 @@ export const createPlexAuthenticationMiddleware = <TRequest extends http.Incomin
 export type PlexAuthedRequestHandler =
 	((req: IncomingPlexAPIRequest, res: express.Response) => (void | Promise<void>))
 	| ((req: IncomingPlexAPIRequest, res: express.Response, next: (error?: Error) => void) => (void | Promise<void>));
+
+export const createPlexServerOwnerOnlyMiddleware = () => {
+	return (req: IncomingPlexAPIRequest, res: http.ServerResponse, next) => {
+		if(!req.plex) {
+			next(httpError(500, "Cannot access endpoint without plex authentication"));
+			return;
+		}
+		if (!req.plex.userInfo.isServerOwner) {
+			next(httpError(403, "Get out of here you sussy baka"));
+			return;
+		}
+		next();
+	};
+};
 
 
 

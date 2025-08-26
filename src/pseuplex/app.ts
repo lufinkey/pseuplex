@@ -29,6 +29,7 @@ import {
 } from '../plex/proxy';
 import {
 	createPlexAuthenticationMiddleware,
+	createPlexServerOwnerOnlyMiddleware,
 	handlePlexAPIRequest,
 	IncomingPlexAPIRequest,
 	IncomingPlexAPIRequestMixin,
@@ -99,6 +100,11 @@ import {
 	sendMediaUnavailableNotifications,
 	sendMetadataRefreshTimelineNotifications,
 } from './notifications';
+import {
+	pseuplexRouterApp,
+	UpgradeRequest,
+	UpgradeResponse,
+} from './router';
 import * as constants from '../constants';
 import { Logger } from '../logging';
 import { CachedFetcher } from '../fetching/CachedFetcher';
@@ -129,7 +135,6 @@ import type { WebSocketEventMap } from '../utils/websocket';
 import { applyOverlayToImage, getResizedImageFromFile } from '../utils/images';
 import { getModuleRootPath } from '../utils/compat';
 import { TLSCertificateOptions } from '../utils/ssl';
-import { pseuplexRouterApp, UpgradeRequest, UpgradeResponse } from './router';
 
 
 // plugins
@@ -258,7 +263,7 @@ export class PseuplexApp {
 	
 	readonly middlewares: {
 		plexAuthentication: <TRequest extends http.IncomingMessage,TResponse>(alwaysCheck?: boolean) => ((req: TRequest, res: TResponse, next: (error?: Error) => void) => void);
-		plexServerOwnerOnly: PlexAuthedRequestHandler;
+		plexServerOwnerOnly: () => PlexAuthedRequestHandler;
 		plexAPIRequestHandler: <TResult>(handler: PlexAPIRequestHandler<TResult>) => express.RequestHandler;
 		plexAPIProxy: (filters: PlexAPIProxyFilters) => express.RequestHandler;
 		plexProxy: () => express.RequestHandler;
@@ -351,6 +356,7 @@ export class PseuplexApp {
 			plexGeneralProxySecure = plexGeneralProxy;
 		}
 		const plexAuthMiddleware = createPlexAuthenticationMiddleware(this.plexServerAccounts);
+		const plexServerOwnerOnlyMiddleware = createPlexServerOwnerOnlyMiddleware();
 		this.middlewares = {
 			plexAuthentication: (alwaysCheck?: boolean) => {
 				return (req, res, next) => {
@@ -364,17 +370,7 @@ export class PseuplexApp {
 					plexAuthMiddleware(req, res, next);
 				};
 			},
-			plexServerOwnerOnly: (req: IncomingPlexAPIRequest, res, next) => {
-				if(!req.plex) {
-					next(httpError(500, "Cannot access endpoint without plex authentication"));
-					return;
-				}
-				if (!req.plex.userInfo.isServerOwner) {
-					next(httpError(403, "Get out of here you sussy baka"));
-					return;
-				}
-				next();
-			},
+			plexServerOwnerOnly: () => plexServerOwnerOnlyMiddleware,
 			plexAPIRequestHandler: <TResult>(handler: PlexAPIRequestHandler<TResult>) => {
 				return async (req: IncomingPlexAPIRequest, res: express.Response) => {
 					res.header(constants.APP_CUSTOM_HEADER, 'yes');
@@ -1005,7 +1001,7 @@ export class PseuplexApp {
 		router.get('/myplex/account', [
 			this.middlewares.plexAuthentication(),
 			// ensure that this endpoint NEVER gives data to non-owners
-			this.middlewares.plexServerOwnerOnly,
+			this.middlewares.plexServerOwnerOnly(),
 			this.middlewares.plexAPIProxy({
 				responseModifier: async (proxyRes, resData: plexTypes.PlexMyPlexAccountPage, userReq: IncomingPlexAPIRequest, userRes) => {
 					// overwrite privatePort if needed
@@ -2247,7 +2243,7 @@ export class PseuplexApp {
 			});
 			return;
 		}
-
+		// load image from file and resize
 		const {image,meta} = await getResizedImageFromFile(filepath, {
 			width,
 			height,

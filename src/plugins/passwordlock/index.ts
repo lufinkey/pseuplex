@@ -8,6 +8,7 @@ import {
 	authenticatePlexRequest,
 	IncomingPlexAPIRequest,
 	IncomingPlexAPIRequestMixin,
+	IncomingPlexHttpRequest,
 	PlexRequestInfo
 } from '../../plex/requesthandling';
 import {
@@ -201,7 +202,7 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 		]);
 
 		unauthRouter.get([ `${this.section.path}/prefs`, `/library/sections/${this.section.id}/prefs` ], [
-			this.app.middlewares.plexServerOwnerOnly,
+			this.app.middlewares.plexServerOwnerOnly(),
 			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res) => {
 				const context = this.app.contextForRequest(req);
 				return await this.section.getPrefsPage(context);
@@ -393,6 +394,7 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 		]);
 
 		unauthRouter.get('/status/sessions', [
+			this.app.middlewares.plexServerOwnerOnly(),
 			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<{MediaContainer:plexTypes.PlexMediaContainer}> => {
 				return {
 					MediaContainer: {
@@ -403,6 +405,7 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 		]);
 
 		unauthRouter.get('/activities', [
+			this.app.middlewares.plexServerOwnerOnly(),
 			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<{MediaContainer:plexTypes.PlexMediaContainer}> => {
 				return {
 					MediaContainer: {
@@ -472,26 +475,15 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 			}),
 		]);
 		
-		const sensitivePrefs = new Set<string>([
-			"customCertificatePath",
-			"customCertificateKey",
-			"LocalAppDataPath",
-			"iTunesLibraryXmlPath",
-			"ButlerDatabaseBackupPath",
-			"CertificateUUID",
-			"CertificateVersion",
-		]);
 		unauthRouter.get('/\\:/prefs', [
-			this.app.middlewares.plexServerOwnerOnly,
-			this.app.middlewares.plexAPIProxy({
-				responseModifier: (proxyRes, resData: plexTypes.PlexPrefsPage, userReq, userRes): plexTypes.PlexPrefsPage => {
-					if(resData.MediaContainer.Setting) {
-						resData.MediaContainer.Setting = resData.MediaContainer.Setting.filter((setting) => {
-							return !sensitivePrefs.has(setting.id);
-						});
+			this.app.middlewares.plexServerOwnerOnly(),
+			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexPrefsPage> => {
+				return {
+					MediaContainer: {
+						size: 0,
+						Setting: [],
 					}
-					return resData;
-				},
+				};
 			}),
 		]);
 		
@@ -500,7 +492,8 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 		]);
 		
 		unauthRouter.put('/updater/check', [
-			asyncRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<boolean> => {
+			this.app.middlewares.plexServerOwnerOnly(),
+			asyncRequestHandler(async (req: IncomingPlexAPIRequest, res: express.Response): Promise<boolean> => {
 				res.setHeader('Access-Control-Allow-Origin', 'https://app.plex.tv');
 				res.setHeader('Vary', 'Origin, X-Plex-Token');
 				res.setHeader('X-Plex-Protocol', '1.0');
@@ -511,7 +504,7 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 		]);
 
 		unauthRouter.get(this.metadata.options.lockInstructionsThumbEndpoint, [
-			asyncRequestHandler(async (req, res) => {
+			asyncRequestHandler(async (req: IncomingPlexAPIRequest, res) => {
 				// parse width and height
 				const width = parseIntQueryParam(req.query.width);
 				const height = parseIntQueryParam(req.query.height);
@@ -616,13 +609,13 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 		});
 
 		unauthUpgradeRouter.get('/\\:/websockets/notifications', [
-			asyncRequestHandler(async (req: UpgradeRequest & IncomingPlexAPIRequestMixin, res: UpgradeResponse) => {
+			asyncRequestHandler(async (req: IncomingPlexHttpRequest, res: UpgradeResponse) => {
 				if(req.headers['upgrade']?.toLowerCase().trim() != 'websocket') {
 					// continue
 					return false;
 				}
 				const { socket, head } = res;
-				this.notificationWebsocketServer.handleUpgrade(req, socket, head, (client: (ws & PlexClientWebsocketMixin), req: UpgradeRequest & IncomingPlexAPIRequestMixin) => {
+				this.notificationWebsocketServer.handleUpgrade(req, socket, head, (client: (ws & PlexClientWebsocketMixin), req: IncomingPlexHttpRequest) => {
 					client.remoteAddress = remoteAddressOfRequest(req);
 					client.realIP = this.app.realIPOfRequest(req);
 					client.plex = req.plex;
@@ -638,8 +631,9 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 			res.socket.destroy();
 		});
 
+		// catch and authenticate all upgrade requests
 		router.upgradeRouter.use([
-			async (req, res, next) => {
+			async (req: UpgradeRequest, res: UpgradeResponse, next) => {
 				// check if password lock is enabled
 				if(!this.config?.passwordLock?.enabled) {
 					// continue
@@ -652,7 +646,7 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 					// authenticate request as plex user
 					await authenticatePlexRequest(req, this.app.plexServerAccounts);
 					// validate that we're allowed to continue
-					allowedAccess = await this.isUserAllowedAccess(req);
+					allowedAccess = await this.isUserAllowedAccess(req as IncomingPlexHttpRequest);
 				} catch(error) {
 					next(error);
 					return;
@@ -669,7 +663,7 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 		
 		// catch and authenticate all api requests
 		router.use([
-			async (req: IncomingPlexAPIRequest, res, next) => {
+			async (req: express.Request, res: express.Response, next) => {
 				try {
 					// check if password lock is enabled
 					if(!this.config?.passwordLock?.enabled) {
@@ -691,7 +685,7 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 						// authenticate request as plex user
 						await authenticatePlexRequest(req, this.app.plexServerAccounts);
 						// validate that we're allowed to continue
-						allowedAccess = await this.isUserAllowedAccess(req);
+						allowedAccess = await this.isUserAllowedAccess(req as IncomingPlexAPIRequest);
 					} catch(error) {
 						next(error);
 						return;
@@ -711,7 +705,7 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 		]);
 	}
 	
-	async isUserAllowedAccess(req: (http.IncomingMessage & IncomingPlexAPIRequestMixin)): Promise<boolean> {
+	async isUserAllowedAccess(req: IncomingPlexHttpRequest): Promise<boolean> {
 		// check if source IP is confirmed
 		await this.authCache.waitForLoad();
 		const realIP = this.app.realIPOfRequest(req);
@@ -749,6 +743,7 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 		for(const client of this.notificationWebsocketServer.clients as Set<ws & PlexClientWebsocketMixin>) {
 			const cmpPlexToken = client.plex.authContext['X-Plex-Token'];
 			if(plexToken == cmpPlexToken && realIP == client.realIP) {
+				console.log(`Disconnecting unauthenticated plex websocket for ${req.plex.userInfo.email} on ip ${realIP}`);
 				client.close();
 			}
 		}
@@ -757,6 +752,7 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 			const cmpPlexToken = subscriber.req.plex.authContext['X-Plex-Token'];
 			const cmpRealIP = this.app.realIPOfRequest(subscriber.req);
 			if(plexToken == cmpPlexToken && realIP == cmpRealIP) {
+				console.log(`Disconnecting unauthenticated plex eventsource subscriber for ${req.plex.userInfo.email} on ip ${realIP}`);
 				subscriber.res.end();
 			}
 		}
