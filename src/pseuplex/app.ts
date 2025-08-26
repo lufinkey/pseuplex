@@ -2414,7 +2414,7 @@ export class PseuplexApp {
 				}
 			}
 		}
-		/*if(eventSubscribers) {
+		if(eventSubscribers) {
 			for(const subscriber of eventSubscribers) {
 				if(!subscriber.proxyResponse) {
 					// request hasn't received a response from the server yet, so we shouldn't send any notifications
@@ -2426,7 +2426,7 @@ export class PseuplexApp {
 					response: subscriber.response
 				});
 			}
-		}*/
+		}
 		return senders;
 	}
 
