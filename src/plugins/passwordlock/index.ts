@@ -54,6 +54,7 @@ const SectionTitle = "Login";
 
 type PlexClientWebsocketMixin = {
 	remoteAddress: string;
+	realIP: string;
 	plex: PlexRequestInfo;
 };
 
@@ -613,7 +614,8 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 				}
 				const { socket, head } = res;
 				this.notificationWebsocketServer.handleUpgrade(req, socket, head, (client: (ws & PlexClientWebsocketMixin), req: UpgradeRequest & IncomingPlexAPIRequestMixin) => {
-					client.remoteAddress = remoteAddressOfRequest(req)!;
+					client.remoteAddress = remoteAddressOfRequest(req);
+					client.realIP = this.app.realIPOfRequest(req);
 					client.plex = req.plex;
 					this.notificationWebsocketServer.emit('connection', client, req);
 				});
@@ -703,14 +705,14 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 	async isUserAllowedAccess(req: (http.IncomingMessage & IncomingPlexAPIRequestMixin)): Promise<boolean> {
 		// check if source IP is confirmed
 		await this.authCache.waitForLoad();
-		const remoteAddress = remoteAddressOfRequest(req);
+		const realIP = this.app.realIPOfRequest(req);
 		// check if we're on an auto-whitelisted network
 		// TODO make this per-user
-		if(this.autoWhitelistedNetmasks && this.autoWhitelistedNetmasks.findIndex((n: IPCIDR) => n.contains(remoteAddress)) != -1) {
+		if(this.autoWhitelistedNetmasks && this.autoWhitelistedNetmasks.findIndex((n: IPCIDR) => n.contains(realIP)) != -1) {
 			return true;
 		}
 		const plexToken = req.plex.authContext['X-Plex-Token']!;
-		return this.authCache.isIPWhitelistedForToken(plexToken, remoteAddress);
+		return this.authCache.isIPWhitelistedForToken(plexToken, realIP);
 	}
 
 	async login(req: IncomingPlexAPIRequest, inputPassword: string) {
@@ -725,8 +727,8 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 		// success
 		// whitelist the IP
 		const plexToken = req.plex.authContext['X-Plex-Token']!;
-		const remoteAddress = remoteAddressOfRequest(req);
-		this.authCache.whitelistIPForPlexToken(plexToken, remoteAddress);
+		const realIP = this.app.realIPOfRequest(req);
+		this.authCache.whitelistIPForPlexToken(plexToken, realIP);
 		if(!this.authCache.isSaveQueued) {
 			this.authCache.save().catch((error) => {
 				console.error("Error saving auth cache:");
@@ -737,15 +739,15 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 		// disconnect any unauthed websockets
 		for(const client of this.notificationWebsocketServer.clients as Set<ws & PlexClientWebsocketMixin>) {
 			const cmpPlexToken = client.plex.authContext['X-Plex-Token'];
-			if(plexToken == cmpPlexToken && remoteAddress == client.remoteAddress) {
+			if(plexToken == cmpPlexToken && realIP == client.realIP) {
 				client.close();
 			}
 		}
 		// disconnect any unauthed eventsource subscribers
 		for(const subscriber of this.notificationEventsourceSubscribers) {
 			const cmpPlexToken = subscriber.req.plex.authContext['X-Plex-Token'];
-			const cmpRemoteAddress = remoteAddressOfRequest(subscriber.req);
-			if(plexToken == cmpPlexToken && remoteAddress == cmpRemoteAddress) {
+			const cmpRealIP = this.app.realIPOfRequest(subscriber.req);
+			if(plexToken == cmpPlexToken && realIP == cmpRealIP) {
 				subscriber.res.end();
 			}
 		}

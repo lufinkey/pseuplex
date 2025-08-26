@@ -106,6 +106,7 @@ import { httpError, HttpResponseError } from '../utils/error';
 import {
 	asyncRequestHandler,
 	expressErrorHandler,
+	remoteAddressOfRequest,
 	requestIsEncrypted
 } from '../utils/requesthandling';
 import {
@@ -1691,6 +1692,12 @@ export class PseuplexApp {
 			plexAuthContext: req.plex.authContext,
 			plexUserInfo: req.plex.userInfo,
 		};
+	}
+
+	realIPOfRequest(req: http.IncomingMessage): string {
+		let realIPHeaderVal = req.headers['X-Real-IP'];
+		realIPHeaderVal = (realIPHeaderVal instanceof Array) ? realIPHeaderVal.flat(Infinity)[0] : realIPHeaderVal;
+		return (this.trustProxy && realIPHeaderVal) ? realIPHeaderVal : remoteAddressOfRequest(req);
 	}
 	
 	
