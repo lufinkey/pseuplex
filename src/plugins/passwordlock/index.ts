@@ -176,7 +176,7 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 			}),
 		]);
 
-		unauthRouter.get(['/library/sections', '/library/sections/all'], [
+		unauthRouter.get([ '/library/sections', '/library/sections/all' ], [
 			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexLibrarySectionsPage> => {
 				const context = this.app.contextForRequest(req);
 				const reqParams: plexTypes.PlexLibrarySectionsPageParams = req.plex.requestParams;
@@ -193,14 +193,14 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 			}),
 		]);
 
-		unauthRouter.get(this.section.path, [
+		unauthRouter.get([ this.section.path, `/library/sections/${this.section.id}` ], [
 			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res) => {
 				const context = this.app.contextForRequest(req);
 				return await this.section.getSectionPage(context);
 			}),
 		]);
 
-		unauthRouter.get(`${this.section.path}/prefs`, [
+		unauthRouter.get([ `${this.section.path}/prefs`, `/library/sections/${this.section.id}/prefs` ], [
 			this.app.middlewares.plexServerOwnerOnly,
 			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res) => {
 				const context = this.app.contextForRequest(req);
@@ -208,15 +208,7 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 			}),
 		]);
 
-		unauthRouter.get(`/library/sections/${this.section.id}/prefs`, [
-			this.app.middlewares.plexServerOwnerOnly,
-			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res) => {
-				const context = this.app.contextForRequest(req);
-				return await this.section.getPrefsPage(context);
-			}),
-		]);
-
-		unauthRouter.get(`${this.section.path}/all`, [
+		unauthRouter.get([ `${this.section.path}/all`, `/library/sections/${this.section.id}/all` ], [
 			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res) => {
 				const context = this.app.contextForRequest(req);
 				const plexParams = plexTypes.parsePlexSectionAllItemsPageParams(req);
@@ -224,15 +216,7 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 			}),
 		]);
 
-		unauthRouter.get(`/library/sections/${this.section.id}/all`, [
-			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res) => {
-				const context = this.app.contextForRequest(req);
-				const plexParams = plexTypes.parsePlexSectionAllItemsPageParams(req);
-				return await this.section.getAllItemsPage(plexParams, context);
-			}),
-		]);
-
-		unauthRouter.get(this.section.hubsPath, [
+		unauthRouter.get([ this.section.hubsPath, `/hubs/section/${this.section.id}` ], [
 			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res) => {
 				const context = this.app.contextForRequest(req);
 				const reqParams = plexTypes.parsePlexHubListPageParams(req);
