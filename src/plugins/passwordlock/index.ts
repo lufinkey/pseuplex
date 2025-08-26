@@ -200,6 +200,14 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 			}),
 		]);
 
+		unauthRouter.get(`${this.section.path}/prefs`, [
+			this.app.middlewares.plexServerOwnerOnly,
+			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res) => {
+				const context = this.app.contextForRequest(req);
+				return await this.section.getPrefsPage(context);
+			}),
+		]);
+
 		unauthRouter.get(`${this.section.path}/all`, [
 			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res) => {
 				const context = this.app.contextForRequest(req);
@@ -474,6 +482,7 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 			"CertificateVersion",
 		]);
 		unauthRouter.get('/\\:/prefs', [
+			this.app.middlewares.plexServerOwnerOnly,
 			this.app.middlewares.plexAPIProxy({
 				responseModifier: (proxyRes, resData: plexTypes.PlexPrefsPage, userReq, userRes): plexTypes.PlexPrefsPage => {
 					if(resData.MediaContainer.Setting) {

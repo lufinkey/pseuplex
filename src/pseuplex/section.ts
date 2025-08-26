@@ -4,7 +4,6 @@ import type { PseuplexRequestContext } from './types';
 import {
 	pseuplexHubPageParamsFromHubListParams,
 	type PseuplexHub,
-	type PseuplexHubPageParams,
 } from './hub';
 
 export interface PseuplexSection {
@@ -21,6 +20,7 @@ export interface PseuplexSection {
 	getPromotedHubsPage(params: plexTypes.PlexHubListPageParams, context: PseuplexRequestContext): Promise<plexTypes.PlexSectionHubsPage>;
 	getHubsPage(params: plexTypes.PlexHubListPageParams, context: PseuplexRequestContext): Promise<plexTypes.PlexSectionHubsPage>;
 	getAllItemsPage(params: plexTypes.PlexSectionAllItemsParams, context: PseuplexRequestContext): Promise<plexTypes.PlexMetadataPage>;
+	getPrefsPage(context: PseuplexRequestContext): Promise<plexTypes.PlexPrefsPage>;
 }
 
 export type PseuplexSectionItemsPage = {
@@ -176,12 +176,11 @@ export class PseuplexSectionBase implements PseuplexSection {
 	}
 
 
+	getAllItems?(plexParams: plexTypes.PlexSectionAllItemsParams, context: PseuplexRequestContext): Promise<PseuplexSectionItemsPage>;
 
-	getAllItems?(params: plexTypes.PlexSectionAllItemsParams, context: PseuplexRequestContext): Promise<PseuplexSectionItemsPage>;
-
-	async getAllItemsPage(params: plexTypes.PlexSectionAllItemsParams, context: PseuplexRequestContext): Promise<plexTypes.PlexMetadataPage> {
+	async getAllItemsPage(plexParams: plexTypes.PlexSectionAllItemsParams, context: PseuplexRequestContext): Promise<plexTypes.PlexMetadataPage> {
 		const titlePromise = this.getTitle(context);
-		const itemsPage = await this.getAllItems?.(params, context);
+		const itemsPage = await this.getAllItems?.(plexParams, context);
 		return {
 			MediaContainer: {
 				size: itemsPage?.items.length ?? 0,
@@ -192,6 +191,19 @@ export class PseuplexSectionBase implements PseuplexSection {
 				librarySectionUUID: this.uuid!,
 				identifier: plexTypes.PlexPluginIdentifier.PlexAppLibrary,
 				Metadata: itemsPage?.items ?? [],
+			}
+		};
+	}
+
+
+	getPrefs?(context: PseuplexRequestContext): Promise<plexTypes.PlexSetting[]>;
+	
+	async getPrefsPage(context: PseuplexRequestContext): Promise<plexTypes.PlexPrefsPage> {
+		const prefItems = await this.getPrefs?.(context) ?? [];
+		return {
+			MediaContainer: {
+				size: prefItems.length,
+				Setting: prefItems,
 			}
 		};
 	}
