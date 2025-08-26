@@ -7,10 +7,13 @@ import {
 	PseuplexMetadataTransformOptions,
 	PseuplexRequestContext,
 	PseuplexSectionBase,
+	PseuplexSectionItemsPage,
 	PseuplexSectionOptions
 } from '../../../pseuplex';
+import { PasswordLockMetadataID } from '../metadata';
 import { PasswordLockPluginDef } from '../plugindef';
 import { PasswordLockedSectionIntroHub } from './introHub';
+import { arrayFromArrayOrSingle } from '../../../utils/misc';
 
 export type PasswordLockSectionOptions = PseuplexSectionOptions & {
 	hubsPivotTitle?: string,
@@ -24,21 +27,24 @@ export class PasswordLockSection extends PseuplexSectionBase {
 	readonly plugin: PasswordLockPluginDef;
 	readonly hubsPivotTitle: string;
 	readonly introHub: PasswordLockedSectionIntroHub;
+	readonly metadataTransformOptions: PseuplexMetadataTransformOptions;
 
 	constructor(plugin: PasswordLockPluginDef, options: PasswordLockSectionOptions) {
 		super(options);
 		this.plugin = plugin;
+
+		this.metadataTransformOptions = {
+			metadataBasePath: '/library/metadata',
+			qualifiedMetadataIds: true,
+			includeMetadataUnavailability: true,
+		};
 
 		this.hubsPivotTitle = options.hubsPivotTitle ?? SectionHubsPivotTitle;
 		this.introHub = new PasswordLockedSectionIntroHub({
 			path: `${this.hubsPath}/intro`,
 			title: options.introHubTitle ?? SectionIntroHubTitle,
 			metadataProvider: plugin.metadata,
-			metadataTransformOptions: {
-				metadataBasePath: '/library/metadata',
-				qualifiedMetadataIds: true,
-				includeMetadataUnavailability: true,
-			},
+			metadataTransformOptions: this.metadataTransformOptions,
 			section: {
 				id: `${this.id}`,
 				uuid: this.uuid,
@@ -60,15 +66,31 @@ export class PasswordLockSection extends PseuplexSectionBase {
 		];
 	}
 
-	async getHubs?(params: plexTypes.PlexHubListPageParams, context: PseuplexRequestContext): Promise<PseuplexHub[]> {
+	async getHubs?(plexParams: plexTypes.PlexHubListPageParams, context: PseuplexRequestContext): Promise<PseuplexHub[]> {
 		return [
 			this.introHub,
 		];
 	}
 	
-	async getPromotedHubs?(params: plexTypes.PlexHubListPageParams, context: PseuplexRequestContext): Promise<PseuplexHub[]> {
+	async getPromotedHubs?(plexParams: plexTypes.PlexHubListPageParams, context: PseuplexRequestContext): Promise<PseuplexHub[]> {
 		return [
 			this.introHub,
 		];
+	}
+
+	async getAllItems(plexParams: plexTypes.PlexSectionAllItemsParams, context: PseuplexRequestContext): Promise<PseuplexSectionItemsPage> {
+		const items = arrayFromArrayOrSingle((await this.plugin.metadata.get([
+			PasswordLockMetadataID.Instructions
+		], {
+			...this.metadataTransformOptions,
+			context,
+			includeUnmatched: true,
+		})).MediaContainer.Metadata);
+		return {
+			items,
+			offset: 0,
+			more: false,
+			totalItemCount: items.length,
+		};
 	}
 }

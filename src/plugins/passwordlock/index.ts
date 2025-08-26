@@ -195,6 +195,14 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 			}),
 		]);
 
+		unauthRouter.get(`${this.section.path}/all`, [
+			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res) => {
+				const context = this.app.contextForRequest(req);
+				const plexParams = plexTypes.parsePlexSectionAllItemsPageParams(req);
+				return await this.section.getAllItemsPage(plexParams, context);
+			}),
+		]);
+
 		unauthRouter.get(this.section.hubsPath, [
 			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res) => {
 				const context = this.app.contextForRequest(req);
@@ -307,25 +315,18 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 			]);
 		}
 
-		unauthRouter.get('/library/all', [
-			// filter requests that are asking for a specific guid
-			this.app.middlewares.plexAPIProxy({
-				filter: (req, res) => {
-					// only filter if guid is included
-					if(req.query['guid'] || req.query['show.guid']) {
-						return true;
-					}
-					return false
-				},
-				responseModifier: async (proxyRes, resData: plexTypes.PlexMetadataPage, userReq: IncomingPlexAPIRequest, userRes): Promise<PseuplexMetadataPage> => {
-					const context = this.app.contextForRequest(userReq);
-					// clear response data first, in case an error is thrown later
-					resData.MediaContainer.Metadata = [];
-					resData.MediaContainer.size = 0;
-					if(resData.MediaContainer.totalSize != null) {
-						resData.MediaContainer.totalSize = 0;
-					}
-					// get password metadata item
+		unauthRouter.get(`/library/all`, [
+			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res) => {
+				const context = this.app.contextForRequest(req);
+				const plexParams = plexTypes.parsePlexLibraryAllItemsPageParams(req);
+				if(plexParams.guid || plexParams['show.guid']) {
+					// show "unlock server" item
+					const resData: plexTypes.PlexMetadataPage = {
+						MediaContainer: {
+							size: 0,
+							Metadata: []
+						}
+					};
 					const unlockMetadata = firstOrSingle((await this.metadata.get([PasswordLockMetadataID.Instructions], {
 						context,
 						includeUnmatched: true,
@@ -354,9 +355,16 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 							resData.MediaContainer.totalSize += 1;
 						}
 					}
-					return resData as PseuplexMetadataPage;
+					return resData;
 				}
-			})
+				// get all items
+				const libraryPage = await this.section.getAllItemsPage(plexParams, context);
+				delete libraryPage.MediaContainer.librarySectionID;
+				delete libraryPage.MediaContainer.librarySectionTitle;
+				delete libraryPage.MediaContainer.librarySectionUUID;
+				delete (libraryPage.MediaContainer as any).librarySectionKey;
+				return libraryPage;
+			}),
 		]);
 		
 		unauthRouter.get([ '/hubs/continueWatching', '/hubs/home/continueWatching' ], [

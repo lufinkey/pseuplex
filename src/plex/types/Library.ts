@@ -77,59 +77,6 @@ export type PlexLibrarySectionsPage = {
 	}
 };
 
-export type PlexSectionAllItemsParams = {
-	// TODO figure out what these are
-};
-
-
-
-export enum PlexLibrarySortField {
-	Random = 'random',
-	// TODO add other fields
-};
-
-export enum PlexLibrarySortOrder {
-	Ascending = 'asc',
-	Descending = 'desc',
-};
-
-export type PlexLibrarySortParam = `${PlexLibrarySortField}:${PlexLibrarySortOrder}` | PlexLibrarySortField | PlexLibrarySortOrder;
-
-export type PlexLibraryAllItemsParams = {
-	'X-Plex-Container-Start'?: number;
-	'X-Plex-Container-Size'?: number;
-	type?: PlexMediaItemTypeNumeric;
-	guid?: string;
-	'show.guid'?: string;
-	season?: number;
-	sort?: PlexLibrarySortParam | string;
-	includeCollections?: boolean;
-	includeExternalMedia?: boolean;
-	includeAdvanced?: boolean;
-	includeMeta?: boolean;
-};
-
-export const parsePlexLibraryAllItemsPageParams = (req: express.Request, options: {fromListPage: boolean}): PlexLibraryAllItemsParams => {
-	const query = req.query;
-	if(!query) {
-		return {};
-	}
-	// TODO some of these may be arrays sometimes
-	return {
-		'X-Plex-Container-Start': options.fromListPage ? undefined : parseIntQueryParam(query['X-Plex-Container-Start'] ?? req.header('x-plex-container-start')),
-		'X-Plex-Container-Size': options.fromListPage ? parseIntQueryParam(query['count']) : parseIntQueryParam(query['X-Plex-Container-Size'] ?? req.header('x-plex-container-size')),
-		type: parseIntQueryParam(query['type']),
-		guid: parseStringQueryParam(query['guid']),
-		'show.guid': parseStringQueryParam(query['guid']),
-		season: parseIntQueryParam(query['season']),
-		sort: parseStringQueryParam(query['sort']),
-		includeCollections: parseBooleanQueryParam(query),
-		includeExternalMedia: parseBooleanQueryParam(query),
-		includeAdvanced: parseBooleanQueryParam(query),
-		includeMeta: parseBooleanQueryParam(query),
-	};
-};
-
 
 
 export type PlexLibrarySectionDirectory = {
@@ -165,4 +112,64 @@ export type PlexLibrarySectionPage = {
 		viewGroup: PlexLibrarySectionViewGroup;
 		Directory?: PlexLibrarySectionDirectory[];
 	}
+};
+
+export type PlexSectionAllItemsParams = {
+	'X-Plex-Container-Start'?: number;
+	'X-Plex-Container-Size'?: number;
+};
+
+export const parsePlexSectionAllItemsPageParams = (req: express.Request): PlexSectionAllItemsParams => {
+	const query = req.query ?? {};
+	// TODO some of these may be arrays sometimes
+	return {
+		'X-Plex-Container-Start': parseIntQueryParam(query['X-Plex-Container-Start'] ?? req.header('x-plex-container-start')),
+		'X-Plex-Container-Size': parseIntQueryParam(query['X-Plex-Container-Size'] ?? req.header('x-plex-container-size')),
+	};
+};
+
+
+
+export enum PlexLibrarySortField {
+	Random = 'random',
+	// TODO add other fields
+};
+
+export enum PlexLibrarySortOrder {
+	Ascending = 'asc',
+	Descending = 'desc',
+};
+
+export type PlexLibrarySortParam = `${PlexLibrarySortField}:${PlexLibrarySortOrder}` | PlexLibrarySortField | PlexLibrarySortOrder;
+
+export type PlexLibraryAllItemsParams = {
+	'X-Plex-Container-Start'?: number;
+	'X-Plex-Container-Size'?: number;
+	type?: PlexMediaItemTypeNumeric;
+	guid?: string;
+	'show.guid'?: string;
+	season?: number;
+	sort?: PlexLibrarySortParam | string;
+	includeCollections?: boolean;
+	includeExternalMedia?: boolean;
+	includeAdvanced?: boolean;
+	includeMeta?: boolean;
+};
+
+export const parsePlexLibraryAllItemsPageParams = (req: express.Request): PlexLibraryAllItemsParams => {
+	const query = req.query ?? {};
+	// TODO some of these may be arrays sometimes
+	return {
+		'X-Plex-Container-Start': parseIntQueryParam(query['X-Plex-Container-Start'] ?? req.header('x-plex-container-start')),
+		'X-Plex-Container-Size': parseIntQueryParam(query['X-Plex-Container-Size'] ?? req.header('x-plex-container-size')),
+		type: parseIntQueryParam(query['type']),
+		guid: parseStringQueryParam(query['guid']),
+		'show.guid': parseStringQueryParam(query['guid']),
+		season: parseIntQueryParam(query['season']),
+		sort: parseStringQueryParam(query['sort']),
+		includeCollections: parseBooleanQueryParam(query),
+		includeExternalMedia: parseBooleanQueryParam(query),
+		includeAdvanced: parseBooleanQueryParam(query),
+		includeMeta: parseBooleanQueryParam(query),
+	};
 };

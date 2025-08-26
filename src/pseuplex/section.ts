@@ -23,6 +23,13 @@ export interface PseuplexSection {
 	getAllItemsPage(params: plexTypes.PlexSectionAllItemsParams, context: PseuplexRequestContext): Promise<plexTypes.PlexMetadataPage>;
 }
 
+export type PseuplexSectionItemsPage = {
+	items: plexTypes.PlexMetadataItem[];
+	offset: number;
+	more: boolean;
+	totalItemCount?: number;
+};
+
 export type PseuplexSectionOptions = {
 	allowSync?: boolean;
 	id: string | number;
@@ -170,24 +177,21 @@ export class PseuplexSectionBase implements PseuplexSection {
 
 
 
-	getAllItems?(params: plexTypes.PlexSectionAllItemsParams, context: PseuplexRequestContext): Promise<{
-		totalItemCount?: number;
-		items: plexTypes.PlexMetadataItem[];
-	}>;
+	getAllItems?(params: plexTypes.PlexSectionAllItemsParams, context: PseuplexRequestContext): Promise<PseuplexSectionItemsPage>;
 
 	async getAllItemsPage(params: plexTypes.PlexSectionAllItemsParams, context: PseuplexRequestContext): Promise<plexTypes.PlexMetadataPage> {
 		const titlePromise = this.getTitle(context);
-		const itemPage = await this.getAllItems?.(params, context);
+		const itemsPage = await this.getAllItems?.(params, context);
 		return {
 			MediaContainer: {
-				size: itemPage?.items.length ?? 0,
-				totalSize: itemPage ? itemPage.totalItemCount : 0,
+				size: itemsPage?.items.length ?? 0,
+				totalSize: itemsPage ? itemsPage.totalItemCount : 0,
 				allowSync: false,
 				librarySectionID: this.id,
 				librarySectionTitle: await titlePromise,
 				librarySectionUUID: this.uuid!,
 				identifier: plexTypes.PlexPluginIdentifier.PlexAppLibrary,
-				Metadata: itemPage?.items ?? [],
+				Metadata: itemsPage?.items ?? [],
 			}
 		};
 	}
