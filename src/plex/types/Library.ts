@@ -167,9 +167,9 @@ export const parsePlexLibraryAllItemsPageParams = (req: express.Request): PlexLi
 		'show.guid': parseStringQueryParam(query['guid']),
 		season: parseIntQueryParam(query['season']),
 		sort: parseStringQueryParam(query['sort']),
-		includeCollections: parseBooleanQueryParam(query),
-		includeExternalMedia: parseBooleanQueryParam(query),
-		includeAdvanced: parseBooleanQueryParam(query),
-		includeMeta: parseBooleanQueryParam(query),
+		includeCollections: parseBooleanQueryParam(query['includeCollections']),
+		includeExternalMedia: parseBooleanQueryParam(query['includeExternalMedia']),
+		includeAdvanced: parseBooleanQueryParam(query['includeAdvanced']),
+		includeMeta: parseBooleanQueryParam(query['includeMeta']),
 	};
 };
