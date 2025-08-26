@@ -46,6 +46,10 @@ const videoTranscodePathPrefix = '/video/:/transcode/universal/session/';
 const passthroughVideoTranscodeMethods = ['GET','OPTIONS','HEAD'];
 
 const lockInstructionsThumbFilepath = `${getModuleRootPath()}/images/lockedSectionInstructions.png`;
+const lockIconFilepath = `${getModuleRootPath()}/images/icons/lock.png`;
+
+const plexTVAvatarPathRegex = /\/users\/([a-zA-Z0-9]+)\/avatar(?:\/|$)/;
+
 const SectionTitle = "Login";
 
 type PlexClientWebsocketMixin = {
@@ -524,6 +528,22 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 					const rewrittenPhotoUrl = this.app.rewritePhotoEndpointLocalhostURL(photoUrl);
 					photoUrl = rewrittenPhotoUrl.url;
 					if(!photoUrl.startsWith('/')) {
+						const photoUrlParts = new URL(photoUrl);
+						if(photoUrlParts.host == 'plex.tv') {
+							if(plexTVAvatarPathRegex.test(photoUrlParts.pathname)) {
+								// parse width and height
+								const width = parseIntQueryParam(req.query.width);
+								const height = parseIntQueryParam(req.query.height);
+								// send image response
+								await this.app.sendImageResponse({
+									origin: req.headers['origin'],
+									filepath: lockIconFilepath,
+									width,
+									height,
+								}, res);
+								return true;
+							}
+						}
 						// continue
 						return false;
 					}
@@ -684,9 +704,6 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 		// check if source IP is confirmed
 		await this.authCache.waitForLoad();
 		const remoteAddress = remoteAddressOfRequest(req);
-		if(!remoteAddress) {
-			throw httpError(400, "No remote address");
-		}
 		// check if we're on an auto-whitelisted network
 		// TODO make this per-user
 		if(this.autoWhitelistedNetmasks && this.autoWhitelistedNetmasks.findIndex((n: IPCIDR) => n.contains(remoteAddress)) != -1) {
@@ -709,9 +726,6 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 		// whitelist the IP
 		const plexToken = req.plex.authContext['X-Plex-Token']!;
 		const remoteAddress = remoteAddressOfRequest(req);
-		if(!remoteAddress) {
-			throw httpError(400, "No remote address for some reason");
-		}
 		this.authCache.whitelistIPForPlexToken(plexToken, remoteAddress);
 		if(!this.authCache.isSaveQueued) {
 			this.authCache.save().catch((error) => {

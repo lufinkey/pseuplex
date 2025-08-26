@@ -1,6 +1,6 @@
 import http from 'http';
 import express from 'express';
-import { HttpError, HttpResponseError } from './error';
+import { httpError, HttpError, HttpResponseError } from './error';
 
 export const asyncRequestHandler = <TRequest extends http.IncomingMessage = express.Request, TResponse = express.Response>(
 	handler: (req: TRequest, res: TResponse) => boolean | Promise<boolean>
@@ -54,11 +54,10 @@ export const expressErrorHandler = (error: Error, req: express.Request, res: exp
 	}
 };
 
-export function remoteAddressOfRequest(req: http.IncomingMessage | express.Request) {
+export function remoteAddressOfRequest(req: http.IncomingMessage | express.Request): string {
 	let remoteAddress = req.connection?.remoteAddress || req.socket?.remoteAddress || (req as express.Request).ip;
 	if(!remoteAddress) {
-		console.error(`Remote address was undefined for some reason:`);
-		console.dir(req);
+		throw httpError(400, "No remote address");
 	}
 	return remoteAddress;
 };
