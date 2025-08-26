@@ -210,6 +210,14 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 			}),
 		]);
 
+		unauthRouter.get([ `${this.section.path}/collections`, `/library/sections/${this.section.id}/collections` ], [
+			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res) => {
+				const context = this.app.contextForRequest(req);
+				const plexParams = plexTypes.parsePlexCollectionsPageParams(req);
+				return await this.section.getCollectionsPage(plexParams, context);
+			}),
+		]);
+
 		unauthRouter.get([ `${this.section.path}/all`, `/library/sections/${this.section.id}/all` ], [
 			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res) => {
 				const context = this.app.contextForRequest(req);

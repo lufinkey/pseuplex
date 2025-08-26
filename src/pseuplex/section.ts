@@ -19,6 +19,7 @@ export interface PseuplexSection {
 	getLibrarySectionsEntry(params: plexTypes.PlexLibrarySectionsPageParams, context: PseuplexRequestContext): Promise<plexTypes.PlexLibrarySection>;
 	getPromotedHubsPage(params: plexTypes.PlexHubListPageParams, context: PseuplexRequestContext): Promise<plexTypes.PlexSectionHubsPage>;
 	getHubsPage(params: plexTypes.PlexHubListPageParams, context: PseuplexRequestContext): Promise<plexTypes.PlexSectionHubsPage>;
+	getCollectionsPage(params: plexTypes.PlexCollectionsPageParams, context: PseuplexRequestContext): Promise<plexTypes.PlexCollectionsPage>;
 	getAllItemsPage(params: plexTypes.PlexSectionAllItemsParams, context: PseuplexRequestContext): Promise<plexTypes.PlexMetadataPage>;
 	getPrefsPage(context: PseuplexRequestContext): Promise<plexTypes.PlexPrefsPage>;
 }
@@ -28,6 +29,13 @@ export type PseuplexSectionItemsPage = {
 	offset: number;
 	more: boolean;
 	totalItemCount?: number;
+};
+
+export type PseuplexSectionCollectionsPage = {
+	items: plexTypes.PlexCollection[];
+	offset: number;
+	more: boolean;
+	totalItemCount: number;
 };
 
 export type PseuplexSectionOptions = {
@@ -128,7 +136,8 @@ export class PseuplexSectionBase implements PseuplexSection {
 			directory: true,
 		};
 	}
-
+	
+	
 	getHubs?(params: plexTypes.PlexHubListPageParams, context: PseuplexRequestContext): Promise<PseuplexHub[]>;
 	getPromotedHubs?(params: plexTypes.PlexHubListPageParams, context: PseuplexRequestContext): Promise<PseuplexHub[]>;
 
@@ -176,6 +185,36 @@ export class PseuplexSectionBase implements PseuplexSection {
 	}
 
 
+	getCollections?(plexParams: plexTypes.PlexCollectionsPageParams, context: PseuplexRequestContext): Promise<PseuplexSectionCollectionsPage>;
+
+	getCollectionsMeta?(plexParams: plexTypes.PlexCollectionsPageParams, context: PseuplexRequestContext): Promise<plexTypes.PlexMeta>;
+
+	async getCollectionsPage(plexParams: plexTypes.PlexCollectionsPageParams, context: PseuplexRequestContext): Promise<plexTypes.PlexCollectionsPage> {
+		const titlePromise = this.getTitle(context);
+		const metaPromise = this.getCollectionsMeta?.(plexParams, context);
+		const chunk = await this.getCollections?.(plexParams, context);
+		const meta = await metaPromise;
+		const title = await titlePromise;
+		return {
+			MediaContainer: {
+				size: chunk?.items.length ?? 0,
+				totalSize: chunk ? chunk.totalItemCount : 0,
+				offset: chunk ? chunk.offset : 0,
+				allowSync: false,
+				content: plexTypes.PlexLibrarySectionContentType.Secondary,
+				identifier: plexTypes.PlexPluginIdentifier.PlexAppLibrary,
+				librarySectionID: this.id,
+				librarySectionTitle: title,
+				librarySectionUUID: this.uuid!,
+				title1: title,
+				viewGroup: this.type,
+				Meta: meta,
+				Metadata: chunk?.items ?? [],
+			}
+		};
+	}
+
+
 	getAllItems?(plexParams: plexTypes.PlexSectionAllItemsParams, context: PseuplexRequestContext): Promise<PseuplexSectionItemsPage>;
 
 	async getAllItemsPage(plexParams: plexTypes.PlexSectionAllItemsParams, context: PseuplexRequestContext): Promise<plexTypes.PlexMetadataPage> {
@@ -185,6 +224,7 @@ export class PseuplexSectionBase implements PseuplexSection {
 			MediaContainer: {
 				size: itemsPage?.items.length ?? 0,
 				totalSize: itemsPage ? itemsPage.totalItemCount : 0,
+				offset: itemsPage?.offset,
 				allowSync: false,
 				librarySectionID: this.id,
 				librarySectionTitle: await titlePromise,

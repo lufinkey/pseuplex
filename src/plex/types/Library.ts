@@ -6,12 +6,14 @@ import {
 	PlexMediaItemType,
 	PlexMediaItemTypeNumeric,
 	PlexPluginIdentifier,
+	PlexSortParam,
 } from './common';
 import { PlexMediaContainer } from './MediaContainer';
 import { PlexSetting } from './Prefs';
 import {
 	BooleanQueryParam,
 	parseBooleanQueryParam,
+	parseIntArrayQueryParam,
 	parseIntQueryParam,
 	parseStringQueryParam
 } from '../../utils/queryparams';
@@ -117,6 +119,7 @@ export type PlexLibrarySectionPage = {
 export type PlexSectionAllItemsParams = {
 	'X-Plex-Container-Start'?: number;
 	'X-Plex-Container-Size'?: number;
+	type?: PlexMediaItemTypeNumeric,
 };
 
 export const parsePlexSectionAllItemsPageParams = (req: express.Request): PlexSectionAllItemsParams => {
@@ -125,6 +128,7 @@ export const parsePlexSectionAllItemsPageParams = (req: express.Request): PlexSe
 	return {
 		'X-Plex-Container-Start': parseIntQueryParam(query['X-Plex-Container-Start'] ?? req.header('x-plex-container-start')),
 		'X-Plex-Container-Size': parseIntQueryParam(query['X-Plex-Container-Size'] ?? req.header('x-plex-container-size')),
+		type: parseIntQueryParam(query['type']),
 	};
 };
 
@@ -135,12 +139,7 @@ export enum PlexLibrarySortField {
 	// TODO add other fields
 };
 
-export enum PlexLibrarySortOrder {
-	Ascending = 'asc',
-	Descending = 'desc',
-};
-
-export type PlexLibrarySortParam = `${PlexLibrarySortField}:${PlexLibrarySortOrder}` | PlexLibrarySortField | PlexLibrarySortOrder;
+export type PlexLibrarySortParam = PlexSortParam<PlexLibrarySortField>;
 
 export type PlexLibraryAllItemsParams = {
 	'X-Plex-Container-Start'?: number;

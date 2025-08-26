@@ -52,6 +52,7 @@ export enum PlexMediaItemType {
 	Clip = 'clip',
 	Photos = 'photos',
 	Playlist = 'playlist',
+	Collection = 'collection',
 	Mixed = 'mixed',
 }
 
@@ -88,6 +89,7 @@ export const PlexMediaItemTypeToNumeric = {
 	[PlexMediaItemType.Clip]: PlexMediaItemTypeNumeric.Clip,
 	[PlexMediaItemType.Photos]: PlexMediaItemTypeNumeric.PhotoAlbum,
 	[PlexMediaItemType.Playlist]: PlexMediaItemTypeNumeric.Playlist,
+	[PlexMediaItemType.Collection]: PlexMediaItemTypeNumeric.Collection,
 };
 
 export const PlexMediaItemNumericToType = {
@@ -101,4 +103,12 @@ export const PlexMediaItemNumericToType = {
 	[PlexMediaItemTypeNumeric.Clip]: PlexMediaItemType.Clip,
 	[PlexMediaItemTypeNumeric.PhotoAlbum]: PlexMediaItemType.Photos,
 	[PlexMediaItemTypeNumeric.Playlist]: PlexMediaItemType.Playlist,
+	[PlexMediaItemTypeNumeric.Collection]: PlexMediaItemType.Collection,
 };
+
+export enum PlexSortOrder {
+	Ascending = 'asc',
+	Descending = 'desc',
+};
+
+export type PlexSortParam<TField extends (string | number | boolean)> = `${TField}:${PlexSortOrder}` | TField | PlexSortOrder;

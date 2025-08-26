@@ -1,6 +1,7 @@
 
 export * from './common';
 export * from './auth';
+export * from './Collection';
 export * from './HubContext';
 export * from './Hub';
 export * from './Library';
