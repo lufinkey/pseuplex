@@ -42,6 +42,7 @@ import { parseURLPath } from '../../utils/url';
 import { parseMetadataIDFromKey } from '../../plex/metadataidentifier';
 import { delay } from '../../utils/timing';
 import { firstOrSingle, pushToArray } from '../../utils/misc';
+import { IPv4NormalizeMode, normalizeIPAddress } from '../../utils/ip';
 
 const videoTranscodePathPrefix = '/video/:/transcode/universal/session/';
 const passthroughVideoTranscodeMethods = ['GET','OPTIONS','HEAD'];
@@ -55,7 +56,7 @@ const SectionTitle = "Login";
 
 type PlexClientWebsocketMixin = {
 	remoteAddress: string;
-	realIP: string;
+	identityIP: string;
 	plex: PlexRequestInfo;
 };
 
@@ -617,7 +618,7 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 				const { socket, head } = res;
 				this.notificationWebsocketServer.handleUpgrade(req, socket, head, (client: (ws & PlexClientWebsocketMixin), req: IncomingPlexHttpRequest) => {
 					client.remoteAddress = remoteAddressOfRequest(req);
-					client.realIP = this.app.realIPOfRequest(req);
+					client.identityIP = this.identityIPOfRequest(req);
 					client.plex = req.plex;
 					this.notificationWebsocketServer.emit('connection', client, req);
 				});
@@ -704,18 +705,23 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 			}
 		]);
 	}
+
+	identityIPOfRequest(req: http.IncomingMessage) {
+		const realIP = this.app.realIPOfRequest(req);
+		return normalizeIPAddress(realIP, IPv4NormalizeMode.ToIPv4);
+	}
 	
 	async isUserAllowedAccess(req: IncomingPlexHttpRequest): Promise<boolean> {
 		// check if source IP is confirmed
 		await this.authCache.waitForLoad();
-		const realIP = this.app.realIPOfRequest(req);
+		const identityIP = this.identityIPOfRequest(req);
 		// check if we're on an auto-whitelisted network
 		// TODO make this per-user
-		if(this.autoWhitelistedNetmasks && this.autoWhitelistedNetmasks.findIndex((n: IPCIDR) => n.contains(realIP)) != -1) {
+		if(this.autoWhitelistedNetmasks && this.autoWhitelistedNetmasks.findIndex((n: IPCIDR) => n.contains(identityIP)) != -1) {
 			return true;
 		}
 		const plexToken = req.plex.authContext['X-Plex-Token']!;
-		return this.authCache.isIPWhitelistedForToken(plexToken, realIP);
+		return this.authCache.isIPWhitelistedForToken(plexToken, identityIP);
 	}
 
 	async login(req: IncomingPlexAPIRequest, inputPassword: string) {
@@ -730,8 +736,8 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 		// success
 		// whitelist the IP
 		const plexToken = req.plex.authContext['X-Plex-Token']!;
-		const realIP = this.app.realIPOfRequest(req);
-		this.authCache.whitelistIPForPlexToken(plexToken, realIP);
+		const identityIP = this.identityIPOfRequest(req);
+		this.authCache.whitelistIPForPlexToken(plexToken, identityIP);
 		if(!this.authCache.isSaveQueued) {
 			this.authCache.save().catch((error) => {
 				console.error("Error saving auth cache:");
@@ -742,17 +748,17 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 		// disconnect any unauthed websockets
 		for(const client of this.notificationWebsocketServer.clients as Set<ws & PlexClientWebsocketMixin>) {
 			const cmpPlexToken = client.plex.authContext['X-Plex-Token'];
-			if(plexToken == cmpPlexToken && realIP == client.realIP) {
-				console.log(`Disconnecting unauthenticated plex websocket for ${req.plex.userInfo.email} on ip ${realIP}`);
+			if(plexToken == cmpPlexToken && identityIP == client.identityIP) {
+				console.log(`Disconnecting unauthenticated plex websocket for ${req.plex.userInfo.email} on ip ${identityIP}`);
 				client.close();
 			}
 		}
 		// disconnect any unauthed eventsource subscribers
 		for(const subscriber of this.notificationEventsourceSubscribers) {
 			const cmpPlexToken = subscriber.req.plex.authContext['X-Plex-Token'];
-			const cmpRealIP = this.app.realIPOfRequest(subscriber.req);
-			if(plexToken == cmpPlexToken && realIP == cmpRealIP) {
-				console.log(`Disconnecting unauthenticated plex eventsource subscriber for ${req.plex.userInfo.email} on ip ${realIP}`);
+			const cmpIdentityIP = this.identityIPOfRequest(subscriber.req);
+			if(plexToken == cmpPlexToken && identityIP == cmpIdentityIP) {
+				console.log(`Disconnecting unauthenticated plex eventsource subscriber for ${req.plex.userInfo.email} on ip ${identityIP}`);
 				subscriber.res.end();
 			}
 		}
