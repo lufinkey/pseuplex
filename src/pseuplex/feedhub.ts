@@ -180,13 +180,12 @@ export abstract class PseuplexFeedHub<
 			}
 		}
 		// return hub
-		const hubListParams = plexParams as plexTypes.PlexHubListPageParams;
 		return {
 			hub: {
 				key: key,
 				title: opts.title,
 				type: opts.type,
-				hubIdentifier: `${opts.hubIdentifier}${(hubListParams.contentDirectoryID != null && hubListParams.contentDirectoryID.length == 1) ? `.${hubListParams.contentDirectoryID[0]}` : ''}`,
+				hubIdentifier: `${opts.hubIdentifier}${(plexParams.contentDirectoryID != null && plexParams.contentDirectoryID.length == 1) ? `.${plexParams.contentDirectoryID[0]}` : ''}`,
 				context: opts.context,
 				style: opts.style,
 				promoted: opts.promoted

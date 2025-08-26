@@ -50,10 +50,12 @@ export type PlexHubWithItems = PlexHub & {
 
 
 export type PlexHubPageParams = {
-	includeMeta?: boolean;
-	excludeFields?: string[]; // "summary"
 	'X-Plex-Container-Start'?: number;
 	'X-Plex-Container-Size'?: number;
+	contentDirectoryID?: string[];
+	pinnedContentDirectoryID?: string[];
+	includeMeta?: boolean;
+	excludeFields?: string[]; // "summary"
 };
 
 export const parsePlexHubPageParams = (req: express.Request, options: {fromListPage: boolean}): PlexHubPageParams => {
@@ -65,6 +67,8 @@ export const parsePlexHubPageParams = (req: express.Request, options: {fromListP
 	return {
 		'X-Plex-Container-Start': parseIntQueryParam(query['X-Plex-Container-Start'] ?? req.header('x-plex-container-start')),
 		'X-Plex-Container-Size': parseIntQueryParam(query['X-Plex-Container-Size'] ?? req.header('x-plex-container-size')),
+		contentDirectoryID: parseStringArrayQueryParam(query['contentDirectoryID']),
+		pinnedContentDirectoryID: parseStringArrayQueryParam(query['pinnedContentDirectoryID']),
 		excludeFields: parseStringArrayQueryParam(query['excludeFields']),
 		includeMeta: parseBooleanQueryParam(query['includeMeta']),
 	} satisfies (PlexHubPageParams & Partial<PlexHubPageParams>);
