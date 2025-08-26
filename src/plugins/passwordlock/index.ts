@@ -238,7 +238,7 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 				const reqParams = plexTypes.parsePlexHubPageParams(req, {fromListPage:false});
 				return await this.section.introHub.getHubPage(reqParams,context);
 			}),
-		])
+		]);
 
 		unauthRouter.get('/hubs', [
 			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexHubsPage> => {
