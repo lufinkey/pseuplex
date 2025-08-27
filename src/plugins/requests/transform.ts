@@ -1,5 +1,5 @@
 import * as plexTypes from '../../plex/types';
-import { parsePlexMetadataGuidOrThrow } from '../../plex/metadataidentifier';
+import { parsePlexMetadataGuid } from '../../plex/metadataidentifier';
 import {
 	PseuplexMetadataSource,
 	PseuplexPartialMetadataIDString,
@@ -216,7 +216,11 @@ export const setMetadataItemKeyToRequestKey = (metadataItem: plexTypes.PlexMetad
 		itemGuid = metadataItem.parentGuid;
 		season = metadataItem.index;
 	}
-	const guidParts = parsePlexMetadataGuidOrThrow(itemGuid!);
+	const guidParts = parsePlexMetadataGuid(itemGuid!);
+	if(!guidParts) {
+		console.error("Unable to set metadata item key to request key");
+		return;
+	}
 	const children = opts?.children ?? metadataItem.key.endsWith(ChildrenRelativePath);
 	metadataItem.key = createRequestItemMetadataKey({
 		metadataBasePath: opts.metadataBasePath,

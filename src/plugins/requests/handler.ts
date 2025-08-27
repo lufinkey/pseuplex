@@ -39,6 +39,7 @@ import { Logger } from '../../logging';
 import { RequestsPluginDef } from './plugindef';
 import { httpError } from '../../utils/error';
 import {
+	arrayFromArrayOrSingle,
 	findInArrayOrSingle,
 	firstOrSingle,
 	forArrayOrSingle,
@@ -573,6 +574,24 @@ export class PlexRequestsHandler implements PseuplexMetadataProvider {
 		partiallyAvailableOverlay: boolean | undefined,
 		overlayedImageEndpoint?: string,
 	}, context: PseuplexRequestContext) {
+		const metadatas: PseuplexMetadataItem[] = arrayFromArrayOrSingle(resData.MediaContainer.Metadata);
+		resData.MediaContainer.Metadata = metadatas;
+		// transform server item keys if needed
+		if(options.transformMatchKeys) {
+			for(const metadataItem of metadatas) {
+				// child exists on the server, so return that item
+				reqsTransform.setMetadataItemKeyToRequestKey(metadataItem, {
+					metadataBasePath: options.metadataBasePath,
+					qualifiedMetadataIds: options.qualifiedMetadataIds,
+					requestProviderSlug: options.requestsProvider.slug,
+					// don't show children of children
+					children: false,
+					// since the item is on the server, we want to leave the original ratingKey,
+					//  so that the plex server items will be fetched directly if any additional request is made
+					transformRatingKey: false,
+				});
+			}
+		}
 		// fetch other children (seasons) from plex metadata provider
 		// TODO cache this data
 		const discoverMetadataPageTask = this.plexMetadataClient.getMetadataChildren(options.plexId, options.plexParams as plexTypes.PlexMetadataChildrenPageParams);
@@ -587,45 +606,36 @@ export class PlexRequestsHandler implements PseuplexMetadataProvider {
 		}
 		// wait for plex metadata
 		const discoverMetadataPage = await discoverMetadataPageTask;
-		this.plexIdToInfoCache?.cacheMetadataItems(discoverMetadataPage.MediaContainer.Metadata);
+		const discoverMetadatas = arrayFromArrayOrSingle(discoverMetadataPage.MediaContainer.Metadata);
+		this.plexIdToInfoCache?.cacheMetadataItems(discoverMetadatas);
+		// if there are more server items than discover items, this server is likely using a different tv show layout and we shouldn't apply this
+		if(metadatas.length > discoverMetadatas.length) {
+			return;
+		}
 		// transform requestable children
 		const partiallyAvailableOverlayEnabled = options.partiallyAvailableOverlay ?? true;
-		resData.MediaContainer.Metadata = transformArrayOrSingle(discoverMetadataPage.MediaContainer.Metadata, (metadataItem: PseuplexMetadataItem): PseuplexMetadataItem => {
+		forArrayOrSingle(discoverMetadataPage.MediaContainer.Metadata, (discoverItem: PseuplexMetadataItem, index: number) => {
 			// find matching child from plex server
-			const matchingItem = metadataItem.index != null ?
+			const serverItem = discoverItem.index != null ?
 				findInArrayOrSingle(resData.MediaContainer.Metadata, (cmpMetadataItem) => {
-					return (cmpMetadataItem.index == metadataItem.index);
+					return (cmpMetadataItem.index == discoverItem.index);
 				})
 				: undefined;
-			if(matchingItem) {
-				// child exists on the server, so return that item
-				if(options.transformMatchKeys) {
-					reqsTransform.setMetadataItemKeyToRequestKey(matchingItem, {
-						metadataBasePath: options.metadataBasePath,
-						qualifiedMetadataIds: options.qualifiedMetadataIds,
-						requestProviderSlug: options.requestsProvider.slug,
-						// don't show children of children
-						children: false,
-						// since the item is on the server, we want to leave the original ratingKey,
-						//  so that the plex server items will be fetched directly if any additional request is made
-						transformRatingKey: false,
-					});
-				}
+			if(serverItem) {
 				// add partially available overlay if needed
 				if(partiallyAvailableOverlayEnabled && options.overlayedImageEndpoint) {
-					reqsTransform.addPartiallyAvailableBannerIfNeeded(matchingItem, metadataItem, {
+					reqsTransform.addPartiallyAvailableBannerIfNeeded(serverItem, discoverItem, {
 						overlayedImageEndpoint: options.overlayedImageEndpoint,
 					});
 				}
-				return matchingItem;
 			} else {
 				// child doesn't exist on the server
-				metadataItem.Pseuplex = {
+				discoverItem.Pseuplex = {
 					isOnServer: false,
 					unavailable: true,
 					metadataIds: {},
 				};
-				reqsTransform.transformRequestableChildMetadata(metadataItem, {
+				reqsTransform.transformRequestableChildMetadata(discoverItem, {
 					metadataBasePath: options.metadataBasePath,
 					qualifiedMetadataIds: options.qualifiedMetadataIds,
 					requestProviderSlug: options.requestsProvider.slug,
@@ -634,9 +644,10 @@ export class PlexRequestsHandler implements PseuplexMetadataProvider {
 					// item isn't on the server, so use the "request" ratingKey
 					transformRatingKey: true,
 					overlayedImageEndpoint: this.plugin.app.overlayedImageEndpoint,
-					requested: requests?.find((r) => (r.seasons?.find((s) => s == metadataItem.index) != null)) != null,
+					requested: requests?.find((r) => (r.seasons?.find((s) => s == discoverItem.index) != null)) != null,
 				});
-				return metadataItem;
+				// insert the item
+				metadatas.splice((discoverItem.index ?? index), 0, discoverItem);
 			}
 		});
 		resData.MediaContainer.size = discoverMetadataPage.MediaContainer.size;
