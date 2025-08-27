@@ -1,6 +1,7 @@
 import http from 'http';
 import express from 'express';
 import { httpError, HttpError, HttpResponseError } from './error';
+import { IncomingPlexAPIRequest } from '../plex/requesthandling';
 
 export const asyncRequestHandler = <TRequest, TResponse>(
 	handler: ((req: TRequest, res: TResponse) => (boolean | Promise<boolean>))
@@ -34,7 +35,9 @@ export const expressErrorHandler = (error: Error, req: express.Request, res: exp
 			const headerVal = reqHeaderList[i];
 			reqHeaderLines.push(`\t\t${headerKey}: ${headerVal}`);
 		}
+		const plexUserReq = (req as IncomingPlexAPIRequest);
 		console.error('Got error while handling request:\n'
+			+ (plexUserReq.plex ? `\tplex.userInfo.email: ${plexUserReq.plex?.userInfo.email}\n` : '')
 			+ `\ttimestamp: ${(new Date()).toString()}\n`
 			+ `\turl: ${req.originalUrl}\n`
 			+ `\tip: ${remoteAddressOfRequest(req)}\n`

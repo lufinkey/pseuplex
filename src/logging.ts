@@ -7,6 +7,7 @@ import { urlFromClientRequest } from './utils/requests';
 import { remoteAddressOfRequest, requestIsEncrypted } from './utils/requesthandling';
 import type { WebSocketEventMap } from './utils/websocket';
 import type * as overseerrTypes from './plugins/requests/providers/overseerr/apitypes';
+import { IncomingPlexAPIRequest } from './plex/requesthandling';
 
 export type GeneralLoggingOptions = {
 	logDebug?: boolean;
@@ -375,7 +376,9 @@ export class Logger {
 			const headerVal = reqHeaderList[i];
 			reqHeaderLines.push(`\t\t${headerKey}: ${headerVal}`);
 		}
+		const plexUserReq = (userReq as IncomingPlexAPIRequest);
 		console.error(`Plex request handler failed${!logsAnyUrls ? ` for ${userReq.originalUrl} :` : ':'}\n`
+			+ (plexUserReq.plex ? `\tplex.userInfo.email: ${plexUserReq.plex?.userInfo.email}\n` : '')
 			+ `\ttimestamp: ${(new Date()).toString()}\n`
 			+ `\turl: ${userReq.originalUrl}\n`
 			+ `\tip: ${remoteAddressOfRequest(userReq)}\n`
