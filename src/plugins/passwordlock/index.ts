@@ -414,7 +414,6 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 		]);
 
 		unauthRouter.get('/activities', [
-			this.app.middlewares.plexServerOwnerOnly(),
 			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<{MediaContainer:plexTypes.PlexMediaContainer}> => {
 				return {
 					MediaContainer: {
