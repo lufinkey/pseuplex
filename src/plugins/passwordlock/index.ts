@@ -390,7 +390,10 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 			}),
 		]);
 		
-		unauthRouter.get([ '/hubs/continueWatching', '/hubs/home/continueWatching' ], [
+		unauthRouter.get([
+			'/hubs/continueWatching', '/hubs/continueWatching/items',
+			'/hubs/home/continueWatching', '/hubs/home/continueWatching/items'
+		], [
 			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexHubsPage> => {
 				return {
 					MediaContainer: {
