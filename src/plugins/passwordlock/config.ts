@@ -3,10 +3,13 @@ import { PseuplexConfigBase } from '../../pseuplex';
 type PasswordLockFlags = {
 	passwordLock?: {
 		password?: string;
+		autoWhitelistedNetmask?: string | string[];
 	}
 };
 type PasswordLockPerUserPluginConfig = {
-	//
+	passwordLock?: {
+		overrideAutoWhitelistedNetmask?: boolean;
+	}
 } & PasswordLockFlags;
 export type PasswordLockPluginConfig = PseuplexConfigBase<PasswordLockPerUserPluginConfig> & PasswordLockFlags & {
 	plex: {
@@ -14,7 +17,6 @@ export type PasswordLockPluginConfig = PseuplexConfigBase<PasswordLockPerUserPlu
 	}
 	passwordLock?: {
 		enabled?: boolean;
-		autoWhitelistedNetmask?: string;
 		authCachePath?: string;
 		readableAuthCacheJson?: boolean;
 		sectionID?: number;

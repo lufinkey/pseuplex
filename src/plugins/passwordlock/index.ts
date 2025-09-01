@@ -44,6 +44,8 @@ const videoTranscodePathPrefix = '/video/:/transcode/universal/session/';
 const musicTranscodePathPrefix = '/music/:/transcode/universal/session/';
 const passthroughTranscodeMethods = ['GET','OPTIONS','HEAD'];
 
+const protectedOptionsEndpoints = new Set(['/security/token']);
+
 const lockInstructionsThumbFilepath = `${getModuleRootPath()}/images/lockedSectionInstructions.png`;
 const lockIconFilepath = `${getModuleRootPath()}/images/icons/lock.png`;
 
@@ -65,6 +67,12 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 	readonly section: PasswordLockSection;
 	readonly authCache: PasswordLockAuthenticationCache;
 	readonly autoWhitelistedNetmasks?: IPCIDR[];
+	readonly userAutoWhitelistedNetmasks?: {
+		[email: string]: {
+			override: boolean;
+			netmasks?: IPCIDR[];
+		}
+	};
 
 	readonly notificationWebsocketServer: ws.Server<(typeof ws.WebSocket) & PlexClientWebsocketMixin>;
 	readonly notificationEventsourceSubscribers: Set<{req: IncomingPlexAPIRequest, res: express.Response}> = new Set();
@@ -97,10 +105,22 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 			});
 		}
 
-		const autoWhitelistedNetmaskString = this.config.passwordLock?.autoWhitelistedNetmask;
-		this.autoWhitelistedNetmasks = autoWhitelistedNetmaskString
-			? autoWhitelistedNetmaskString.split(',').map((maskString) => new IPCIDR(maskString))
-			: undefined;
+		this.autoWhitelistedNetmasks = parseAutoWhitelistedNetmasks(this.config.passwordLock?.autoWhitelistedNetmask);
+		this.userAutoWhitelistedNetmasks = {};
+		const perUserConfigs = this.config.perUser;
+		if(perUserConfigs) {
+			for(const email of Object.keys(perUserConfigs)) {
+				const userConfig = perUserConfigs[email];
+				const userPwLockCfg = userConfig.passwordLock;
+				if(userPwLockCfg?.autoWhitelistedNetmask || userPwLockCfg?.overrideAutoWhitelistedNetmask) {
+					const whitelistedNetmasks = parseAutoWhitelistedNetmasks(userPwLockCfg.autoWhitelistedNetmask);
+					this.userAutoWhitelistedNetmasks[email] = {
+						override: userPwLockCfg.overrideAutoWhitelistedNetmask ?? false,
+						netmasks: whitelistedNetmasks,
+					};
+				}
+			}
+		}
 		
 		this.notificationWebsocketServer = new ws.Server({
 			noServer: true,
@@ -639,7 +659,7 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 			// all other requests should return a 403
 			next(httpError(403, "Library is locked"));
 		});
-
+		
 		unauthUpgradeRouter.get('/\\:/websockets/notifications', [
 			asyncRequestHandler(async (req: IncomingPlexHttpRequest, res: UpgradeResponse) => {
 				if(req.headers['upgrade']?.toLowerCase().trim() != 'websocket') {
@@ -704,7 +724,8 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 					}
 					// ignore paths that don't need authentication
 					const reqPath = req.path;
-					if(req.method === 'OPTIONS' || reqPath == '/identity' || reqPath.startsWith('/web/') || reqPath == '/web'
+					if((req.method === 'OPTIONS' && !protectedOptionsEndpoints.has(reqPath))
+						|| reqPath == '/identity' || reqPath.startsWith('/web/') || reqPath == '/web'
 						|| (reqPath.startsWith(videoTranscodePathPrefix) && reqPath.length > videoTranscodePathPrefix.length && passthroughTranscodeMethods.indexOf(req.method) != -1)
 						|| (reqPath.startsWith(musicTranscodePathPrefix) && reqPath.length > musicTranscodePathPrefix.length && passthroughTranscodeMethods.indexOf(req.method) != -1)
 						|| ((reqPath.endsWith('.png') || reqPath.endsWith('.ico')) && reqPath.indexOf('/', 1) == -1)
@@ -748,13 +769,19 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 	}
 	
 	async isUserAllowedAccess(req: IncomingPlexHttpRequest): Promise<boolean> {
+		const userEmail = req.plex.userInfo.email;
 		// check if source IP is confirmed
 		await this.authCache.waitForLoad();
 		const identityIP = this.identityIPOfRequest(req);
 		// check if we're on an auto-whitelisted network
-		// TODO allow this property to be set per-user
-		if(this.autoWhitelistedNetmasks && this.autoWhitelistedNetmasks.findIndex((n: IPCIDR) => n.contains(identityIP)) != -1) {
+		const userNetmasks = this.userAutoWhitelistedNetmasks?.[userEmail];
+		if(userNetmasks?.netmasks && userNetmasks.netmasks.findIndex((n: IPCIDR) => n.contains(identityIP)) != -1) {
 			return true;
+		}
+		if(!userNetmasks?.override) {
+			if(this.autoWhitelistedNetmasks && this.autoWhitelistedNetmasks.findIndex((n: IPCIDR) => n.contains(identityIP)) != -1) {
+				return true;
+			}
 		}
 		// validate the IP
 		return this.authCache.isIPWhitelistedForUser(identityIP, req);
@@ -789,7 +816,7 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 		if(!this.authCache.isSaveQueued) {
 			this.saveAuthCache();
 		}
-		// TODO send section change notifications to add library sections and remove login section
+		// TODO send section change notifications to add library sections and remove login section, so user doesn't have to restart the app
 		// disconnect any unauthed websockets
 		for(const client of this.notificationWebsocketServer.clients as Set<ws & PlexClientWebsocketMixin>) {
 			const cmpPlexToken = client.plex.authContext['X-Plex-Token'];
@@ -817,3 +844,25 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 	}
 	
 } satisfies PseuplexPluginClass);
+
+
+function parseAutoWhitelistedNetmasks(netmaskStrings: string | string[] | undefined) {
+	if(typeof netmaskStrings === 'string') {
+		netmaskStrings = netmaskStrings.trim();
+		if(netmaskStrings) {
+			netmaskStrings = netmaskStrings.split(',');
+		} else {
+			netmaskStrings = [];
+		}
+	} else if(netmaskStrings) {
+		netmaskStrings = netmaskStrings.flatMap((netmask) => {
+			netmask = netmask.trim();
+			if(netmask) {
+				return netmask.split(',');
+			} else {
+				return [];
+			}
+		});
+	}
+	return netmaskStrings?.map((maskString) => new IPCIDR(maskString)) ?? [];
+}
