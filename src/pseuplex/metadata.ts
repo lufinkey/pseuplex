@@ -264,6 +264,9 @@ export abstract class PseuplexMetadataProviderBase<TMetadataItem> implements Pse
 			if(plexInfo.thumb) {
 				metadataItem.thumb = plexInfo.thumb;
 			}
+			if(plexInfo.year) {
+				metadataItem.year = plexInfo.year;
+			}
 		} catch(error) {
 			console.error(`Failed to attach plex data to metadata ${metadataId} :`);
 			console.error(error);

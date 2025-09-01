@@ -32,6 +32,7 @@ export type PlexIdCachedInfo = {
 	grandparentSlug?: string;
 	grandparentRatingKey?: string;
 	thumb?: string;
+	year?: number;
 	Guid?: plexTypes.PlexGuid[];
 };
 
@@ -41,6 +42,7 @@ export class PlexIdToInfoCache extends CachedFetcher<PlexIdCachedInfo | null> {
 		'index',
 		'slug',
 		'thumb',
+		'year',
 		'parentIndex','parentSlug','parentRatingKey',
 		'grandparentSlug','grandparentRatingKey',
 	];
