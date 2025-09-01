@@ -150,6 +150,20 @@ export const createPlexServerOwnerOnlyMiddleware = () => {
 	};
 };
 
+export const createNoPlexTransientTokensMiddleware = () => {
+	return (req: IncomingPlexAPIRequest, res: http.ServerResponse, next) => {
+		if(!req.plex) {
+			next(httpError(500, "Cannot access endpoint without plex authentication"));
+			return;
+		}
+		if (req.plex.userInfo.transient) {
+			next(httpError(403, "Get out of here you sussy baka"));
+			return;
+		}
+		next();
+	};
+};
+
 
 
 export const doesRequestIncludeFirstPinnedContentDirectory = (params: {

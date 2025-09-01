@@ -28,6 +28,7 @@ import {
 	PlexProxyOptions,
 } from '../plex/proxy';
 import {
+	createNoPlexTransientTokensMiddleware,
 	createPlexAuthenticationMiddleware,
 	createPlexServerOwnerOnlyMiddleware,
 	handlePlexAPIRequest,
@@ -265,6 +266,7 @@ export class PseuplexApp {
 	readonly middlewares: {
 		plexAuthentication: <TRequest extends http.IncomingMessage,TResponse>(alwaysCheck?: boolean) => ((req: TRequest, res: TResponse, next: (error?: Error) => void) => void);
 		plexServerOwnerOnly: () => PlexAuthedRequestHandler;
+		noPlexTransientTokens: () => PlexAuthedRequestHandler;
 		plexAPIRequestHandler: <TResult>(handler: PlexAPIRequestHandler<TResult>) => express.RequestHandler;
 		plexAPIProxy: (filters: PlexAPIProxyFilters) => express.RequestHandler;
 		plexProxy: () => express.RequestHandler;
@@ -358,6 +360,7 @@ export class PseuplexApp {
 		}
 		const plexAuthMiddleware = createPlexAuthenticationMiddleware(this.plexServerAccounts);
 		const plexServerOwnerOnlyMiddleware = createPlexServerOwnerOnlyMiddleware();
+		const noPlexTransientsMiddleware = createNoPlexTransientTokensMiddleware();
 		this.middlewares = {
 			plexAuthentication: (alwaysCheck?: boolean) => {
 				return (req, res, next) => {
@@ -372,6 +375,7 @@ export class PseuplexApp {
 				};
 			},
 			plexServerOwnerOnly: () => plexServerOwnerOnlyMiddleware,
+			noPlexTransientTokens: () => noPlexTransientsMiddleware,
 			plexAPIRequestHandler: <TResult>(handler: PlexAPIRequestHandler<TResult>) => {
 				return async (req: IncomingPlexAPIRequest, res: express.Response) => {
 					res.header(constants.APP_CUSTOM_HEADER, 'yes');
@@ -993,8 +997,8 @@ export class PseuplexApp {
 
 		router.get('/myplex/account', [
 			this.middlewares.plexAuthentication(),
-			// ensure that this endpoint NEVER gives data to non-owners
 			this.middlewares.plexServerOwnerOnly(),
+			this.middlewares.noPlexTransientTokens(),
 			this.middlewares.plexAPIProxy({
 				responseModifier: async (proxyRes, resData: plexTypes.PlexMyPlexAccountPage, userReq: IncomingPlexAPIRequest, userRes) => {
 					// overwrite privatePort if needed
