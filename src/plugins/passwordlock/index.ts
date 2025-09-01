@@ -77,13 +77,19 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 		this.app = app;
 
 		const authCachePath = this.config.passwordLock?.authCachePath;
-		this.authCache = new PasswordLockAuthenticationCache(authCachePath);
+		this.authCache = new PasswordLockAuthenticationCache(authCachePath, {
+			plexAccountsStore: this.app.plexServerAccounts,
+			saveReadableJson: this.config.passwordLock?.readableAuthCacheJson,
+		});
 		if(authCachePath) {
 			this.authCache.load().then((loaded) => {
 				if(loaded) {
 					console.log(`Loaded ${this.slug} auth cache from ${authCachePath}`);
 				} else {
 					console.log(`No auth cache at ${authCachePath} to load`);
+				}
+				if(this.authCache.hasPendingUnsavedChanges && !this.authCache.isSaveQueued) {
+					this.saveAuthCache();
 				}
 			}, (error) => {
 				console.error(`Error loading auth cache for ${this.slug} plugin:`);
@@ -742,15 +748,16 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 		await this.authCache.waitForLoad();
 		const identityIP = this.identityIPOfRequest(req);
 		// check if we're on an auto-whitelisted network
-		// TODO make this per-user
+		// TODO allow this property to be set per-user
 		if(this.autoWhitelistedNetmasks && this.autoWhitelistedNetmasks.findIndex((n: IPCIDR) => n.contains(identityIP)) != -1) {
 			return true;
 		}
-		const plexToken = req.plex.authContext['X-Plex-Token']!;
-		return this.authCache.isIPWhitelistedForToken(plexToken, identityIP);
+		// validate the IP
+		return this.authCache.isIPWhitelistedForUser(identityIP, req);
 	}
 
 	async login(req: IncomingPlexAPIRequest, inputPassword: string) {
+		// validate password
 		const password = this.config.perUser?.[req.plex.userInfo.email]?.passwordLock?.password
 			?? this.config.passwordLock?.password
 			?? "";
@@ -759,16 +766,12 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 			await delay(6000);
 			throw httpError(401, "Wrong password");
 		}
-		// success
-		// whitelist the IP
+		// success, so whitelist the IP
 		const plexToken = req.plex.authContext['X-Plex-Token']!;
 		const identityIP = this.identityIPOfRequest(req);
-		this.authCache.whitelistIPForPlexToken(plexToken, identityIP);
+		this.authCache.whitelistIPForUser(identityIP, req);
 		if(!this.authCache.isSaveQueued) {
-			this.authCache.save().catch((error) => {
-				console.error("Error saving auth cache:");
-				console.error(error);
-			});
+			this.saveAuthCache();
 		}
 		// TODO send section change notifications to add library sections and remove login section
 		// disconnect any unauthed websockets
@@ -788,6 +791,13 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 				subscriber.res.end();
 			}
 		}
+	}
+
+	saveAuthCache() {
+		this.authCache.save().catch((error) => {
+			console.error("Error saving auth cache:");
+			console.error(error);
+		});
 	}
 	
 } satisfies PseuplexPluginClass);
