@@ -280,7 +280,7 @@ export class PlexServerAccountsStore {
 		this._transientTokens.stopAutoClean();
 	}
 
-	async registerTransientToken(transientToken: string, tokenInfo: PlexTransientTokenInfo) {
+	registerTransientToken(transientToken: string, tokenInfo: PlexTransientTokenInfo) {
 		if(tokenInfo.creatorToken.startsWith(TransientTokenPrefix)) {
 			throw httpError(403, "Transient tokens cannot create other transient tokens");
 		}
