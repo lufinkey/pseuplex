@@ -34,6 +34,7 @@ import {
 	handlePlexAPIRequest,
 	IncomingPlexAPIRequest,
 	IncomingPlexAPIRequestMixin,
+	IncomingPlexHttpRequest,
 	PlexAPIRequestHandler,
 	PlexAPIRequestHandlerOptions,
 	PlexAuthedRequestHandler
@@ -1694,19 +1695,19 @@ export class PseuplexApp {
 		return this.plexServerHostSecure ?? this.plexServerHost;
 	}
 
-	plexServerHostForRequest(req: express.Request): string {
+	plexServerHostForRequest(req: http.IncomingMessage): string {
 		return requestIsEncrypted(req)
 			? (this.plexServerHostSecure ?? this.plexServerHost)
 			: this.plexServerHost;
 	}
 
-	plexServerRedirectHostForRequest(req: express.Request): string | undefined {
+	plexServerRedirectHostForRequest(req: http.IncomingMessage): string | undefined {
 		return requestIsEncrypted(req)
 			? (this.plexServerRedirectHostSecure ?? this.plexServerRedirectHost)
 			: this.plexServerRedirectHost;
 	}
 
-	contextForRequest(req: IncomingPlexAPIRequest): PseuplexRequestContext {
+	contextForRequest(req: IncomingPlexAPIRequest | IncomingPlexHttpRequest): PseuplexRequestContext {
 		return {
 			plexServerURL: this.plexServerHostForRequest(req),
 			plexAuthContext: req.plex.authContext,
