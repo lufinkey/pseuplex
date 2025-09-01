@@ -44,7 +44,7 @@ const videoTranscodePathPrefix = '/video/:/transcode/universal/session/';
 const musicTranscodePathPrefix = '/music/:/transcode/universal/session/';
 const passthroughTranscodeMethods = ['GET','OPTIONS','HEAD'];
 
-const protectedOptionsEndpoints = new Set(['/security/token']);
+const protectedOptionsEndpoints = ['/security'];
 
 const lockInstructionsThumbFilepath = `${getModuleRootPath()}/images/lockedSectionInstructions.png`;
 const lockIconFilepath = `${getModuleRootPath()}/images/icons/lock.png`;
@@ -722,9 +722,15 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 						next();
 						return;
 					}
+					// get normalized path
+					let reqPath = req.path;
+					let oldReqPath: string;
+					do {
+						oldReqPath = reqPath;
+						reqPath = reqPath.replaceAll('//', '/');
+					} while(oldReqPath.length != reqPath.length);
 					// ignore paths that don't need authentication
-					const reqPath = req.path;
-					if((req.method === 'OPTIONS' && !protectedOptionsEndpoints.has(reqPath))
+					if((req.method === 'OPTIONS' && protectedOptionsEndpoints.findIndex((e) => reqPath.startsWith(e)) == -1)
 						|| reqPath == '/identity' || reqPath.startsWith('/web/') || reqPath == '/web'
 						|| (reqPath.startsWith(videoTranscodePathPrefix) && reqPath.length > videoTranscodePathPrefix.length && passthroughTranscodeMethods.indexOf(req.method) != -1)
 						|| (reqPath.startsWith(musicTranscodePathPrefix) && reqPath.length > musicTranscodePathPrefix.length && passthroughTranscodeMethods.indexOf(req.method) != -1)
