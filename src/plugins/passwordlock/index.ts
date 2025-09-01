@@ -9,7 +9,7 @@ import {
 	IncomingPlexAPIRequest,
 	IncomingPlexAPIRequestMixin,
 	IncomingPlexHttpRequest,
-	PlexRequestInfo
+	PlexRequestInfo,
 } from '../../plex/requesthandling';
 import {
 	PseuplexApp,

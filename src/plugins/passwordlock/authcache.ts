@@ -9,6 +9,24 @@ import {
 } from '../../utils/ip';
 import { IncomingPlexAPIRequest, IncomingPlexHttpRequest } from '../../plex/requesthandling';
 
+export type PasswordLockWhitelistedIPInfo = {
+	addedAt: number;
+	// TODO lastAccessedAt: number;
+	// TODO add recent tokens and client IDs
+};
+
+export type PasswordLockWhitelistedIPMap = {
+	[ip: string]: PasswordLockWhitelistedIPInfo
+};
+
+export type PasswordLockAuthCacheUser = {
+	whitelistedIPs: PasswordLockWhitelistedIPMap;
+};
+
+export type PasswordLockAuthCacheUsers = {
+	[email: string]: PasswordLockAuthCacheUser;
+};
+
 export type PasswordLockAuthCacheData = {
 	tokensToWhitelistedIPs?: {
 		[plexToken: string]: string[]
@@ -16,6 +34,7 @@ export type PasswordLockAuthCacheData = {
 	emailsToWhitelistedIPs?: {
 		[email: string]: string[]
 	},
+	users: PasswordLockAuthCacheUsers
 };
 
 export type EmailsToIPsMap = {
@@ -27,7 +46,7 @@ export class PasswordLockAuthenticationCache {
 	readonly plexServerAccountsStore: PlexServerAccountsStore;
 	saveReadableJson: boolean;
 
-	private _emailsToWhitelistedIPs: EmailsToIPsMap = {};
+	private _users: PasswordLockAuthCacheUsers = {};
 	private _fileTaskPromise: Promise<void> | null = null;
 	private _loadPromise: Promise<boolean> | null = null;
 	private _nextSavePromise: Promise<boolean> | null = null;
@@ -81,46 +100,72 @@ export class PasswordLockAuthenticationCache {
 				if(!cacheObj || typeof cacheObj !== 'object') {
 					throw new Error(`Invalid auth cache data`);
 				}
-				const emailsToIPs: EmailsToIPsMap = {};
+				let users: PasswordLockAuthCacheUsers = cacheObj.users || {};
+				const now = (new Date()).getTime() / 1000;
 				let unsavedChanges = false;
-				// load from emails to IPs array map
-				//  into an emails to IPs set map
+				// auto-convert emails to IPs
 				if(cacheObj.emailsToWhitelistedIPs) {
 					for(const email of Object.keys(cacheObj.emailsToWhitelistedIPs)) {
 						const ipList = cacheObj.emailsToWhitelistedIPs[email];
-						if(!(ipList instanceof Array)) {
+						if(!(ipList instanceof Array) || ipList.length == 0) {
 							continue;
 						}
-						emailsToIPs[email] = new Set(ipList);
+						// get auth cache entry for user
+						let userAuthCache = users[email];
+						if(!userAuthCache) {
+							userAuthCache = {whitelistedIPs: {}};
+							users[email] = userAuthCache;
+						}
+						unsavedChanges = true;
+						// add ip entries for user
+						for(const ip of ipList) {
+							let ipInfo = userAuthCache.whitelistedIPs[ip];
+							if(!ipInfo) {
+								ipInfo = {
+									addedAt: now,
+									// lastAccessedAt: now,
+								};
+								userAuthCache.whitelistedIPs[ip] = ipInfo;
+							}
+						}
 					}
 				}
-				// auto-convert old structure of tokens to IPs
+				// auto-convert tokens to IPs
 				if(cacheObj.tokensToWhitelistedIPs) {
 					const tokensList = Object.keys(cacheObj.tokensToWhitelistedIPs);
-					unsavedChanges = tokensList.length > 0;
 					for(const plexToken of tokensList) {
 						const ipList = cacheObj.tokensToWhitelistedIPs[plexToken];
-						if(!(ipList instanceof Array)) {
+						if(!(ipList instanceof Array) || ipList.length == 0) {
 							continue;
 						}
 						// get the associated user for the token
 						const userForToken = await this.plexServerAccountsStore.getUserInfoOrNull({'X-Plex-Token':plexToken});
-						if(!userForToken) {
+						const email = userForToken?.email;
+						if(!email) {
 							continue;
 						}
-						let ipSet = emailsToIPs[userForToken.email];
-						if(ipSet) {
-							for(const ip of ipList) {
-								ipSet.add(ip);
+						// get auth cache entry for user
+						let userAuthCache = users[email];
+						if(!userAuthCache) {
+							userAuthCache = {whitelistedIPs: {}};
+							users[email] = userAuthCache;
+						}
+						unsavedChanges = true;
+						// add ip entries for user
+						for(const ip of ipList) {
+							let ipInfo = userAuthCache.whitelistedIPs[ip];
+							if(!ipInfo) {
+								ipInfo = {
+									addedAt: now,
+									// lastAccessedAt: now,
+								};
+								userAuthCache.whitelistedIPs[ip] = ipInfo;
 							}
-						} else {
-							ipSet = new Set(ipList);
-							emailsToIPs[userForToken.email] = ipSet;
 						}
 					}
 				}
-				// set new emails to IPs map
-				this._emailsToWhitelistedIPs = emailsToIPs;
+				// set new auth data
+				this._users = users;
 				this._pendingUnsavedChanges = unsavedChanges;
 				return true;
 			} finally {
@@ -159,13 +204,8 @@ export class PasswordLockAuthenticationCache {
 			this._nextSavePromise = null;
 			nextSaveStarted = true;
 			// create cache object
-			const emailsToIPs: {[email: string]: string[]} = {};
-			for(const email of Object.keys(this._emailsToWhitelistedIPs)) {
-				const ips = this._emailsToWhitelistedIPs[email];
-				emailsToIPs[email] = Array.from(ips);
-			}
 			const cacheObj: PasswordLockAuthCacheData = {
-				emailsToWhitelistedIPs: emailsToIPs,
+				users: this._users,
 			};
 			// serialize to json
 			let cacheData: string;
@@ -201,26 +241,34 @@ export class PasswordLockAuthenticationCache {
 		const userEmail = req.plex.userInfo.email;
 		// ipv4 addresses are stored as ipv4
 		ipAddress = normalizeIPAddress(ipAddress, IPv4NormalizeMode.ToIPv4);
-		// get ip set for the user
-		const ips = this._emailsToWhitelistedIPs[userEmail];
-		if(!ips) {
-			return false;
-		}
-		return ips.has(ipAddress);
+		// get info for ip address
+		const ipInfo = this._users[userEmail]?.whitelistedIPs[ipAddress];
+		return ipInfo ? true : false;
 	}
 
 	whitelistIPForUser(ipAddress: string, req: IncomingPlexAPIRequest | IncomingPlexHttpRequest) {
 		const userEmail = req.plex.userInfo.email;
+		// get user auth cache info
+		let userAuthCache = this._users[userEmail];
+		if(!userAuthCache) {
+			userAuthCache = {whitelistedIPs:{}};
+			this._users[userEmail] = userAuthCache;
+		}
 		// ensure ipv4 addresses are stored as ipv4
 		ipAddress = normalizeIPAddress(ipAddress, IPv4NormalizeMode.ToIPv4);
-		// add ip to list for the user
-		let ips = this._emailsToWhitelistedIPs[userEmail];
-		if(ips) {
-			ips.add(ipAddress);
+		// update whitelisted ip info
+		let ipInfo = userAuthCache.whitelistedIPs[ipAddress];
+		const now = (new Date()).getTime() / 1000;
+		if(ipInfo) {
+			// ipInfo.lastAccessedAt = now;
 		} else {
-			ips = new Set([ipAddress]);
-			this._emailsToWhitelistedIPs[userEmail] = ips;
+			ipInfo = {
+				addedAt: now,
+				// lastAccessedAt: now,
+			};
+			userAuthCache.whitelistedIPs[ipAddress] = ipInfo;
 		}
+		// mark unsaved changes
 		this._pendingUnsavedChanges = true;
 	}
 }
