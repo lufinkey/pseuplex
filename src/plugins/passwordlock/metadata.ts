@@ -25,7 +25,8 @@ const LockInstructionsItemTitle = "Enter password";
 const LockInstructionsItemSummary =
 `This client has not yet been authorized for this IP address.
 To log in, add this item to a new playlist, and enter the password for the server as the playlist name.
-After this is done, restart the app and you should have access.`;
+After this is done, restart the app (or refresh the browser page) and you should have access.
+NOTE: Adding things to a playlist isn't possible on the new mobile app, so you may need to do this from a browser.`;
 
 export type PasswordLockMetadataProviderOptions = {
 	lockInstructionsThumbEndpoint: string,
