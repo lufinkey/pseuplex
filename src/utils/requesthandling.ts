@@ -25,9 +25,8 @@ export const asyncRequestHandler = <TRequest, TResponse>(
 	};
 };
 
-export const expressErrorHandler = (error: Error, req: express.Request, res: express.Response, next) => {
-	if(error) {
-		const reqHeaderList = req.rawHeaders;
+export const plexRequestDebugString = (req: express.Request) => {
+	const reqHeaderList = req.rawHeaders;
 		let reqHeaderLines: string[] = []
 		for(let i=0; i<reqHeaderList.length; i++) {
 			const headerKey = reqHeaderList[i];
@@ -35,13 +34,17 @@ export const expressErrorHandler = (error: Error, req: express.Request, res: exp
 			const headerVal = reqHeaderList[i];
 			reqHeaderLines.push(`\t\t${headerKey}: ${headerVal}`);
 		}
-		const plexUserReq = (req as IncomingPlexAPIRequest);
-		console.error('Got error while handling request:\n'
-			+ (plexUserReq.plex ? `\tplex.userInfo.email: ${plexUserReq.plex?.userInfo.email}\n` : '')
-			+ `\ttimestamp: ${(new Date()).toString()}\n`
-			+ `\turl: ${req.originalUrl}\n`
-			+ `\tip: ${remoteAddressOfRequest(req)}\n`
-			+ `\theaders:\n${reqHeaderLines.join('\n')}`);
+	const plexUserReq = (req as IncomingPlexAPIRequest);
+	return (plexUserReq.plex ? `\tplex.userInfo.email: ${plexUserReq.plex?.userInfo.email}\n` : '')
+		+ `\ttimestamp: ${(new Date()).toString()}\n`
+		+ `\turl: ${req.originalUrl}\n`
+		+ `\tip: ${remoteAddressOfRequest(req)}\n`
+		+ `\theaders:\n${reqHeaderLines.join('\n')}`;
+};
+
+export const expressErrorHandler = (error: Error, req: express.Request, res: express.Response, next) => {
+	if(error) {
+		console.error(`Got error while handling request:\n${plexRequestDebugString(req)}`);
 		console.error(error);
 		let statusCode =
 			(error as HttpError).statusCode
