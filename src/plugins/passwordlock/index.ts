@@ -230,7 +230,6 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 		]);
 
 		unauthRouter.get([ `${this.section.path}/prefs`, `/library/sections/${this.section.id}/prefs` ], [
-			this.app.middlewares.plexServerOwnerOnly(),
 			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res) => {
 				const context = this.app.contextForRequest(req);
 				return await this.section.getPrefsPage(context);
