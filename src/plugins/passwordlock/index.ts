@@ -7,19 +7,15 @@ import * as plexTypes from '../../plex/types';
 import {
 	authenticatePlexRequest,
 	IncomingPlexAPIRequest,
-	IncomingPlexAPIRequestMixin,
 	IncomingPlexHttpRequest,
 	PlexRequestInfo,
 } from '../../plex/requesthandling';
 import {
 	PseuplexApp,
-	PseuplexMetadataPage,
-	PseuplexMetadataProvider,
 	PseuplexPlugin,
 	PseuplexPluginClass,
 	PseuplexReadOnlyResponseFilters,
 	PseuplexRelatedHubsSource,
-	PseuplexRequestContext,
 	PseuplexRouterApp,
 	UpgradeRequest,
 	UpgradeResponse,
@@ -757,18 +753,20 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 	}
 
 	async login(req: IncomingPlexAPIRequest, inputPassword: string) {
+		const identityIP = this.identityIPOfRequest(req);
 		// validate password
 		const password = this.config.perUser?.[req.plex.userInfo.email]?.passwordLock?.password
 			?? this.config.passwordLock?.password
 			?? "";
 		if(password != inputPassword) {
 			// failure, delay atleast 5 seconds to prevent brute force
+			console.error(`Failed login from ip ${identityIP} with context ${JSON.stringify(req.plex)}`);
 			await delay(6000);
 			throw httpError(401, "Wrong password");
 		}
 		// success, so whitelist the IP
+		console.log(`Successful login from ip ${identityIP} with context ${JSON.stringify(req.plex)}`);
 		const plexToken = req.plex.authContext['X-Plex-Token']!;
-		const identityIP = this.identityIPOfRequest(req);
 		this.authCache.whitelistIPForUser(identityIP, req);
 		if(!this.authCache.isSaveQueued) {
 			this.saveAuthCache();
