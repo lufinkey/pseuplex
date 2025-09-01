@@ -50,7 +50,7 @@ export const includeTimestampsForAllLogs = () => {
 	includedTimestamps = true;
 
 	function insertTimestampArg(args: any[]) {
-		args.splice(0, 0, `[${(new Date()).toLocaleString()}]`);
+		args.splice(0, 0, `[${(new Date()).toISOString()}]`);
 	}
 
 	const innerError = console.error;
