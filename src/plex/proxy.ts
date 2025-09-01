@@ -203,7 +203,7 @@ export const plexApiProxy = (host: HostOrHostGetter, options: PlexProxyOptions, 
 				}
 				isApiRequest = true;
 			} else {
-				console.warn(`Unknown content type for Accept header: ${userReq.headers['accept']}`);
+				console.warn(`Unknown content type for Accept header: ${userReq.headers['accept']} ( url is ${userReq.path} )`);
 			}
 			// modify request destination
 			/*if(userReq.protocol) {
