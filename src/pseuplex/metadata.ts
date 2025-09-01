@@ -261,6 +261,9 @@ export abstract class PseuplexMetadataProviderBase<TMetadataItem> implements Pse
 			if(plexInfo.Guid && plexInfo.Guid.length > 0) {
 				metadataItem.Guid = plexInfo.Guid;
 			}
+			if(plexInfo.thumb) {
+				metadataItem.thumb = plexInfo.thumb;
+			}
 		} catch(error) {
 			console.error(`Failed to attach plex data to metadata ${metadataId} :`);
 			console.error(error);
