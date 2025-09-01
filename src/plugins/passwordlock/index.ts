@@ -392,7 +392,21 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 		
 		unauthRouter.get([
 			'/hubs/continueWatching', '/hubs/continueWatching/items',
-			'/hubs/home/continueWatching', '/hubs/home/continueWatching/items'
+			'/hubs/home/continueWatching', '/hubs/home/continueWatching/items',
+		], [
+			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexHubsPage> => {
+				return {
+					MediaContainer: {
+						size: 0,
+						allowSync: false,
+						identifier: plexTypes.PlexPluginIdentifier.PlexAppLibrary,
+					}
+				};
+			}),
+		]);
+
+		unauthRouter.get([
+			'/hubs/home/recentlyAdded',
 		], [
 			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexHubsPage> => {
 				return {
@@ -426,7 +440,7 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 			}),
 		]);
 
-		unauthRouter.get('/playlists', [
+		unauthRouter.get(['/playlists', '/playlists/all'], [
 			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<{MediaContainer:plexTypes.PlexMediaContainer}> => {
 				return {
 					MediaContainer: {
