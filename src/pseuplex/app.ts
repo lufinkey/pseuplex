@@ -361,6 +361,7 @@ export class PseuplexApp {
 		const plexAuthMiddleware = createPlexAuthenticationMiddleware(this.plexServerAccounts);
 		const plexServerOwnerOnlyMiddleware = createPlexServerOwnerOnlyMiddleware();
 		const noPlexTransientsMiddleware = createNoPlexTransientTokensMiddleware();
+		
 		this.middlewares = {
 			plexAuthentication: (alwaysCheck?: boolean) => {
 				return (req, res, next) => {
