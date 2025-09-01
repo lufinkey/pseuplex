@@ -108,7 +108,7 @@ Create a `config.json` file with the following structure, and fill in the config
 - **sendMetadataUnavailability**: By default, the proxy will send the "unavailable" status for any "pseudo" metadata item (ie from letterboxd) that doesn't match up to an item in your library. If you for whatever reason don't want this behaviour, you can optionally set this to `false` to disable it.
 - **trustProxy**: Set this to `true` only if you have another proxy in front of this proxy
 - **plex**
-	- **host**: The url of your plex server.
+	- **host**: The url of your plex server. Generally speaking, don't set this to use `http://localhost:32400` or `http://127.0.0.1:32400`, even if you're on the same machine. It will work, but plex will also classify the traffic as localhost and ignore it. Instead, use the local ip (for example `http://192.168.1.123:32400`)
 	- **secureHost**: The "secure" url of your plex server, if you want https traffic to use a different url.
 	- **redirectHost**: The external url of your plex server, to use when redirecting streams.
 	- **secureRedirectHost**: The "secure" external url of your plex server, to use when redirecting streams for https traffic.
