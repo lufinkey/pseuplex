@@ -6,8 +6,15 @@ import * as plexServerAPI from './api';
 import * as plexTVAPI from '../plextv/api';
 import { PlexTVCurrentUserInfo } from '../plextv/types';
 import { Logger } from '../logging';
-import { HttpResponseError } from '../utils/error';
+import { CachedFetcher } from '../fetching/CachedFetcher';
+import { httpError, HttpResponseError } from '../utils/error';
 import { PlexServerPropertiesStore } from './serverproperties';
+
+export type PlexTransientTokenInfo = {
+	creatorToken: string;
+	type: string;
+	scope: string;
+};
 
 export type PlexServerAccountInfo = {
 	email: string;
@@ -15,6 +22,7 @@ export type PlexServerAccountInfo = {
 	plexUserID: number | string;
 	serverUserID: number | string;
 	isServerOwner: boolean;
+	transient?: PlexTransientTokenInfo;
 };
 
 export type PlexServerAccountsStoreOptions = {
@@ -22,6 +30,8 @@ export type PlexServerAccountsStoreOptions = {
 	sharedServersMinLifetime?: number;
 	logger?: Logger;
 };
+
+const TransientTokenPrefix = 'transient-';
 
 export class PlexServerAccountsStore {
 	readonly plexServerProperties: PlexServerPropertiesStore;
@@ -33,6 +43,7 @@ export class PlexServerAccountsStore {
 	_serverOwnerTokenCheckTasks: {[key: string]: Promise<PlexServerAccountInfo | null>} = {};
 	_sharedServersTask: Promise<void> | null = null;
 	_lastSharedServersFetchTime: number | null = null;
+	_transientTokens: CachedFetcher<PlexTransientTokenInfo>;
 
 	_logger?: Logger;
 
@@ -40,6 +51,11 @@ export class PlexServerAccountsStore {
 		this.plexServerProperties = options.plexServerProperties;
 		this.sharedServersMinLifetime = options.sharedServersMinLifetime ?? 60;
 		this._logger = options.logger;
+		this._transientTokens = new CachedFetcher((token) => {
+			return undefined!;
+		}, {
+			itemLifetime: (60 * 60 * 48), // 48 hour lifetime
+		});
 	}
 
 	get lastSharedServersFetchTime() {
@@ -195,10 +211,9 @@ export class PlexServerAccountsStore {
 		}
 	}
 
-	async getUserInfo(authContext: PlexAuthContext): Promise<PlexServerAccountInfo | null> {
-		const token = authContext['X-Plex-Token'];
-		if(!token) {
-			return null;
+	async getNonTransientUserInfo(token: string): Promise<PlexServerAccountInfo | null> {
+		if(token.startsWith(TransientTokenPrefix)) {
+			throw httpError(403, "Transient token is not allowed in this context");
 		}
 		// get user info for token
 		let userInfo: (PlexServerAccountInfo | null) = this._tokensToPlexOwnersMap[token] ?? this._tokensToPlexUsersMap[token];
@@ -218,6 +233,34 @@ export class PlexServerAccountsStore {
 		return null;
 	}
 
+	async getUserInfo(authContext: PlexAuthContext): Promise<PlexServerAccountInfo | null> {
+		let token = authContext['X-Plex-Token'];
+		if(!token) {
+			return null;
+		}
+		// check if token is a transient token
+		let transientToken: string | undefined;
+		let transientInfo = await this._transientTokens.get(token);
+		if(transientInfo) {
+			transientToken = token;
+			token = transientInfo.creatorToken;
+		}
+		let userInfo = await this.getNonTransientUserInfo(token);
+		if(!userInfo) {
+			return null;
+		}
+		// attach transient info if needed
+		if(transientInfo) {
+			userInfo = {
+				...userInfo,
+				transient: {
+					...transientInfo,
+				},
+			};
+		}
+		return userInfo;
+	}
+
 	async getUserInfoOrNull(authContext: PlexAuthContext): Promise<PlexServerAccountInfo | null> {
 		try {
 			return await this.getUserInfo(authContext);
@@ -226,5 +269,21 @@ export class PlexServerAccountsStore {
 			console.error(error);
 			return null;
 		}
+	}
+
+
+	startAutoCleaningTransientTokens() {
+		this._transientTokens.startAutoClean();
+	}
+
+	stopAutoCleaningTransientTokens() {
+		this._transientTokens.stopAutoClean();
+	}
+
+	async registerTransientToken(transientToken: string, tokenInfo: PlexTransientTokenInfo) {
+		if(tokenInfo.creatorToken.startsWith(TransientTokenPrefix)) {
+			throw httpError(403, "Transient tokens cannot create other transient tokens");
+		}
+		this._transientTokens.setSync(transientToken, tokenInfo, true);
 	}
 }

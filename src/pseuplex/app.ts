@@ -116,7 +116,8 @@ import {
 	requestIsEncrypted
 } from '../utils/requesthandling';
 import {
-	parseIntQueryParam
+	parseIntQueryParam,
+	parseStringQueryParam
 } from '../utils/queryparams';
 import {
 	parseURLPath,
@@ -489,14 +490,6 @@ export class PseuplexApp {
 			this.logger?.logIncomingUserRequest(req);
 			next();
 		});
-
-		router.use('/\\:/websockets/notifications', [
-			asyncRequestHandler((req, res) => {
-				console.log('we got da websocket:');
-				console.dir(req);
-				return false;
-			}),
-		]);
 		
 		// handle remapping public to private metadata IDs, if enabled
 		if(this.metadataIdMappings) {
@@ -1175,6 +1168,29 @@ export class PseuplexApp {
 			]);
 		}
 
+		// handle transient token requests
+		router.all('/security/token', [
+			this.middlewares.plexAuthentication(),
+			this.middlewares.plexAPIProxy({
+				responseModifier: (proxyRes, resData: plexTypes.PlexTransientTokenResponse, userReq: IncomingPlexAPIRequest, userRes) => {
+					const transientToken = resData.MediaContainer.token;
+					if(!transientToken) {
+						console.error(`Unexpected transient token response: ${JSON.stringify(resData)}`);
+						return resData;
+					}
+					const creatorToken = userReq.plex.authContext['X-Plex-Token']!;
+					const type = parseStringQueryParam(userReq.query['type'])!;
+					const scope = parseStringQueryParam(userReq.query['scope'])!;
+					this.plexServerAccounts.registerTransientToken(transientToken, {
+						creatorToken,
+						type,
+						scope,
+					});
+					return resData;
+				}
+			})
+		]);
+
 		// handle eventsource requests
 		const onPlexSSEProxyResponse = (proxyReq: http.ClientRequest, proxyRes: http.IncomingMessage, userReq: IncomingPlexAPIRequest, userRes: express.Response) => {
 			// save subscriber list per plex token
@@ -1395,6 +1411,7 @@ export class PseuplexApp {
 		onHttpsListening?: (port: number) => void,
 		onHttpolyglotListening?: (port: number) => void,
 	}) {
+		this.plexServerAccounts.startAutoCleaningTransientTokens();
 		if(this.httpsServer) {
 			const port = this.httpsPort!;
 			this.httpsServer!.listen(port, () => {
@@ -1433,6 +1450,7 @@ export class PseuplexApp {
 		this.httpolyglotServer?.close((error) => {
 			evts?.onHttpolyglotClosed?.(error);
 		});
+		this.plexServerAccounts.stopAutoCleaningTransientTokens();
 	}
 
 

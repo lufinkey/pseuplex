@@ -82,3 +82,10 @@ export type PlexServerMediaProvidersPage = {
 		MediaProvider: PlexMediaProvider[];
 	};
 };
+
+export type PlexTransientTokenResponse = {
+	MediaContainer: {
+		size?: number;
+		token: string;
+	}
+};
