@@ -45,7 +45,8 @@ import { firstOrSingle, pushToArray } from '../../utils/misc';
 import { IPv4NormalizeMode, normalizeIPAddress } from '../../utils/ip';
 
 const videoTranscodePathPrefix = '/video/:/transcode/universal/session/';
-const passthroughVideoTranscodeMethods = ['GET','OPTIONS','HEAD'];
+const musicTranscodePathPrefix = '/music/:/transcode/universal/session/';
+const passthroughTranscodeMethods = ['GET','OPTIONS','HEAD'];
 
 const lockInstructionsThumbFilepath = `${getModuleRootPath()}/images/lockedSectionInstructions.png`;
 const lockIconFilepath = `${getModuleRootPath()}/images/icons/lock.png`;
@@ -698,7 +699,8 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 					// ignore paths that don't need authentication
 					const reqPath = req.path;
 					if(req.method === 'OPTIONS' || reqPath == '/identity' || reqPath.startsWith('/web/') || reqPath == '/web'
-						|| (reqPath.startsWith(videoTranscodePathPrefix) && reqPath.length > videoTranscodePathPrefix.length && passthroughVideoTranscodeMethods.indexOf(req.method) != -1)
+						|| (reqPath.startsWith(videoTranscodePathPrefix) && reqPath.length > videoTranscodePathPrefix.length && passthroughTranscodeMethods.indexOf(req.method) != -1)
+						|| (reqPath.startsWith(musicTranscodePathPrefix) && reqPath.length > musicTranscodePathPrefix.length && passthroughTranscodeMethods.indexOf(req.method) != -1)
 						|| ((reqPath.endsWith('.png') || reqPath.endsWith('.ico')) && reqPath.indexOf('/', 1) == -1)
 					) {
 						next();

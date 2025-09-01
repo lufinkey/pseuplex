@@ -1070,6 +1070,7 @@ export class PseuplexApp {
 		if(this.redirectPlexStreams && (this.plexServerRedirectHost || this.plexServerRedirectHostSecure)) {
 			router.use([
 				'/video/\\:/transcode/universal/session',
+				'/music/\\:/transcode/universal/session',
 				'/library/parts',
 			], [
 				asyncRequestHandler(async (req: IncomingPlexAPIRequest, res: express.Response) => {
