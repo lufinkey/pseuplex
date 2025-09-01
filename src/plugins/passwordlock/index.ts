@@ -68,6 +68,10 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 
 	readonly notificationWebsocketServer: ws.Server<(typeof ws.WebSocket) & PlexClientWebsocketMixin>;
 	readonly notificationEventsourceSubscribers: Set<{req: IncomingPlexAPIRequest, res: express.Response}> = new Set();
+
+	readonly loginFailureDelayPromises: {
+		[ipAddress: string]: (Promise<void> | undefined)
+	} = {};
 	
 	constructor(app: PseuplexApp) {
 		this.app = app;
@@ -734,6 +738,10 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 		]);
 	}
 
+	get loginFailureDelay(): number {
+		return this.config.passwordLock?.loginFailureDelay ?? 6000;
+	}
+
 	identityIPOfRequest(req: http.IncomingMessage) {
 		const realIP = this.app.realIPOfRequest(req);
 		return normalizeIPAddress(realIP, IPv4NormalizeMode.ToIPv4);
@@ -754,14 +762,24 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 
 	async login(req: IncomingPlexAPIRequest, inputPassword: string) {
 		const identityIP = this.identityIPOfRequest(req);
+		// if user has a pending login failure, throw a 429 to prevent spam
+		if(this.loginFailureDelayPromises[identityIP]) {
+			throw httpError(429, "Slow down there jibro");
+		}
 		// validate password
 		const password = this.config.perUser?.[req.plex.userInfo.email]?.passwordLock?.password
 			?? this.config.passwordLock?.password
 			?? "";
 		if(password != inputPassword) {
-			// failure, delay atleast 5 seconds to prevent brute force
+			// failure, delay some time to prevent brute force
 			console.error(`Failed login from ip ${identityIP} with context ${JSON.stringify(req.plex)}`);
-			await delay(6000);
+			const failureDelay = delay(this.loginFailureDelay);
+			this.loginFailureDelayPromises[identityIP] = failureDelay;
+			try {
+				await failureDelay;
+			} finally {
+				delete this.loginFailureDelayPromises[identityIP];
+			}
 			throw httpError(401, "Wrong password");
 		}
 		// success, so whitelist the IP
