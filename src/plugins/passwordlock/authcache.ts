@@ -167,6 +167,7 @@ export class PasswordLockAuthenticationCache {
 				// set new auth data
 				this._users = users;
 				this._pendingUnsavedChanges = unsavedChanges;
+				this._savingUnsavedChanges = false;
 				return true;
 			} finally {
 				this._loadPromise = null;
