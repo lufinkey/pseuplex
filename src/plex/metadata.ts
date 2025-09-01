@@ -72,6 +72,8 @@ export class PlexIdToInfoCache extends CachedFetcher<PlexIdCachedInfo | null> {
 		return {
 			index: metadataItem.index,
 			slug: metadataItem.slug,
+			year: metadataItem.year,
+			thumb: metadataItem.thumb,
 			parentIndex: metadataItem.parentIndex,
 			parentSlug: metadataItem.parentSlug,
 			parentRatingKey: metadataItem.parentRatingKey,
