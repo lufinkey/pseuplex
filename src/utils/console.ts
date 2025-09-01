@@ -32,12 +32,43 @@ export const includeTracesForConsoleWarnAndError = () => {
 
 	const innerError = console.error;
 	console.error = function(...args) {
-		innerError.call(this, ...args, traceDividerString, errorTraceString(2));
+		return innerError.call(this, ...args, traceDividerString, errorTraceString(2));
 	};
 
 	const innerWarn = console.warn;
 	console.warn = function(...args) {
-		innerWarn.call(this, ...args, traceDividerString, errorTraceString(2));
+		return innerWarn.call(this, ...args, traceDividerString, errorTraceString(2));
+	};
+};
+
+let includedTimestamps = false;
+export const includeTimestampsForAllLogs = () => {
+	if(includedTimestamps) {
+		console.warn("Already including timestamps for console. Skipping...");
+		return;
+	}
+	includedTimestamps = true;
+
+	function insertTimestampArg(args: any[]) {
+		args.splice(0, 0, `[${(new Date()).toLocaleString()}]`);
+	}
+
+	const innerError = console.error;
+	console.error = function(...args) {
+		insertTimestampArg(args);
+		return innerError.apply(this, args);
+	};
+
+	const innerWarn = console.warn;
+	console.warn = function(...args) {
+		insertTimestampArg(args);
+		return innerWarn.apply(this, args);
+	};
+
+	const innerLog = console.log;
+	console.log = function(...args) {
+		insertTimestampArg(args);
+		return innerLog.apply(this, args);
 	};
 };
 
@@ -52,14 +83,16 @@ export const modConsoleColors = () => {
 	const innerConsoleError = console.error;
 	console.error = function (...args) {
 		process.stderr.write('\x1b[31m');
-		innerConsoleError.call(this, ...args);
+		let retVal = innerConsoleError.apply(this, args);
 		process.stderr.write('\x1b[0m');
+		return retVal
 	};
 	
 	const innerConsoleWarn = console.warn;
 	console.warn = function (...args) {
 		process.stderr.write('\x1b[33m');
-		innerConsoleWarn.call(this, ...args);
+		let retVal = innerConsoleWarn.apply(this, args);
 		process.stderr.write('\x1b[0m');
+		return retVal;
 	};
 };

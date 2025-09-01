@@ -17,6 +17,7 @@ import {
 } from './utils/ssl';
 import { IPv4NormalizeMode } from './utils/ip';
 import {
+	includeTimestampsForAllLogs,
 	includeTracesForConsoleWarnAndError,
 	modConsoleColors,
 } from './utils/console';
@@ -62,6 +63,9 @@ let args: CommandArguments;
 	if(args.verbose) {
 		console.log(`parsed arguments:\n${JSON.stringify(args, null, '\t')}\n`);
 		process.env.DEBUG = '*';
+	}
+	if(args.logTimestamps) {
+		includeTimestampsForAllLogs();
 	}
 
 	// load config

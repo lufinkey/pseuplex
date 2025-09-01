@@ -10,6 +10,7 @@ import type * as overseerrTypes from './plugins/requests/providers/overseerr/api
 import { IncomingPlexAPIRequest } from './plex/requesthandling';
 
 export type GeneralLoggingOptions = {
+	logTimestamps?: boolean;
 	logDebug?: boolean;
 	logFullURLs?: boolean;
 	logWatchedPaths?: boolean;
