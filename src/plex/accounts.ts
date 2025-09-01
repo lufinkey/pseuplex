@@ -247,6 +247,7 @@ export class PlexServerAccountsStore {
 		} else if(token.startsWith(TransientTokenPrefix)) {
 			throw httpError(401, "Invalid token");
 		}
+		// get user info from non-transient token
 		let userInfo = await this.getNonTransientUserInfo(token);
 		if(!userInfo) {
 			return null;
