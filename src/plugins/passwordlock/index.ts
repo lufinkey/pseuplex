@@ -708,6 +708,7 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 					return;
 				}
 				// forward to unauthed router
+				// unauthUpgradeRouter has a catch-all that throws an error, so any non-matching routes will fail
 				unauthUpgradeRouter(req, res, next);
 			},
 		]);
@@ -755,10 +756,12 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 						return;
 					}
 					// IP is not allowed access, so redirect to subrouter
+					// unauthRouter has a catch-all that throws an error, so any non-matching routes will fail
 					unauthRouter(req, res, next);
 				} catch(error) {
 					console.error(`Exception while handling route ${req.path}`);
 					console.error(error);
+					next(error);
 				}
 			}
 		]);
