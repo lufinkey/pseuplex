@@ -1369,7 +1369,7 @@ export class PseuplexApp {
 			server.on('upgrade', (req, socket, head) => {
 				this.logger?.logIncomingUserUpgradeRequest(req, socket, head);
 				// send to upgrade middleware
-				router.upgradeRouter(req as express.Request, {socket, head, locals:Object.create(null)}, (error) => {
+				router.upgradeRouter(req, {socket, head, locals:Object.create(null)}, (error) => {
 					// handle error if any
 					if(error != null) {
 						console.error(`Error while handling upgrade request:`);
