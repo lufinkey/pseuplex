@@ -287,6 +287,6 @@ export class PlexServerAccountsStore {
 		if(tokenInfo.creatorToken.startsWith(TransientTokenPrefix)) {
 			throw httpError(403, "Transient tokens cannot create other transient tokens");
 		}
-		this._transientTokens.setSync(transientToken, tokenInfo, true);
+		this._transientTokens.setSync(transientToken, tokenInfo);
 	}
 }
