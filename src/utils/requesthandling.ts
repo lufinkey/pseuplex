@@ -1,7 +1,7 @@
 import http from 'http';
 import express from 'express';
 import { httpError, HttpError, HttpResponseError } from './error';
-import { IncomingPlexAPIRequest } from '../plex/requesthandling';
+import type { IncomingPlexAPIRequest } from '../plex/requesthandling';
 
 export const asyncRequestHandler = <TRequest, TResponse>(
 	handler: ((req: TRequest, res: TResponse) => (boolean | Promise<boolean>))
@@ -25,7 +25,7 @@ export const asyncRequestHandler = <TRequest, TResponse>(
 	};
 };
 
-export const plexRequestDebugString = (req: express.Request) => {
+export const expressRequestDebugString = (req: express.Request) => {
 	const reqHeaderList = req.rawHeaders;
 		let reqHeaderLines: string[] = []
 		for(let i=0; i<reqHeaderList.length; i++) {
@@ -37,6 +37,7 @@ export const plexRequestDebugString = (req: express.Request) => {
 	const plexUserReq = (req as IncomingPlexAPIRequest);
 	return (plexUserReq.plex ? `\tplex.userInfo.email: ${plexUserReq.plex?.userInfo.email}\n` : '')
 		+ `\ttimestamp: ${(new Date()).toString()}\n`
+		+ `\tmethod: ${req.method}\n`
 		+ `\turl: ${req.originalUrl}\n`
 		+ `\tip: ${remoteAddressOfRequest(req)}\n`
 		+ `\theaders:\n${reqHeaderLines.join('\n')}`;
@@ -44,7 +45,7 @@ export const plexRequestDebugString = (req: express.Request) => {
 
 export const expressErrorHandler = (error: Error, req: express.Request, res: express.Response, next) => {
 	if(error) {
-		console.error(`Got error while handling request:\n${plexRequestDebugString(req)}`);
+		console.error(`Got error while handling request:\n${expressRequestDebugString(req)}`);
 		console.error(error);
 		let statusCode =
 			(error as HttpError).statusCode

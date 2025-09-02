@@ -5,7 +5,7 @@ import type { PlexServerAccountInfo } from './plex/accounts';
 import { PlexNotificationSender, PlexNotificationSenderTypeToName } from './plex/notifications';
 import { urlFromClientRequest } from './utils/requests';
 import {
-	plexRequestDebugString,
+	expressRequestDebugString,
 	requestIsEncrypted
 } from './utils/requesthandling';
 import type { WebSocketEventMap } from './utils/websocket';
@@ -370,7 +370,7 @@ export class Logger {
 	}
 
 	logPlexRequestHandlerFailed(userReq: express.Request, userRes: express.Response, error: Error): boolean {
-		console.error(`Plex request handler failed\n${plexRequestDebugString(userReq)}`);
+		console.error(`Plex request handler failed\n${expressRequestDebugString(userReq)}`);
 		console.error(error);
 		return true;
 	}

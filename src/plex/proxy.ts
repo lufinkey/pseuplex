@@ -17,7 +17,7 @@ import {
 } from '../utils/ip';
 import {
 	getPortFromRequest,
-	plexRequestDebugString,
+	expressRequestDebugString,
 	remoteAddressOfRequest,
 	requestIsEncrypted
 } from '../utils/requesthandling';
@@ -204,7 +204,7 @@ export const plexApiProxy = (host: HostOrHostGetter, options: PlexProxyOptions, 
 				}
 				isApiRequest = true;
 			} else {
-				console.warn(`Unknown content type for Accept header: ${userReq.headers['accept']}\n${plexRequestDebugString(userReq)}`);
+				console.warn(`Unknown content type for Accept header: ${userReq.headers['accept']}\n${expressRequestDebugString(userReq)}`);
 			}
 			// modify request destination
 			/*if(userReq.protocol) {
