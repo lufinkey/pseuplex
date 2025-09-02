@@ -25,11 +25,11 @@ export const asyncRequestHandler = <TRequest, TResponse>(
 	};
 };
 
-export type RequestWithOriginalRemoteAddress = express.Request & {
+export type RequestWithOriginalRemoteAddress = (http.IncomingMessage | express.Request) & {
 	originalRemoteAddress: string;
 };
 
-export const addOriginalRemoteAddressToRequest = (req: express.Request) => {
+export const addOriginalRemoteAddressToRequest = (req: http.IncomingMessage | express.Request) => {
 	const reqWithAddr = (req as RequestWithOriginalRemoteAddress);
 	if(reqWithAddr.originalRemoteAddress) {
 		return;

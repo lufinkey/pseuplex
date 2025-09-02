@@ -1313,7 +1313,7 @@ export class PseuplexApp {
 		console.assert(servers.length > 0, "No servers were created");
 
 		router.upgradeRouter.use([
-			// add socket to list
+			// add websocket to list
 			asyncRequestHandler((req: UpgradeRequest, res: UpgradeResponse) => {
 				// only handle if upgrading to websocket
 				if(req.headers['upgrade']?.toLowerCase().trim() != 'websocket') {
@@ -1375,6 +1375,9 @@ export class PseuplexApp {
 		for(const server of servers) {
 			// handle upgrade to socket
 			server.on('upgrade', (req, socket, head) => {
+				// add original request information if needed
+				addOriginalRemoteAddressToRequest(req);
+				// log request
 				this.logger?.logIncomingUserUpgradeRequest(req, socket, head);
 				// send to upgrade middleware
 				router.upgradeRouter(req, {socket, head, locals:Object.create(null)}, (error) => {
