@@ -667,9 +667,17 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 				}
 				const { socket, head } = res;
 				this.notificationWebsocketServer.handleUpgrade(req, socket, head, (client: (ws & PlexClientWebsocketMixin), req: IncomingPlexHttpRequest) => {
-					client.remoteAddress = remoteAddressOfRequest(req);
-					client.identityIP = this.identityIPOfRequest(req);
-					client.plex = req.plex;
+					try {
+						client.remoteAddress = remoteAddressOfRequest(req);
+						client.identityIP = this.identityIPOfRequest(req);
+						client.plex = req.plex;
+					} catch(error) {
+						console.error(`Error after connecting websocket:`);
+						console.error(error);
+						client.close();
+						req.destroy();
+						return;
+					}
 					this.notificationWebsocketServer.emit('connection', client, req);
 				});
 				// handled

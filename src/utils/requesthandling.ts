@@ -25,6 +25,18 @@ export const asyncRequestHandler = <TRequest, TResponse>(
 	};
 };
 
+export type RequestWithOriginalRemoteAddress = express.Request & {
+	originalRemoteAddress: string;
+};
+
+export const addOriginalRemoteAddressToRequest = (req: express.Request) => {
+	const reqWithAddr = (req as RequestWithOriginalRemoteAddress);
+	if(reqWithAddr.originalRemoteAddress) {
+		return;
+	}
+	reqWithAddr.originalRemoteAddress = remoteAddressOfRequest(req);
+};
+
 export const expressRequestDebugString = (req: express.Request) => {
 	const reqHeaderList = req.rawHeaders;
 		let reqHeaderLines: string[] = []
@@ -35,11 +47,14 @@ export const expressRequestDebugString = (req: express.Request) => {
 			reqHeaderLines.push(`\t\t${headerKey}: ${headerVal}`);
 		}
 	const plexUserReq = (req as IncomingPlexAPIRequest);
+	const ip = remoteAddressOfRequestOrNull(req);
+	const originalIP = (req as RequestWithOriginalRemoteAddress).originalRemoteAddress;
 	return (plexUserReq.plex ? `\tplex.userInfo.email: ${plexUserReq.plex?.userInfo.email}\n` : '')
 		+ `\ttimestamp: ${(new Date()).toString()}\n`
 		+ `\tmethod: ${req.method}\n`
 		+ `\turl: ${req.originalUrl}\n`
-		+ `\tip: ${remoteAddressOfRequest(req)}\n`
+		+ `\tip: ${ip}\n`
+		+ (originalIP != ip ? `\toriginal ip: ${originalIP}\n` : '')
 		+ `\theaders:\n${reqHeaderLines.join('\n')}`;
 };
 
@@ -62,9 +77,17 @@ export const expressErrorHandler = (error: Error, req: express.Request, res: exp
 };
 
 export function remoteAddressOfRequest(req: http.IncomingMessage | express.Request): string {
-	let remoteAddress = req.connection?.remoteAddress || req.socket?.remoteAddress || (req as express.Request).ip;
+	let remoteAddress = req.connection?.remoteAddress || req.socket?.remoteAddress;
 	if(!remoteAddress) {
 		throw httpError(400, "No remote address");
+	}
+	return remoteAddress;
+};
+
+export function remoteAddressOfRequestOrNull(req: http.IncomingMessage | express.Request): string | null {
+	let remoteAddress = req.connection?.remoteAddress || req.socket?.remoteAddress;
+	if(!remoteAddress) {
+		return null;
 	}
 	return remoteAddress;
 };

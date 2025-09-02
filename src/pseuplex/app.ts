@@ -112,10 +112,11 @@ import { Logger } from '../logging';
 import { CachedFetcher } from '../fetching/CachedFetcher';
 import { httpError, HttpResponseError } from '../utils/error';
 import {
+	addOriginalRemoteAddressToRequest,
 	asyncRequestHandler,
 	expressErrorHandler,
 	remoteAddressOfRequest,
-	requestIsEncrypted
+	requestIsEncrypted,
 } from '../utils/requesthandling';
 import {
 	parseIntQueryParam,
@@ -491,9 +492,16 @@ export class PseuplexApp {
 		router.set('trust proxy', this.trustProxy);
 		router.set('etag', false);
 
+		// apply original remote address
 		// log request if needed
 		router.use((req, res, next) => {
-			this.logger?.logIncomingUserRequest(req);
+			try {
+				addOriginalRemoteAddressToRequest(req);
+				this.logger?.logIncomingUserRequest(req);
+			} catch(error) {
+				next(error);
+				return;
+			}
 			next();
 		});
 		
