@@ -697,19 +697,17 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 			asyncRequestHandler((req, res, next) => {
 				const context = this.app.contextForRequest(req);
 				// ignore if whitelisted metadata is being played
-				const ratingKey = req.query['ratingKey'];
+				const ratingKey = req.query?.['ratingKey'];
+				const key = req.query?.['key'];
 				if(ratingKey) {
 					if(this.isMetadataIdWhitelisted(ratingKey, context)) {
 						plexProxyMiddleware(req,res,next);
 						return true;
 					}
-				} else {
-					const key = req.query['key'];
-					if(key) {
-						if(this.isMetadataKeyWhitelisted(key, context)) {
-							plexProxyMiddleware(req,res,next);
-							return true;
-						}
+				} else if(key) {
+					if(this.isMetadataKeyWhitelisted(key, context)) {
+						plexProxyMiddleware(req,res,next);
+						return true;
 					}
 				}
 				return false;
