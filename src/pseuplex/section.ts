@@ -119,7 +119,7 @@ export class PseuplexSectionBase implements PseuplexSection {
 
 	async getPivots?(): Promise<plexTypes.PlexPivot[]>;
 
-	async getLibrarySectionsEntry(params: plexTypes.PlexLibrarySectionsPageParams, context: PseuplexRequestContext): Promise<plexTypes.PlexLibrarySection> {
+	async getLibrarySectionsEntry(params: plexTypes.PlexLibrarySectionsPageParams, context: PseuplexRequestContext & {from: PseuplexAllSectionsSource}): Promise<plexTypes.PlexLibrarySection> {
 		const titlePromise = this.getTitle(context);
 		return {
 			allowSync: this.allowSync,
@@ -248,3 +248,17 @@ export class PseuplexSectionBase implements PseuplexSection {
 		};
 	}
 }
+
+
+export enum PseuplexAllSectionsSource {
+	Sections = '',
+	AllSections = 'all',
+};
+
+export const endpointForPseuplexSectionsSource = (source: PseuplexAllSectionsSource) => {
+	let endpoint = '/library/sections';
+	if(source) {
+		endpoint += `/${source}`;
+	}
+	return endpoint;
+};

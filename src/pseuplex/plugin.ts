@@ -10,7 +10,7 @@ import {
 	PseuplexMetadataIDParts,
 	PseuplexPartialMetadataIDString
 } from './metadataidentifier';
-import { PseuplexSection } from './section';
+import { PseuplexAllSectionsSource, PseuplexSection } from './section';
 import { PseuplexRouterApp } from './router';
 
 
@@ -19,6 +19,10 @@ export type PseuplexResponseFilterContext = {
 	userRes: express.Response;
 	proxyRes?: http.IncomingMessage;
 	previousFilterPromises?: Promise<void>[];
+};
+
+export type PseuplexSectionsFilterContext = PseuplexResponseFilterContext & {
+	from: PseuplexAllSectionsSource;
 };
 
 export type PseuplexMetadataResponseFilterContext = PseuplexResponseFilterContext & {
@@ -52,6 +56,7 @@ export type PseuplexSectionHubsResponseFilterContext = PseuplexResponseFilterCon
 export type PseuplexResponseFilter<TResponseData, TContext extends PseuplexResponseFilterContext = PseuplexResponseFilterContext> = (resData: TResponseData, context: TContext) => void | Promise<void>;
 export type PseuplexResponseFilters = {
 	mediaProviders?: PseuplexResponseFilter<plexTypes.PlexServerMediaProvidersPage>;
+	sections?: PseuplexResponseFilter<plexTypes.PlexLibrarySectionsPage, PseuplexSectionsFilterContext>;
 	hubs?: PseuplexResponseFilter<plexTypes.PlexLibraryHubsPage>;
 	promotedHubs?: PseuplexResponseFilter<plexTypes.PlexLibraryHubsPage>;
 	sectionHubs?: PseuplexResponseFilter<plexTypes.PlexSectionHubsPage, PseuplexSectionHubsResponseFilterContext>;

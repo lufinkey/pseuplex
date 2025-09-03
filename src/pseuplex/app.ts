@@ -97,7 +97,11 @@ import {
 	PseuplexIDRemappings,
 	PseuplexPrivateToPublicIDsMap,
 } from './idmappings';
-import { PseuplexSection } from './section';
+import {
+	endpointForPseuplexSectionsSource,
+	PseuplexAllSectionsSource,
+	PseuplexSection,
+} from './section';
 import {
 	sendMediaUnavailableNotifications,
 	sendMetadataRefreshTimelineNotifications,
@@ -627,29 +631,41 @@ export class PseuplexApp {
 			})
 		]);
 
-		router.get(['/library/sections', '/library/sections/all'], [
-			this.middlewares.plexAuthentication(),
-			this.middlewares.plexAPIProxy({
-				filter: async (req: IncomingPlexAPIRequest, res) => {
-					const context = this.contextForRequest(req);
-					return await this.hasPluginSections(context);
-				},
-				responseModifier: async (proxyRes, resData: plexTypes.PlexLibrarySectionsPage, userReq: IncomingPlexAPIRequest, userRes) => {
-					const context = this.contextForRequest(userReq);
-					const reqParams: plexTypes.PlexLibrarySectionsPageParams = userReq.plex.requestParams;
-					// add sections
-					const allSections = await this.getPluginSections(context);
-					const existingSections = resData.MediaContainer.Directory ?? [];
-					const newSections = await Promise.all(Array.from(allSections).map(async (section) => {
-						return await section.getLibrarySectionsEntry(reqParams,context);
-					}));
-					existingSections.push(...newSections);
-					resData.MediaContainer.Directory = existingSections;
-					resData.MediaContainer.size = (resData.MediaContainer.size ?? 0) + newSections.length;
-					return resData;
-				}
-			})
-		]);
+		for(const sectionsSource of Object.values(PseuplexAllSectionsSource)) {
+			router.get(endpointForPseuplexSectionsSource(sectionsSource), [
+				this.middlewares.plexAuthentication(),
+				this.middlewares.plexAPIProxy({
+					filter: async (req: IncomingPlexAPIRequest, res) => {
+						const context = this.contextForRequest(req);
+						return await this.hasPluginSections(context);
+					},
+					responseModifier: async (proxyRes, resData: plexTypes.PlexLibrarySectionsPage, userReq: IncomingPlexAPIRequest, userRes) => {
+						const context = {
+							...this.contextForRequest(userReq),
+							from: sectionsSource,
+						};
+						const reqParams: plexTypes.PlexLibrarySectionsPageParams = userReq.plex.requestParams;
+						// add sections
+						const allSections = await this.getPluginSections(context);
+						const existingSections = resData.MediaContainer.Directory ?? [];
+						const newSections = await Promise.all(Array.from(allSections).map(async (section) => {
+							return await section.getLibrarySectionsEntry(reqParams,context);
+						}));
+						existingSections.push(...newSections);
+						resData.MediaContainer.Directory = existingSections;
+						resData.MediaContainer.size = (resData.MediaContainer.size ?? 0) + newSections.length;
+						// filter response
+						await this.filterResponse('sections', resData, {
+							proxyRes,
+							userReq,
+							userRes,
+							from: sectionsSource,
+						});
+						return resData;
+					}
+				})
+			]);
+		}
 
 		router.get('/hubs', [
 			this.middlewares.plexAuthentication(),

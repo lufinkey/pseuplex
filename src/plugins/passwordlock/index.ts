@@ -11,6 +11,7 @@ import {
 	PlexRequestInfo,
 } from '../../plex/requesthandling';
 import {
+	PseuplexAllSectionsSource,
 	PseuplexApp,
 	PseuplexPlugin,
 	PseuplexPluginClass,
@@ -20,6 +21,7 @@ import {
 	UpgradeRequest,
 	UpgradeResponse,
 	createUpgradeRouter,
+	endpointForPseuplexSectionsSource,
 	parseMetadataID,
 	parseMetadataIdFromPathParam,
 	parseMetadataIdsFromPathParam,
@@ -205,22 +207,27 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 			}),
 		]);
 
-		unauthRouter.get([ '/library/sections', '/library/sections/all' ], [
-			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexLibrarySectionsPage> => {
-				const context = this.app.contextForRequest(req);
-				const reqParams: plexTypes.PlexLibrarySectionsPageParams = req.plex.requestParams;
-				// return singular section
-				return {
-					MediaContainer: {
-						title1: "Plex Library",
-						size: 1,
-						Directory: [
-							await this.section.getLibrarySectionsEntry(reqParams, context)
-						]
-					}
-				};
-			}),
-		]);
+		for(const sectionsSource of Object.values(PseuplexAllSectionsSource)) {
+			unauthRouter.get(endpointForPseuplexSectionsSource(sectionsSource), [
+				this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexLibrarySectionsPage> => {
+					const context = {
+						...this.app.contextForRequest(req),
+						from: sectionsSource,
+					};
+					const reqParams: plexTypes.PlexLibrarySectionsPageParams = req.plex.requestParams;
+					// return singular section
+					return {
+						MediaContainer: {
+							title1: "Plex Library",
+							size: 1,
+							Directory: [
+								await this.section.getLibrarySectionsEntry(reqParams, context)
+							]
+						}
+					};
+				}),
+			]);
+		}
 
 		unauthRouter.get([ this.section.path, `/library/sections/${this.section.id}` ], [
 			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res) => {
