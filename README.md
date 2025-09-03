@@ -144,6 +144,7 @@ Create a `config.json` file with the following structure, and fill in the config
 	- **sectionUUID**: A unique uuid for the initial section when the library is locked. You should specify your own [randomly generated uuid](https://www.uuidgenerator.net), to ensure it's unique to your server.
 	- **password**: The custom password of your server.
 	- **authCachePath**: The file path to store the auth cache json file. This stores the mapping of tokens to their whitelisted IPs.
+	- **autoWhitelistNetmask**: The ip netmask to whitelist automatically. Typically this would be a local netmask, like `"192.168.0.0/16"`.
 - **perUser**: A map of settings to configure for each user on your server. The map keys are the plex email for each user.
 	- **letterboxd**:
 		- **username**: The letterboxd username for this user
@@ -159,6 +160,8 @@ Create a `config.json` file with the following structure, and fill in the config
 			- **arg**: The argument to pass to the hub provider
 	- **passwordLock**:
 		- **password**: The custom password to require from this specific user.
+		- **autoWhitelistNetmask**: The ip netmask to whitelist automatically for this user.
+		- **overrideAutoWhitelistNetmask**: Set to `true` if the `autoWhitelistNetmask` for this user should override the global `autoWhitelistNetmask` config.
 
 ### Network Settings
 
