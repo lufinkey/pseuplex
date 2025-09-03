@@ -66,8 +66,8 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 	readonly metadata: PasswordLockMetadataProvider;
 	readonly section: PasswordLockSection;
 	readonly authCache: PasswordLockAuthenticationCache;
-	readonly autoWhitelistedNetmasks?: IPCIDR[];
-	readonly userAutoWhitelistedNetmasks?: {
+	readonly autoWhitelistNetmasks?: IPCIDR[];
+	readonly userAutoWhitelistNetmasks?: {
 		[email: string]: {
 			override: boolean;
 			netmasks?: IPCIDR[];
@@ -105,17 +105,17 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 			});
 		}
 
-		this.autoWhitelistedNetmasks = parseAutoWhitelistedNetmasks(this.config.passwordLock?.autoWhitelistedNetmask);
-		this.userAutoWhitelistedNetmasks = {};
+		this.autoWhitelistNetmasks = parseAutoWhitelistedNetmasks(this.config.passwordLock?.autoWhitelistNetmask);
+		this.userAutoWhitelistNetmasks = {};
 		const perUserConfigs = this.config.perUser;
 		if(perUserConfigs) {
 			for(const email of Object.keys(perUserConfigs)) {
 				const userConfig = perUserConfigs[email];
 				const userPwLockCfg = userConfig.passwordLock;
-				if(userPwLockCfg?.autoWhitelistedNetmask || userPwLockCfg?.overrideAutoWhitelistedNetmask) {
-					const whitelistedNetmasks = parseAutoWhitelistedNetmasks(userPwLockCfg.autoWhitelistedNetmask);
-					this.userAutoWhitelistedNetmasks[email] = {
-						override: userPwLockCfg.overrideAutoWhitelistedNetmask ?? false,
+				if(userPwLockCfg?.autoWhitelistNetmask || userPwLockCfg?.overrideAutoWhitelistNetmask) {
+					const whitelistedNetmasks = parseAutoWhitelistedNetmasks(userPwLockCfg.autoWhitelistNetmask);
+					this.userAutoWhitelistNetmasks[email] = {
+						override: userPwLockCfg.overrideAutoWhitelistNetmask ?? false,
 						netmasks: whitelistedNetmasks,
 					};
 				}
@@ -790,12 +790,12 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 		await this.authCache.waitForLoad();
 		const identityIP = this.identityIPOfRequest(req);
 		// check if we're on an auto-whitelisted network
-		const userNetmasks = this.userAutoWhitelistedNetmasks?.[userEmail];
+		const userNetmasks = this.userAutoWhitelistNetmasks?.[userEmail];
 		if(userNetmasks?.netmasks && userNetmasks.netmasks.findIndex((n: IPCIDR) => n.contains(identityIP)) != -1) {
 			return true;
 		}
 		if(!userNetmasks?.override) {
-			if(this.autoWhitelistedNetmasks && this.autoWhitelistedNetmasks.findIndex((n: IPCIDR) => n.contains(identityIP)) != -1) {
+			if(this.autoWhitelistNetmasks && this.autoWhitelistNetmasks.findIndex((n: IPCIDR) => n.contains(identityIP)) != -1) {
 				return true;
 			}
 		}

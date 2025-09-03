@@ -3,6 +3,7 @@ import type { SSLConfig } from './utils/ssl';
 import type { IPv4NormalizeModeKey } from './utils/ip';
 import type { PseuplexConfigBase } from './pseuplex/configbase';
 import type { PseuplexServerProtocol } from './pseuplex/types/server';
+import type { PasswordLockPluginConfig } from './plugins/passwordlock/config';
 import type { LetterboxdPluginConfig } from './plugins/letterboxd/config';
 import type { RequestsPluginConfig } from './plugins/requests/config';
 import type { DashboardPluginConfig } from './plugins/dashboard/config';
@@ -48,6 +49,7 @@ export type Config = {
 		[id: string]: string
 	}
 } & PseuplexConfigBase<{[key: string]: any}>
+	& PasswordLockPluginConfig
 	& LetterboxdPluginConfig
 	& RequestsPluginConfig
 	& DashboardPluginConfig
