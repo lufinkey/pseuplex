@@ -5,10 +5,10 @@ import {
 	plexServerFetch
 } from './core';
 
-export const getLibraryMetadata = async (id: string | string[], options: (PlexAPIRequestOptions & {
+export const getLibraryMetadata = async (id: string | number | (string | number)[], options: (PlexAPIRequestOptions & {
 	params?: plexTypes.PlexMetadataPageParams,
 })): Promise<plexTypes.PlexMetadataPage> => {
-	const idString = (id instanceof Array) ? id.map((idVal) => qs.escape(idVal)).join(',') : qs.escape(id);
+	const idString = (id instanceof Array) ? id.map((idVal) => qs.escape(idVal?.toString())).join(',') : qs.escape(id?.toString());
 	return await plexServerFetch<plexTypes.PlexMetadataPage>({
 		...options,
 		method: 'GET',

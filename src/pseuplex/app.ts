@@ -1093,7 +1093,7 @@ export class PseuplexApp {
 
 		// redirect streams if needed
 		if(this.redirectPlexStreams && (this.plexServerRedirectHost || this.plexServerRedirectHostSecure)) {
-			router.use([
+			router.get([
 				'/video/\\:/transcode/universal/session',
 				'/music/\\:/transcode/universal/session',
 				'/library/parts',

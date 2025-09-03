@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import express from 'express';
 import IPCIDR from 'ip-cidr';
 import ws from 'ws';
+import * as plexServerAPI from '../../plex/api';
 import * as plexTypes from '../../plex/types';
 import {
 	authenticatePlexRequest,
@@ -17,6 +18,7 @@ import {
 	PseuplexPluginClass,
 	PseuplexReadOnlyResponseFilters,
 	PseuplexRelatedHubsSource,
+	PseuplexRequestContext,
 	PseuplexRouterApp,
 	UpgradeRequest,
 	UpgradeResponse,
@@ -33,17 +35,18 @@ import { PasswordLockPluginDef } from './plugindef';
 import { PasswordLockAuthenticationCache } from './authcache';
 import { PasswordLockSection } from './lockedSection';
 import { asyncRequestHandler, remoteAddressOfRequest } from '../../utils/requesthandling';
-import { httpError } from '../../utils/error';
+import { httpError, HttpResponseError } from '../../utils/error';
 import { getModuleRootPath } from '../../utils/compat';
 import { parseIntQueryParam } from '../../utils/queryparams';
-import { parseURLPath } from '../../utils/url';
+import { parseURLPath, stringifyURLPath } from '../../utils/url';
 import { parseMetadataIDFromKey } from '../../plex/metadataidentifier';
 import { delay } from '../../utils/timing';
-import { firstOrSingle, pushToArray } from '../../utils/misc';
+import { arrayFromArrayOrSingle, firstOrSingle, forArrayOrSingle, pushToArray } from '../../utils/misc';
 import { IPv4NormalizeMode, normalizeIPAddress } from '../../utils/ip';
 
 const videoTranscodePathPrefix = '/video/:/transcode/universal/session/';
 const musicTranscodePathPrefix = '/music/:/transcode/universal/session/';
+const subtitlesTranscodePathPrefix = '/subtitles/:/transcode/universal/session';
 const passthroughTranscodeMethods = ['GET','OPTIONS','HEAD'];
 
 const protectedOptionsEndpoints = ['/security'];
@@ -81,6 +84,10 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 
 	readonly loginFailureDelayPromises: {
 		[ipAddress: string]: (Promise<void> | undefined)
+	} = {};
+
+	readonly cachedVideoMedia: {
+		[id: string | number]: {Media: (plexTypes.PlexMedia[] | undefined)} | Promise<{Media: (plexTypes.PlexMedia[] | undefined)}> | undefined
 	} = {};
 	
 	constructor(app: PseuplexApp) {
@@ -139,6 +146,9 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 			loginSuccessEndpoint: `${this.basePath}/${PasswordLockMetadataID.LoginSuccess}`,
 			lockInstructionsItemTitle: this.config.passwordLock?.instructionsItemTitle,
 			lockInstructionsItemSummary: this.config.passwordLock?.instructionsItemSummary,
+			getLockInstructionsItemMedia: async (context) => {
+				return await this.getInstructionsItemMedia(context);
+			},
 			loginSuccessItemUUID: this.config.passwordLock?.loginSuccessItemUUID ?? crypto.randomUUID(),
 		});
 
@@ -176,9 +186,10 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 		};
 		const unauthRouter = express.Router(unauthRouterOptions);
 		const unauthUpgradeRouter = createUpgradeRouter(unauthRouterOptions);
+		const plexProxyMiddleware = this.app.middlewares.plexProxy();
 
 		unauthRouter.get('/', [
-			this.app.middlewares.plexProxy(),
+			plexProxyMiddleware,
 		]);
 
 		unauthRouter.get('/media/providers', [
@@ -324,7 +335,28 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 				return hubsPage;
 			}),
 		]);
-
+		
+		// proxy if whitelisted metadata is being fetched
+		unauthRouter.get('/library/metadata/:metadataId', [
+			asyncRequestHandler((req: IncomingPlexAPIRequest, res, next) => {
+				if(req.method === 'GET' || req.method === 'OPTIONS') {
+					const context = this.app.contextForRequest(req);
+					if(this.isMetadataIdWhitelisted(req.params.metadataId, context)) {
+						// delete any included hubs
+						const urlParts = parseURLPath(req.url);
+						if(urlParts.queryItems?.['includeRelated']) {
+							delete urlParts.queryItems['includeRelated'];
+							req.url = stringifyURLPath(urlParts);
+						}
+						// proxy request
+						plexProxyMiddleware(req,res,next);
+						return true;
+					}
+				}
+				return false;
+			})
+		]);
+		// handle metadata endpoint
 		unauthRouter.get('/library/metadata/:metadataId', [
 			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexMetadataPage> => {
 				const context = this.app.contextForRequest(req);
@@ -332,15 +364,18 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 				// get metadata ids
 				const metadataIds = parseMetadataIdsFromPathParam(req.params.metadataId);
 				for(const metadataIdParts of metadataIds) {
+					// ensure metadata is a "passwordlock" metadata
 					if(metadataIdParts.source != this.metadata.sourceSlug) {
 						throw httpError(403, `Metadata is locked`);
 					}
+					// validate disallowed passwordlock items
 					if(!metadataIdParts.directory) {
 						if(metadataIdParts.id == PasswordLockMetadataID.LoginSuccess) {
 							throw httpError(403, "Success metadata is locked (nice try)");
 						}
 					}
 				}
+				// fetch metadatas
 				const partialMetadataIds = metadataIds.map((idParts) => stringifyPartialMetadataID(idParts));
 				return await this.metadata.get(partialMetadataIds, {
 					context,
@@ -356,11 +391,13 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 				this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexHubsPage> => {
 					const context = this.app.contextForRequest(req);
 					const reqParams = plexTypes.parsePlexHubListPageParams(req);
-					// get metadata ids
+					// get metadata id
 					const metadataIdParts = parseMetadataIdFromPathParam(req.params.metadataId);
+					// ensure that only "passwordlock" metadata can be fetched
 					if(metadataIdParts.source != this.metadata.sourceSlug) {
 						throw httpError(403, `Metadata is locked`);
 					}
+					// get related hubs for metadata id
 					const partialMetadataId = stringifyPartialMetadataID(metadataIdParts);
 					return await this.metadata.getRelatedHubs(partialMetadataId, {
 						context,
@@ -533,6 +570,152 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 			}),
 		]);
 		
+		// reroute instructions video
+		unauthRouter.post('/playQueues', [
+			async (req: IncomingPlexAPIRequest, res, next) => {
+				try {
+					const context = this.app.contextForRequest(req);
+					const urlParts = parseURLPath(req.url);
+					const uriString = urlParts.queryItems?.['uri'];
+					if(!uriString || typeof uriString !== 'string') {
+						next();
+						return;
+					}
+					const uriParts = plexTypes.parsePlexServerItemURI(uriString);
+					const plexMachineId = await this.app.plexServerProperties.getMachineIdentifier();
+					if(!uriParts.path || (uriParts.machineIdentifier != plexMachineId && uriParts.machineIdentifier != "x")) {
+						next();
+						return;
+					}
+					const pathParts = parseMetadataIDFromKey(uriParts.path, '/library/metadata');
+					if(!pathParts) {
+						next();
+						return;
+					}
+					// check if any of the video ids match
+					let matchedVideoId = false;
+					const metadataId = parseMetadataID(pathParts.id);
+					if(!metadataId.source) {
+						if(this.isMetadataIdWhitelisted(metadataId.id, context)) {
+							matchedVideoId = true;
+						}
+					} else if(metadataId.source == this.metadata.sourceSlug) {
+						if(!metadataId.directory) {
+							let videoId: string | number | undefined;
+							switch(metadataId.id) {
+								case PasswordLockMetadataID.Instructions:
+									videoId = this.getInstructionsItemVideoId(context)?.toString();
+									break;
+							}
+							if(videoId) {
+								// replace id with the video ID
+								matchedVideoId = true;
+								uriParts.path = `/library/metadata/${videoId}`;
+								urlParts.queryItems!['uri'] = plexTypes.stringifyPlexServerItemURI(uriParts);
+								req.url = stringifyURLPath(urlParts);
+							}
+						}
+					}
+					if(!matchedVideoId) {
+						next();
+						return;
+					}
+					// video ID matches, so rewrite this request and proxy it
+					plexProxyMiddleware(req, res, next);
+				} catch(error) {
+					console.error(`Error handling password locked playQueues POST`);
+					next(error);
+				}
+			}
+		]);
+		// proxy and validate that whitelisted metadata is included
+		unauthRouter.get('/playQueues/:playQueueId', [
+			this.app.middlewares.plexAPIProxy({
+				responseModifier: (proxyRes, resData: plexTypes.PlayQueueItemsPage, userReq: IncomingPlexAPIRequest, userRes) => {
+					const context = this.app.contextForRequest(userReq);
+					const metadatas = arrayFromArrayOrSingle(resData.MediaContainer.Metadata);
+					if(metadatas) {
+						// throw an error if any metadata item is disallowed
+						for(const metadata of metadatas) {
+							if(metadata.ratingKey) {
+								if(!this.isMetadataIdWhitelisted(metadata.ratingKey, context)) {
+									throw httpError(403, "PlayQueue contains unavailable items");
+								}
+							}
+							else if(metadata.key) {
+								if(!this.isMetadataKeyWhitelisted(metadata.key, context)) {
+									throw httpError(403, "PlayQueue contains unavailable items");
+								}
+							}
+							else {
+								throw httpError(403, "PlayQueue contains unknown items");
+							}
+						}
+					}
+					return resData;
+				}
+			})
+		]);
+		// proxy if whitelisted metadata is being played
+		unauthRouter.get([
+			'/video/\\:/transcode/universal/decision',
+			'/video/\\:/transcode/universal/start.m3u8',
+			'/music/\\:/transcode/universal/decision',
+			'/music/\\:/transcode/universal/start.m3u8',
+			'/subtitles/\\:/transcode/universal/start',
+		], [
+			asyncRequestHandler((req: IncomingPlexAPIRequest, res, next) => {
+				const context = this.app.contextForRequest(req);
+				// ignore if whitelisted metadata is being played
+				if(this.isMetadataKeyWhitelisted(req.query['path'], context)) {
+					plexProxyMiddleware(req,res,next);
+					return true;
+				}
+				return false;
+			})
+		]);
+		// proxy if whitelisted part is being played
+		unauthRouter.use([
+			asyncRequestHandler((req: IncomingPlexAPIRequest, res: express.Response, next) => {
+				const path = req.path;
+				if(!path.startsWith('/library/parts/')) {
+					return false;
+				}
+				if(req.method === 'GET' || req.method === 'OPTIONS' || req.method === 'HEAD') {
+					const context = this.app.contextForRequest(req);
+					// ignore if whitelisted metadata is being played
+					if(this.isMetadataMediaPartKeyWhitelisted(req.query['path'], context)) {
+						plexProxyMiddleware(req,res,next);
+						return true;
+					}
+				}
+				return false;
+			})
+		]);
+		// proxy if whitelisted metadata is being used
+		unauthRouter.get('/\\:/timeline', [
+			asyncRequestHandler((req, res, next) => {
+				const context = this.app.contextForRequest(req);
+				// ignore if whitelisted metadata is being played
+				const ratingKey = req.query['ratingKey'];
+				if(ratingKey) {
+					if(this.isMetadataIdWhitelisted(ratingKey, context)) {
+						plexProxyMiddleware(req,res,next);
+						return true;
+					}
+				} else {
+					const key = req.query['key'];
+					if(key) {
+						if(this.isMetadataKeyWhitelisted(key, context)) {
+							plexProxyMiddleware(req,res,next);
+							return true;
+						}
+					}
+				}
+				return false;
+			})
+		]);
+		
 		unauthRouter.get('/\\:/prefs', [
 			this.app.middlewares.plexServerOwnerOnly(),
 			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexPrefsPage> => {
@@ -546,7 +729,7 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 		]);
 		
 		unauthRouter.get('/updater/status', [
-			this.app.middlewares.plexProxy(),
+			plexProxyMiddleware,
 		]);
 		
 		unauthRouter.put('/updater/check', [
@@ -578,14 +761,16 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 		]);
 
 		unauthRouter.get('/photo/\\:/transcode', [
-			asyncRequestHandler(async (req: IncomingPlexAPIRequest, res) => {
+			asyncRequestHandler(async (req: IncomingPlexAPIRequest, res, next) => {
 				try {
+					const context = this.app.contextForRequest(req);
 					const urlParts = parseURLPath(req.url);
 					let photoUrl = urlParts.queryItems?.['url'];
 					if(!photoUrl || typeof photoUrl !== 'string') {
 						// continue
 						return false;
 					}
+					// check if plex.tv avatar url
 					const rewrittenPhotoUrl = this.app.rewritePhotoEndpointLocalhostURL(photoUrl);
 					photoUrl = rewrittenPhotoUrl.url;
 					if(!photoUrl.startsWith('/')) {
@@ -608,6 +793,7 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 						// continue
 						return false;
 					}
+					// check if passwordlock metadata thumb
 					const photoUrlParts = parseURLPath(photoUrl);
 					switch(photoUrlParts.path) {
 						case this.metadata.options.lockInstructionsThumbEndpoint: {
@@ -624,12 +810,20 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 							return true;
 						}
 					}
-					// continue
-					return false;
+					// check if instructions video thumb
+					const instructionsVideoId = this.getInstructionsItemVideoId(context);
+					if(instructionsVideoId) {
+						if(photoUrlParts.path.startsWith(`/library/metadata/${instructionsVideoId}/`)) {
+							// proxy to plex
+							plexProxyMiddleware(req,res,next);
+							return true;
+						}
+					}
 				} catch(error) {
 					console.error(`Error rewriting plex photo url:`);
 					console.error(error);
 				}
+				// continue
 				return false;
 			}),
 		]);
@@ -744,11 +938,12 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 						oldReqPath = reqPath;
 						reqPath = reqPath.replaceAll('//', '/');
 					} while(oldReqPath.length != reqPath.length);
-					// ignore paths that don't need authentication
+					// ignore paths that don't need a plex token
 					if((req.method === 'OPTIONS' && protectedOptionsEndpoints.findIndex((e) => reqPath.startsWith(e)) == -1)
 						|| reqPath == '/identity' || reqPath.startsWith('/web/') || reqPath == '/web'
 						|| (reqPath.startsWith(videoTranscodePathPrefix) && reqPath.length > videoTranscodePathPrefix.length && passthroughTranscodeMethods.indexOf(req.method) != -1)
 						|| (reqPath.startsWith(musicTranscodePathPrefix) && reqPath.length > musicTranscodePathPrefix.length && passthroughTranscodeMethods.indexOf(req.method) != -1)
+						|| (reqPath.startsWith(subtitlesTranscodePathPrefix) && reqPath.length > subtitlesTranscodePathPrefix.length && passthroughTranscodeMethods.indexOf(req.method) != -1)
 						|| ((reqPath.endsWith('.png') || reqPath.endsWith('.ico')) && reqPath.indexOf('/', 1) == -1)
 					) {
 						next();
@@ -780,6 +975,83 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 				}
 			}
 		]);
+	}
+
+	isMetadataKeyWhitelisted(key, context: PseuplexRequestContext) {
+		if(!key) {
+			return false;
+		}
+		const metadataKeyParts = parseMetadataIDFromKey(key, '/library/metadata');
+		if(!metadataKeyParts) {
+			return false;
+		}
+		return this.isMetadataIdWhitelisted(metadataKeyParts.id, context);
+	}
+
+	isMetadataIdWhitelisted(id, context: PseuplexRequestContext) {
+		const instructionsVideoId = this.getInstructionsItemVideoId(context);
+		if(instructionsVideoId) {
+			if(id == instructionsVideoId) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	isMetadataMediaPartKeyWhitelisted(key, context: PseuplexRequestContext) {
+		const instructionsVideoId = this.getInstructionsItemVideoId(context);
+		if(instructionsVideoId) {
+			const instructionsMedia = this.cachedVideoMedia[instructionsVideoId];
+			if(!(instructionsMedia instanceof Promise) && instructionsMedia?.Media) {
+				for(const media of instructionsMedia.Media) {
+					if(media.Part) {
+						for(const part of media.Part) {
+							if(part.key == key) {
+								return true;
+							}
+						}
+					}
+				}
+			}
+		}
+		return false;
+	}
+
+	getInstructionsItemVideoId(context: PseuplexRequestContext): string | number | undefined {
+		// TODO get per user
+		return this.config.passwordLock?.instructionsItemVideoId;
+	}
+
+	async getInstructionsItemMedia(context: PseuplexRequestContext): Promise<plexTypes.PlexMedia[] | undefined> {
+		const videoId = this.getInstructionsItemVideoId(context);
+		if(!videoId) {
+			return undefined;
+		}
+		let videoData = this.cachedVideoMedia[videoId];
+		if(!videoData) {
+			let done = false;
+			videoData = plexServerAPI.getLibraryMetadata(videoId, {
+				serverURL: context.plexServerURL,
+				authContext: context.plexAuthContext,
+				logger: this.app.logger,
+			}).then((r) => {
+				done = true;
+				const result = {Media: firstOrSingle(r.MediaContainer.Metadata)?.Media};
+				this.cachedVideoMedia[videoId] = result;
+				return result;
+			}, (e) => {
+				done = true;
+				delete this.cachedVideoMedia[videoId];
+				if((e as HttpResponseError).httpResponse?.status == 404) {
+					return {Media:undefined};
+				}
+				throw e;
+			});
+			if(!done) {
+				this.cachedVideoMedia[videoId] = videoData;
+			}
+		}
+		return (await videoData).Media;
 	}
 
 	get loginFailureDelay(): number {

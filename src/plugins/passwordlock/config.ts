@@ -26,6 +26,7 @@ export type PasswordLockPluginConfig = PseuplexConfigBase<PasswordLockPerUserPlu
 		introHubTitle?: string;
 		instructionsItemTitle?: string;
 		instructionsItemSummary?: string;
+		instructionsItemVideoId?: number;
 		loginSuccessItemUUID?: string;
 		loginFailureDelay?: number;
 	}

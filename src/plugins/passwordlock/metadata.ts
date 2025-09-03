@@ -13,6 +13,7 @@ import {
 	qualifyPartialMetadataID,
 	stringifyPartialMetadataID,
 	parseMetadataIdsFromPathParam,
+	PseuplexRequestContext,
 } from '../../pseuplex';
 import { httpError } from '../../utils/error';
 
@@ -33,6 +34,7 @@ export type PasswordLockMetadataProviderOptions = {
 	loginSuccessEndpoint: string,
 	lockInstructionsItemTitle?: string,
 	lockInstructionsItemSummary?: string,
+	getLockInstructionsItemMedia?: (context: PseuplexRequestContext) => (plexTypes.PlexMedia[] | Promise<plexTypes.PlexMedia[] | undefined> | undefined);
 	loginSuccessItemUUID: string,
 	loginSuccessTitle?: string,
 	loginSuccessSummary?: string,
@@ -50,7 +52,7 @@ export class PasswordLockMetadataProvider implements PseuplexMetadataProvider {
 	async get(ids: string[], options: PseuplexMetadataProviderParams): Promise<PseuplexMetadataPage> {
 		const metadataBasePath = options.metadataBasePath || '/library/metadata';
 		const qualifiedMetadataIds = options.qualifiedMetadataIds ?? true;
-		const metadatas = ids.map((idString): PseuplexMetadataItem => {
+		const metadatas = await Promise.all(ids.map(async (idString): Promise<PseuplexMetadataItem> => {
 			const idParts = parsePartialMetadataID(idString);
 			if(idParts.directory) {
 				throw httpError(400, "Invalid metadata");
@@ -59,7 +61,7 @@ export class PasswordLockMetadataProvider implements PseuplexMetadataProvider {
 				case PasswordLockMetadataID.Instructions: {
 					// return password instructions metadata
 					const fullMetadataId = qualifyPartialMetadataID(idString, this.sourceSlug);
-					return ({
+					const metadataItem = ({
 						type: plexTypes.PlexMediaItemType.Movie,
 						key: `${metadataBasePath}/${
 							qualifiedMetadataIds
@@ -70,6 +72,7 @@ export class PasswordLockMetadataProvider implements PseuplexMetadataProvider {
 						title: this.options.lockInstructionsItemTitle ?? LockInstructionsItemTitle,
 						thumb: this.options.lockInstructionsThumbEndpoint,
 						summary: this.options.lockInstructionsItemSummary ?? LockInstructionsItemSummary,
+						userState: false,
 						Pseuplex: {
 							isOnServer: false,
 							unavailable: true,
@@ -78,6 +81,14 @@ export class PasswordLockMetadataProvider implements PseuplexMetadataProvider {
 							},
 						}
 					} satisfies Partial<PseuplexMetadataItem>) as PseuplexMetadataItem;
+					// get media for instructions item
+					try {
+						metadataItem.Media = await this.options.getLockInstructionsItemMedia?.(options.context);
+					} catch(error) {
+						console.error(`Error fetching instructions item media:`);
+						console.error(error);
+					}
+					return metadataItem;
 				}
 
 				case PasswordLockMetadataID.LoginSuccess: {
@@ -108,7 +119,7 @@ export class PasswordLockMetadataProvider implements PseuplexMetadataProvider {
 				}
 			}
 			throw httpError(404, `No matching metadata`);
-		});
+		}));
 		return {
 			MediaContainer: {
 				offset: 0,

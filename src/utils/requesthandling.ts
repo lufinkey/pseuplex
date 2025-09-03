@@ -1,25 +1,38 @@
 import http from 'http';
-import express from 'express';
+import express, { NextFunction } from 'express';
 import { httpError, HttpError, HttpResponseError } from './error';
 import type { IncomingPlexAPIRequest } from '../plex/requesthandling';
 
 export const asyncRequestHandler = <TRequest, TResponse>(
-	handler: ((req: TRequest, res: TResponse) => (boolean | Promise<boolean>))
+	handler: ((req: TRequest, res: TResponse, next: NextFunction) => (boolean | Promise<boolean>))
 ): ((req: TRequest, res: TResponse, next: (error?: Error) => void) => (void | Promise<void>)) => {
 	return async (req: TRequest, res: TResponse, next: (error?: Error) => void) => {
+		let calledNext = false;
 		let done: boolean;
 		try {
-			const donePromise = handler(req,res);
+			const donePromise = handler(req,res,(...args) => {
+				calledNext = true;
+				return next(...args);
+			});
 			if(donePromise instanceof Promise) {
 				done = await donePromise;
 			} else {
 				done = donePromise;
 			}
 		} catch(error) {
+			if(calledNext) {
+				console.error(`Error during async handler after already calling next:`);
+				console.error(error);
+				return;
+			}
 			next(error);
 			return;
 		}
 		if(!done) {
+			if(calledNext) {
+				console.error(`Already called next for async request handler, so skipping`);
+				return;
+			}
 			next();
 		}
 	};
