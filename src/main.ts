@@ -26,6 +26,7 @@ import { getAppVersionString } from './utils/version';
 import { RequestExecutor } from './fetching/RequestExecutor';
 import { PseuplexApp } from './pseuplex';
 import PasswordLockPlugin from './plugins/passwordlock';
+import HideSectionsPlugin from './plugins/hidesections';
 import LetterboxdPlugin from './plugins/letterboxd';
 import RequestsPlugin from './plugins/requests';
 import DashboardPlugin from './plugins/dashboard';
@@ -212,6 +213,7 @@ let args: CommandArguments;
 		logger,
 		plugins: [
 			PasswordLockPlugin,
+			HideSectionsPlugin,
 			LetterboxdPlugin,
 			RequestsPlugin,
 			DashboardPlugin,
