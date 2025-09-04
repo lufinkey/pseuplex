@@ -47,7 +47,7 @@ import { delay } from '../../utils/timing';
 import { arrayFromArrayOrSingle, firstOrSingle, forArrayOrSingle, pushToArray } from '../../utils/misc';
 import { IPv4NormalizeMode, normalizeIPAddress } from '../../utils/ip';
 
-const transcodeSessionPrefix = '/transcode/sessions/';
+const transcodeSessionsPrefix = '/transcode/sessions/';
 const videoTranscodePathPrefix = '/video/:/transcode/universal/session/';
 const musicTranscodePathPrefix = '/music/:/transcode/universal/session/';
 const subtitlesTranscodePathPrefix = '/subtitles/:/transcode/universal/session';
@@ -982,10 +982,12 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 					// ignore paths that don't need a plex token
 					if((req.method === 'OPTIONS' && protectedOptionsEndpoints.findIndex((e) => reqPath.startsWith(e)) == -1)
 						|| reqPath == '/identity' || reqPath.startsWith('/web/') || reqPath == '/web'
-						|| (reqPath.startsWith(videoTranscodePathPrefix) && reqPath.length > videoTranscodePathPrefix.length && passthroughTranscodeMethods.indexOf(req.method) != -1)
-						|| (reqPath.startsWith(musicTranscodePathPrefix) && reqPath.length > musicTranscodePathPrefix.length && passthroughTranscodeMethods.indexOf(req.method) != -1)
-						|| (reqPath.startsWith(subtitlesTranscodePathPrefix) && reqPath.length > subtitlesTranscodePathPrefix.length && passthroughTranscodeMethods.indexOf(req.method) != -1)
-						|| (reqPath.startsWith(transcodeSessionPrefix) && reqPath.length > transcodeSessionPrefix.length && transcodeSessionPrefix.indexOf(req.method) != -1)
+						|| (passthroughTranscodeMethods.indexOf(req.method) && (
+							(reqPath.startsWith(videoTranscodePathPrefix) && reqPath.length > videoTranscodePathPrefix.length)
+							|| (reqPath.startsWith(musicTranscodePathPrefix) && reqPath.length > musicTranscodePathPrefix.length)
+							|| (reqPath.startsWith(subtitlesTranscodePathPrefix) && reqPath.length > subtitlesTranscodePathPrefix.length)
+							|| (reqPath.startsWith(transcodeSessionsPrefix) && reqPath.length > transcodeSessionsPrefix.length)
+						))
 						|| ((reqPath.endsWith('.png') || reqPath.endsWith('.ico')) && reqPath.indexOf('/', 1) == -1)
 					) {
 						next();
