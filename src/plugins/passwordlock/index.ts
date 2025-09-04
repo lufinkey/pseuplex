@@ -982,7 +982,7 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 					// ignore paths that don't need a plex token
 					if((req.method === 'OPTIONS' && protectedOptionsEndpoints.findIndex((e) => reqPath.startsWith(e)) == -1)
 						|| reqPath == '/identity' || reqPath.startsWith('/web/') || reqPath == '/web'
-						|| (passthroughTranscodeMethods.indexOf(req.method) && (
+						|| (passthroughTranscodeMethods.indexOf(req.method) != -1 && (
 							(reqPath.startsWith(videoTranscodePathPrefix) && reqPath.length > videoTranscodePathPrefix.length)
 							|| (reqPath.startsWith(musicTranscodePathPrefix) && reqPath.length > musicTranscodePathPrefix.length)
 							|| (reqPath.startsWith(subtitlesTranscodePathPrefix) && reqPath.length > subtitlesTranscodePathPrefix.length)
