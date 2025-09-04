@@ -657,23 +657,49 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 			})
 		]);
 		// proxy if whitelisted metadata is being played
-		unauthRouter.get([
+		for(const endpoint of [
 			'/video/\\:/transcode/universal/decision',
 			'/video/\\:/transcode/universal/start.m3u8',
 			'/music/\\:/transcode/universal/decision',
 			'/music/\\:/transcode/universal/start.m3u8',
 			'/subtitles/\\:/transcode/universal/start',
-		], [
-			asyncRequestHandler((req: IncomingPlexAPIRequest, res, next) => {
-				const context = this.app.contextForRequest(req);
-				// ignore if whitelisted metadata is being played
-				if(this.isMetadataKeyWhitelisted(req.query['path'], context)) {
-					plexProxyMiddleware(req,res,next);
-					return true;
-				}
-				return false;
-			})
-		]);
+		]) {
+			unauthRouter.get(endpoint, [
+				asyncRequestHandler((req: IncomingPlexAPIRequest, res, next) => {
+					const context = this.app.contextForRequest(req);
+					// rewrite path if needed
+					let path = req.query['path'];
+					if(typeof path === 'string' && path) {
+						// rewrite metadata key if needed
+						const pathParts = parseMetadataIDFromKey(path, '/library/metadata');
+						if(pathParts) {
+							let pathChanged = false;
+							const metadataId = parseMetadataID(pathParts.id);
+							if(metadataId.source == this.metadata.sourceSlug && !metadataId.directory) {
+								if(metadataId.id == PasswordLockMetadataID.Instructions) {
+									const instructionsVideoId = this.getInstructionsItemVideoId(context);
+									if(instructionsVideoId) {
+										path = `/library/metadata/${instructionsVideoId}${metadataId.relativePath != null ? metadataId.relativePath : ''}`;
+										pathChanged = true;
+									}
+								}
+							}
+							if(pathChanged) {
+								const reqPathParts = parseURLPath(req.url);
+								reqPathParts.queryItems!['path'] = path;
+								req.url = stringifyURLPath(reqPathParts);
+							}
+						}
+						// ignore if whitelisted metadata is being played
+						if(this.isMetadataKeyWhitelisted(path, context)) {
+							plexProxyMiddleware(req,res,next);
+							return true;
+						}
+					}
+					return false;
+				})
+			]);
+		}
 		// proxy if whitelisted part is being played
 		unauthRouter.use([
 			asyncRequestHandler((req: IncomingPlexAPIRequest, res: express.Response, next) => {
@@ -684,7 +710,7 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 				if(req.method === 'GET' || req.method === 'OPTIONS' || req.method === 'HEAD') {
 					const context = this.app.contextForRequest(req);
 					// ignore if whitelisted metadata is being played
-					if(this.isMetadataMediaPartKeyWhitelisted(req.query['path'], context)) {
+					if(this.isMetadataMediaPartKeyWhitelisted(path, context)) {
 						plexProxyMiddleware(req,res,next);
 						return true;
 					}
@@ -694,7 +720,7 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 		]);
 		// proxy if whitelisted metadata is being used
 		unauthRouter.get('/\\:/timeline', [
-			asyncRequestHandler((req, res, next) => {
+			asyncRequestHandler((req: IncomingPlexAPIRequest, res, next) => {
 				const context = this.app.contextForRequest(req);
 				// ignore if whitelisted metadata is being played
 				const ratingKey = req.query?.['ratingKey'];

@@ -112,7 +112,9 @@ export function requestIsEncrypted(req: http.IncomingMessage) {
 }
 
 export function getPortFromRequest(req: http.IncomingMessage) {
-	const port = req.headers.host?.match(/:(\d+)/)?.[1];
+	const port = req.headers.host?.match(/:(\d+)/)?.[1]
+		|| req.socket.localPort
+		|| req.socket.remotePort;
 	return port
 		? port
 		: (requestIsEncrypted(req) ? '443' : '80');

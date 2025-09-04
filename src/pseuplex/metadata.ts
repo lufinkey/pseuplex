@@ -91,7 +91,7 @@ export type PseuplexRelatedHubsParams = {
 };
 
 export type PseuplexPartialMetadataIDsFromKey = {
-	ids: string[];
+	ids: PseuplexPartialMetadataIDString[];
 	relativePath?: string;
 };
 
