@@ -14,6 +14,8 @@ import {
 import {
 	PseuplexAllSectionsSource,
 	PseuplexApp,
+	PseuplexMetadataIDParts,
+	PseuplexMetadataIDString,
 	PseuplexPlugin,
 	PseuplexPluginClass,
 	PseuplexReadOnlyResponseFilters,
@@ -27,6 +29,7 @@ import {
 	parseMetadataID,
 	parseMetadataIdFromPathParam,
 	parseMetadataIdsFromPathParam,
+	stringifyMetadataID,
 	stringifyPartialMetadataID,
 } from '../../pseuplex';
 import { PasswordLockMetadataID, PasswordLockMetadataProvider } from './metadata';
@@ -599,21 +602,17 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 						if(this.isMetadataIdWhitelisted(metadataId.id, context)) {
 							matchedVideoId = true;
 						}
-					} else if(metadataId.source == this.metadata.sourceSlug) {
-						if(!metadataId.directory) {
-							let videoId: string | number | undefined;
-							switch(metadataId.id) {
-								case PasswordLockMetadataID.Instructions:
-									videoId = this.getInstructionsItemVideoId(context)?.toString();
-									break;
+					} else {
+						const newMetadataId = this.rewriteAliasedMetadataId(metadataId, context);
+						if(newMetadataId) {
+							// replace id with the video ID
+							matchedVideoId = true;
+							uriParts.path = `/library/metadata/${newMetadataId}`;
+							urlParts.queryItems!['uri'] = plexTypes.stringifyPlexServerItemURI(uriParts);
+							if(urlParts.queryItems!['key']) {
+								urlParts.queryItems!['key'] = uriParts.path;
 							}
-							if(videoId) {
-								// replace id with the video ID
-								matchedVideoId = true;
-								uriParts.path = `/library/metadata/${videoId}`;
-								urlParts.queryItems!['uri'] = plexTypes.stringifyPlexServerItemURI(uriParts);
-								req.url = stringifyURLPath(urlParts);
-							}
+							req.url = stringifyURLPath(urlParts);
 						}
 					}
 					if(!matchedVideoId) {
@@ -673,18 +672,10 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 						// rewrite metadata key if needed
 						const pathParts = parseMetadataIDFromKey(path, '/library/metadata');
 						if(pathParts) {
-							let pathChanged = false;
-							const metadataId = parseMetadataID(pathParts.id);
-							if(metadataId.source == this.metadata.sourceSlug && !metadataId.directory) {
-								if(metadataId.id == PasswordLockMetadataID.Instructions) {
-									const instructionsVideoId = this.getInstructionsItemVideoId(context);
-									if(instructionsVideoId) {
-										path = `/library/metadata/${instructionsVideoId}${metadataId.relativePath != null ? metadataId.relativePath : ''}`;
-										pathChanged = true;
-									}
-								}
-							}
-							if(pathChanged) {
+							const metadataIdParts = parseMetadataID(pathParts.id);
+							const newMetadataId = this.rewriteAliasedMetadataId(metadataIdParts, context);
+							if(newMetadataId) {
+								path = `/library/metadata/${newMetadataId}${pathParts.relativePath ?? ''}`;
 								const reqPathParts = parseURLPath(req.url);
 								reqPathParts.queryItems!['path'] = path;
 								req.url = stringifyURLPath(reqPathParts);
@@ -723,14 +714,38 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 			asyncRequestHandler((req: IncomingPlexAPIRequest, res, next) => {
 				const context = this.app.contextForRequest(req);
 				// ignore if whitelisted metadata is being played
-				const ratingKey = req.query?.['ratingKey'];
-				const key = req.query?.['key'];
-				if(ratingKey) {
+				const urlPathParts = parseURLPath(req.url);
+				let ratingKey = urlPathParts.queryItems?.['ratingKey'];
+				let key = urlPathParts.queryItems?.['key'];
+				// rewrite metadata id if needed
+				if(ratingKey && typeof ratingKey === 'string') {
+					// rewrite metadata id
+					const newMetadataId = this.rewriteAliasedMetadataId(parseMetadataID(ratingKey), context);
+					if(newMetadataId) {
+						ratingKey = newMetadataId.toString();
+						urlPathParts.queryItems!['ratingKey'] = ratingKey;
+					}
+				}
+				if(key && typeof key === 'string') {
+					const pathParts = parseMetadataIDFromKey(key, '/library/metadata');
+					if(pathParts) {
+						// rewrite metadata id
+						const newMetadataId = this.rewriteAliasedMetadataId(parseMetadataID(pathParts.id), context);
+						if(newMetadataId) {
+							ratingKey = newMetadataId.toString();
+							key = `/library/`
+							urlPathParts.queryItems!['key'] = key;
+						}
+					}
+				}
+				// check if metadata is whitelisted
+				if(ratingKey && typeof ratingKey === 'string') {
 					if(this.isMetadataIdWhitelisted(ratingKey, context)) {
 						plexProxyMiddleware(req,res,next);
 						return true;
 					}
-				} else if(key) {
+				}
+				else if(key && typeof key === 'string') {
 					if(this.isMetadataKeyWhitelisted(key, context)) {
 						plexProxyMiddleware(req,res,next);
 						return true;
@@ -1001,7 +1016,7 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 		]);
 	}
 
-	isMetadataKeyWhitelisted(key, context: PseuplexRequestContext) {
+	isMetadataKeyWhitelisted(key: string, context: PseuplexRequestContext) {
 		if(!key) {
 			return false;
 		}
@@ -1012,7 +1027,7 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 		return this.isMetadataIdWhitelisted(metadataKeyParts.id, context);
 	}
 
-	isMetadataIdWhitelisted(id, context: PseuplexRequestContext) {
+	isMetadataIdWhitelisted(id: string, context: PseuplexRequestContext) {
 		const instructionsVideoId = this.getInstructionsItemVideoId(context);
 		if(instructionsVideoId) {
 			if(id == instructionsVideoId) {
@@ -1022,7 +1037,7 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 		return false;
 	}
 
-	isMetadataMediaPartKeyWhitelisted(key, context: PseuplexRequestContext) {
+	isMetadataMediaPartKeyWhitelisted(key: string, context: PseuplexRequestContext) {
 		const instructionsVideoId = this.getInstructionsItemVideoId(context);
 		if(instructionsVideoId) {
 			const instructionsMedia = this.cachedVideoMedia[instructionsVideoId];
@@ -1039,6 +1054,18 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 			}
 		}
 		return false;
+	}
+
+	rewriteAliasedMetadataId(metadataId: PseuplexMetadataIDParts, context: PseuplexRequestContext): string | number | null {
+		if(metadataId.source == this.metadata.sourceSlug && !metadataId.directory) {
+			if(metadataId.id == PasswordLockMetadataID.Instructions) {
+				const instructionsVideoId = this.getInstructionsItemVideoId(context);
+				if(instructionsVideoId) {
+					return instructionsVideoId;
+				}
+			}
+		}
+		return null;
 	}
 
 	getInstructionsItemVideoId(context: PseuplexRequestContext): string | number | undefined {
