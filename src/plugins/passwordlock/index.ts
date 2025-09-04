@@ -47,6 +47,7 @@ import { delay } from '../../utils/timing';
 import { arrayFromArrayOrSingle, firstOrSingle, forArrayOrSingle, pushToArray } from '../../utils/misc';
 import { IPv4NormalizeMode, normalizeIPAddress } from '../../utils/ip';
 
+const transcodeSessionPrefix = '/transcode/sessions/';
 const videoTranscodePathPrefix = '/video/:/transcode/universal/session/';
 const musicTranscodePathPrefix = '/music/:/transcode/universal/session/';
 const subtitlesTranscodePathPrefix = '/subtitles/:/transcode/universal/session';
@@ -659,6 +660,7 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 		for(const endpoint of [
 			'/video/\\:/transcode/universal/decision',
 			'/video/\\:/transcode/universal/start.m3u8',
+			'/video/\\:/transcode/universal/stop',
 			'/music/\\:/transcode/universal/decision',
 			'/music/\\:/transcode/universal/start.m3u8',
 			'/subtitles/\\:/transcode/universal/start',
@@ -983,6 +985,7 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 						|| (reqPath.startsWith(videoTranscodePathPrefix) && reqPath.length > videoTranscodePathPrefix.length && passthroughTranscodeMethods.indexOf(req.method) != -1)
 						|| (reqPath.startsWith(musicTranscodePathPrefix) && reqPath.length > musicTranscodePathPrefix.length && passthroughTranscodeMethods.indexOf(req.method) != -1)
 						|| (reqPath.startsWith(subtitlesTranscodePathPrefix) && reqPath.length > subtitlesTranscodePathPrefix.length && passthroughTranscodeMethods.indexOf(req.method) != -1)
+						|| (reqPath.startsWith(transcodeSessionPrefix) && reqPath.length > transcodeSessionPrefix.length && transcodeSessionPrefix.indexOf(req.method) != -1)
 						|| ((reqPath.endsWith('.png') || reqPath.endsWith('.ico')) && reqPath.indexOf('/', 1) == -1)
 					) {
 						next();
