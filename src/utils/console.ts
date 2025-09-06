@@ -1,4 +1,5 @@
 
+// Include the stack trace of the console.error call when logging error messages
 let includedTracesForWarnAndError = false;
 export const includeTracesForConsoleWarnAndError = () => {
 	if(includedTracesForWarnAndError) {
@@ -41,6 +42,39 @@ export const includeTracesForConsoleWarnAndError = () => {
 	};
 };
 
+// Include the log level before every log
+let includedLogLevel = false;
+export const includeLogLevelForAllLogs = () => {
+	if(includedLogLevel) {
+		console.warn("Already including pipe names for console. Skipping...");
+		return;
+	}
+	includedLogLevel = true;
+
+	function prependArg(args: any[], arg: string) {
+		args.splice(0, 0, arg);
+	}
+
+	const innerError = console.error;
+	console.error = function(...args) {
+		prependArg(args, '[ERR]');
+		return innerError.apply(this, args);
+	};
+
+	const innerWarn = console.warn;
+	console.warn = function(...args) {
+		prependArg(args, '[WARN]');
+		return innerWarn.apply(this, args);
+	};
+
+	const innerLog = console.log;
+	console.log = function(...args) {
+		prependArg(args, '[LOG]');
+		return innerLog.apply(this, args);
+	};
+};
+
+// Include the current timestamp before every log
 let includedTimestamps = false;
 export const includeTimestampsForAllLogs = () => {
 	if(includedTimestamps) {
@@ -72,6 +106,7 @@ export const includeTimestampsForAllLogs = () => {
 	};
 };
 
+// Modify the colors of warnings and errors
 let moddedColors = false;
 export const modConsoleColors = () => {
 	if(moddedColors) {

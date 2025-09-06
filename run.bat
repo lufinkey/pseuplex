@@ -5,7 +5,7 @@ setlocal
 	call npm install || goto :exit
 	call npm run build || goto :exit
 	set NODE_ENV=production
-	call npm start -- --config=config/config.json --log-timestamps --log-watched-paths || goto :exit
+	call npm start -- --config=config/config.json --log-timestamps --log-loglevel --log-watched-paths || goto :exit
 )
 endlocal
 

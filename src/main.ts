@@ -17,6 +17,7 @@ import {
 } from './utils/ssl';
 import { IPv4NormalizeMode } from './utils/ip';
 import {
+	includeLogLevelForAllLogs,
 	includeTimestampsForAllLogs,
 	includeTracesForConsoleWarnAndError,
 	modConsoleColors,
@@ -54,6 +55,7 @@ let args: CommandArguments;
 (async () => {
 	const appVersionString = await getAppVersionString();
 	console.log(`${constants.APP_NAME} ${appVersionString}\n`);
+	console.log(`${(new Date()).toISOString()}`);
 
 	// parse command line arguments
 	args = parseCmdArgs(process.argv.slice(2));
@@ -65,6 +67,9 @@ let args: CommandArguments;
 		console.log(`parsed arguments:\n${JSON.stringify(args, null, '\t')}\n`);
 		process.env.DEBUG = '*';
 	}
+	if(args.logLogLevel) {
+		includeLogLevelForAllLogs();
+	}
 	if(args.logTimestamps) {
 		includeTimestampsForAllLogs();
 	}
@@ -74,6 +79,21 @@ let args: CommandArguments;
 	if (args.verbose) {
 		console.log(`parsed config:\n${JSON.stringify(cfg, null, '\t')}\n`);
 	}
+
+	// create logger
+	const loggingOptions: LoggingOptions = {...cfg.logging};
+	for(const key of Object.keys(args)) {
+		if(key.startsWith('log')) {
+			const val = args[key];
+			if(val != null) {
+				loggingOptions[key] = val;
+			}
+		}
+	}
+	if(args.verbose) {
+		console.log(`Logging options: ${JSON.stringify(loggingOptions, null, '\t')}`);
+	}
+	const logger = new Logger(loggingOptions);
 
 	// only install plugins and exit if needed
 	if(args.installPluginsAndExit) {
@@ -112,21 +132,6 @@ let args: CommandArguments;
 	if(plexServerRedirectHostSecure) {
 		plexServerRedirectHostSecure = addProtocolToUrlIfMissing(plexServerRedirectHostSecure, 'https');
 	}
-
-	// create logger
-	const loggingOptions: LoggingOptions = {...cfg.logging};
-	for(const key of Object.keys(args)) {
-		if(key.startsWith('log')) {
-			const val = args[key];
-			if(val != null) {
-				loggingOptions[key] = val;
-			}
-		}
-	}
-	if(args.verbose) {
-		console.log(`Logging options: ${JSON.stringify(loggingOptions, null, '\t')}`);
-	}
-	const logger = new Logger(loggingOptions);
 	
 	// initialize server SSL
 	const sslConfig: SSLConfig = {

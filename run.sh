@@ -9,4 +9,4 @@ npm run build || exit $?
 
 # run the app
 export NODE_ENV=production
-npm start -- --config=config/config.json --log-timestamps --log-watched-paths || exit $?
+npm start -- --config=config/config.json --log-timestamps --log-loglevel --log-watched-paths || exit $?

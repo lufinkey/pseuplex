@@ -13,6 +13,7 @@ import type * as overseerrTypes from './plugins/requests/providers/overseerr/api
 
 export type GeneralLoggingOptions = {
 	logTimestamps?: boolean;
+	logLogLevel?: boolean;
 	logDebug?: boolean;
 	logFullURLs?: boolean;
 	logWatchedPaths?: boolean;
