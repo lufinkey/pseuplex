@@ -10,6 +10,8 @@ export type CacheItemNode<ItemType> = {
 export type CachedFetcherOptions = {
 	/// How long an item can exist in the cache, in seconds
 	itemLifetime?: number | null;
+	// How long a null item can exist in the cache, in seconds
+	nullItemLifetime?: number | null;
 	/// Controls whether accessing an item resets its lifetime
 	accessResetsLifetime?: boolean;
 	/// Determines the maximum number of items that can be cleaned from the cache in one synchronous go (if limit is reached, timer will be rescheduled)
@@ -33,7 +35,7 @@ export class CachedFetcher<ItemType> {
 	}
 
 	private _itemNodeAccessed(id: string | number, itemNode: CacheItemNode<ItemType>) {
-		if(this.options.itemLifetime && this.options.accessResetsLifetime) {
+		if(this.options.accessResetsLifetime && (this.options.itemLifetime != null || this.options.nullItemLifetime != null)) {
 			// move this item to the end, since it was just accessed
 			delete this._cache[id];
 			this._cache[id] = itemNode;
@@ -133,18 +135,44 @@ export class CachedFetcher<ItemType> {
 		});
 	}
 
+	private get minItemLifetime(): (number | null) {
+		const { itemLifetime, nullItemLifetime } = this.options;
+		let minItemLifetime: number = itemLifetime!;
+		if(minItemLifetime == null || (nullItemLifetime != null && nullItemLifetime < minItemLifetime)) {
+			minItemLifetime = nullItemLifetime!;
+		}
+		return minItemLifetime;
+	}
+
+	private get maxItemLifetime(): (number | null) {
+		const { itemLifetime, nullItemLifetime } = this.options;
+		let minItemLifetime: number = itemLifetime!;
+		if(minItemLifetime == null || (nullItemLifetime != null && nullItemLifetime > minItemLifetime)) {
+			minItemLifetime = nullItemLifetime!;
+		}
+		return minItemLifetime;
+	}
+
 	/// Cleans any expired entries, and returns the amount of time to wait until the next cleaning
 	cleanExpiredEntries(opts?: {limit?: number}): (number | null) {
-		const { itemLifetime, accessResetsLifetime } = this.options;
-		if(!itemLifetime) {
+		const { itemLifetime, nullItemLifetime, accessResetsLifetime } = this.options;
+		const minItemLifetime = this.minItemLifetime;
+		if(minItemLifetime == null) {
 			// items have no lifetime
 			return null;
 		}
+		const maxItemLifetime = this.maxItemLifetime!;
+		
 		let count = 0;
 		const now = process.uptime();
 		for(const id of Object.keys(this._cache)) {
 			const itemNode = this._cache[id];
 			if(itemNode && !(itemNode instanceof Promise)) {
+				const lifetimeForItem = itemNode.item == null ? (nullItemLifetime ?? itemLifetime) : itemLifetime;
+				if (lifetimeForItem == null) {
+					// no lifetime for this type of item, so continue
+					continue;
+				}
 				// get elapsed time
 				let elapsedTime;
 				if(accessResetsLifetime) {
@@ -152,18 +180,24 @@ export class CachedFetcher<ItemType> {
 				} else {
 					elapsedTime = now - itemNode.updatedAt;
 				}
-				// return next expiration if done
-				const remainingTime = itemLifetime - elapsedTime;
+				// check if we should stop here
 				if(opts?.limit && count >= opts.limit) {
-					return remainingTime;
+					// return seconds until next soonest expiration
+					return (minItemLifetime - elapsedTime);
 				}
 				// check if item is expired
-				if(remainingTime <= 0) {
+				const remainingTimeForItem = lifetimeForItem - elapsedTime;
+				if(remainingTimeForItem <= 0) {
 					// item has expired, so delete it from the cache
 					delete this._cache[id];
 				} else {
-					// item is not expired, so we can stop here, since all items after will be newer
-					return remainingTime;
+					// item is not expired, so check if we can stop here, since all items after will be newer
+					const remainingTimeWithMaxLife = (maxItemLifetime - elapsedTime);
+					if(remainingTimeWithMaxLife > 0) {
+						// item would not be expired even with max lifetime, so stop here
+						// return seconds until next soonest expiration
+						return (minItemLifetime - elapsedTime);
+					}
 				}
 			}
 			count++;
