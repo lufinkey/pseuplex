@@ -203,7 +203,7 @@ export const plexApiProxy = (host: HostOrHostGetter, options: PlexProxyOptions, 
 					proxyReqOpts.headers['accept'] = 'application/json';
 				}
 				isApiRequest = true;
-			} else {
+			} else if(userReq.headers['accept'] != '*/*') {
 				console.warn(`Unknown content type for Accept header: ${userReq.headers['accept']}\n${expressRequestDebugString(userReq)}`);
 			}
 			// modify request destination
@@ -304,7 +304,9 @@ export const plexApiProxy = (host: HostOrHostGetter, options: PlexProxyOptions, 
 			let resData;
 			if(isXml) {
 				// parse xml
-				console.warn(`Expected json response, but got xml`);
+				if(proxyReq.getHeader('accept') == 'application/json') {
+					console.warn(`Expected json response, but got xml`);
+				}
 				resData = await plexXMLToJS(proxyResString);
 			} else {
 				// parse json

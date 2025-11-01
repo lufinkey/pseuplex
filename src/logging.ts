@@ -3,6 +3,7 @@ import stream from 'stream';
 import express from 'express';
 import type { PlexServerAccountInfo } from './plex/accounts';
 import { PlexNotificationSender, PlexNotificationSenderTypeToName } from './plex/notifications';
+import type { PossiblySilentError } from './utils/error';
 import { urlFromClientRequest } from './utils/requests';
 import {
 	expressRequestDebugString,
@@ -65,6 +66,10 @@ export type OverseerrLoggingOptions = {
 	logOverseerrUserMatchFailures?: boolean;
 };
 
+export type PasswordLockLoggingOptions = {
+	logLibraryIsLocked?: boolean;
+};
+
 export type LoggingOptions =
 	GeneralLoggingOptions
 	& PlexLoggingOptions
@@ -73,7 +78,8 @@ export type LoggingOptions =
 	& ProxyRequestsLoggingOptions
 	& WebsocketLoggingOptions
 	& NotificationLoggingOptions
-	& OverseerrLoggingOptions;
+	& OverseerrLoggingOptions
+	& PasswordLockLoggingOptions;
 
 export class Logger {
 	options: LoggingOptions;
@@ -371,6 +377,9 @@ export class Logger {
 	}
 
 	logPlexRequestHandlerFailed(userReq: express.Request, userRes: express.Response, error: Error): boolean {
+		if((error as PossiblySilentError).silent && !this.options.logDebug && !this.options.logUserResponses) {
+			return false;
+		}
 		console.error(`Plex request handler failed\n${expressRequestDebugString(userReq)}`);
 		console.error(error);
 		return true;

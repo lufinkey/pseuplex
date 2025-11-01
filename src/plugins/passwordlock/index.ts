@@ -15,7 +15,6 @@ import {
 	PseuplexAllSectionsSource,
 	PseuplexApp,
 	PseuplexMetadataIDParts,
-	PseuplexMetadataIDString,
 	PseuplexPlugin,
 	PseuplexPluginClass,
 	PseuplexReadOnlyResponseFilters,
@@ -29,7 +28,6 @@ import {
 	parseMetadataID,
 	parseMetadataIdFromPathParam,
 	parseMetadataIdsFromPathParam,
-	stringifyMetadataID,
 	stringifyPartialMetadataID,
 } from '../../pseuplex';
 import { PasswordLockMetadataID, PasswordLockMetadataProvider } from './metadata';
@@ -44,8 +42,9 @@ import { parseIntQueryParam } from '../../utils/queryparams';
 import { parseURLPath, stringifyURLPath } from '../../utils/url';
 import { parseMetadataIDFromKey } from '../../plex/metadataidentifier';
 import { delay } from '../../utils/timing';
-import { arrayFromArrayOrSingle, firstOrSingle, forArrayOrSingle, pushToArray } from '../../utils/misc';
+import { arrayFromArrayOrSingle, firstOrSingle, pushToArray } from '../../utils/misc';
 import { IPv4NormalizeMode, normalizeIPAddress } from '../../utils/ip';
+import { LibraryIsLockedError } from './errors';
 
 const transcodeSessionsPrefix = '/transcode/sessions/';
 const videoTranscodePathPrefix = '/video/:/transcode/universal/session/';
@@ -570,7 +569,7 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 						}
 					}
 				}
-				throw httpError(403, "Library is locked");
+				throw new LibraryIsLockedError(this.app.logger?.options);
 			}),
 		]);
 		
@@ -898,7 +897,7 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 		
 		unauthRouter.use((req, res, next) => {
 			// all other requests should return a 403
-			next(httpError(403, "Library is locked"));
+			next(new LibraryIsLockedError(this.app.logger?.options));
 		});
 		
 		unauthUpgradeRouter.get('/\\:/websockets/notifications', [
