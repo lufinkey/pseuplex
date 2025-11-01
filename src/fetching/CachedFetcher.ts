@@ -161,7 +161,6 @@ export class CachedFetcher<ItemType> {
 			// items have no lifetime
 			return null;
 		}
-		const maxItemLifetime = this.maxItemLifetime!;
 		
 		let count = 0;
 		const now = process.uptime();
@@ -192,11 +191,11 @@ export class CachedFetcher<ItemType> {
 					delete this._cache[id];
 				} else {
 					// item is not expired, so check if we can stop here, since all items after will be newer
-					const remainingTimeWithMaxLife = (maxItemLifetime - elapsedTime);
-					if(remainingTimeWithMaxLife > 0) {
-						// item would not be expired even with max lifetime, so stop here
+					const remainingTimeWithMinLife = (minItemLifetime - elapsedTime);
+					if(remainingTimeWithMinLife > 0) {
+						// item would not be expired even with min lifetime, so stop here
 						// return seconds until next soonest expiration
-						return (minItemLifetime - elapsedTime);
+						return remainingTimeWithMinLife;
 					}
 				}
 			}
