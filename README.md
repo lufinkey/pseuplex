@@ -112,7 +112,7 @@ Create a `config.json` file with the following structure, and fill in the config
 	- **secureHost**: The "secure" url of your plex server, if you want https traffic to use a different url.
 	- **redirectHost**: The external url of your plex server, to use when redirecting streams.
 	- **secureRedirectHost**: The "secure" external url of your plex server, to use when redirecting streams for https traffic.
-	- **token**: The plex API token of the server owner. This **must** be the token used by the server itself. All other tokens will expire. See [here](https://www.plexopedia.com/plex-media-server/general/plex-token/#plexservertoken) for how to get the server token.
+	- **token**: The plex API token of the server owner. This *must* be the token used by the actual server itself. All other tokens will expire. See [here](https://www.plexopedia.com/plex-media-server/general/plex-token/#plexservertoken) for how to get the server token.
 	- **appDataPath**: (*optional*) Manually specify the path of your plex server's appdata folder if it's in an unconventional place. On Linux, this is typically `/var/lib/plexmediaserver/Library/Application Support/Plex Media Server` unless you're running via docker. This will be used to determine the path of the SSL certificate if `ssl.autoP12Path` is `true`. This will also be used to determine the path of `Preferences.xml` if `ssl.autoP12Password` is `true`.
 	- **assumedTopSectionId**: (*optional*) Because of a bug in Plex for Mobile, it isn't possible to determine which section is the first "pinned" section. To fix this, you can manually specify the top pinned section ID here.
 - **ssl**
