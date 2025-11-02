@@ -207,7 +207,7 @@ function get_ssl_cert_p12_path {
 			return $result
 		fi
 	fi
-	pms_cert_filename="cert-v2.p12"
+	# pms_cert_filename="cert-v2.p12"
 	case "$platform" in
 		Linux)
 			if [ -z "$pms_cache_path" ]; then
@@ -222,7 +222,7 @@ function get_ssl_cert_p12_path {
 			fi
 			;;
 		Windows)
-			pms_cert_filename="certificate.p12"
+			# pms_cert_filename="certificate.p12"
 			if [ -z "$pms_cache_path" ]; then
 				pms_cache_path=$(pms_cache_windows)
 				result=$?

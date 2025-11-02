@@ -87,7 +87,7 @@ export const calculatePlexP12Password = (prefs: {ProcessedMachineIdentifier}): s
 export const getPlexP12Path = (opts: {appDataPath?: string}) => {
 	switch(process.platform) {
 		case 'win32':
-			return `${opts?.appDataPath || `${os.homedir()}/AppData/Local/Plex Media Server`}/Cache/certificate.p12`;
+			return `${opts?.appDataPath || `${os.homedir()}/AppData/Local/Plex Media Server`}/Cache/cert-v2.p12`;
 
 		case 'darwin':
 			return `${os.homedir()}/Library/Caches/PlexMediaServer/cert-v2.p12`;
