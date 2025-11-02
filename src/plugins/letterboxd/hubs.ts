@@ -80,10 +80,7 @@ export const createSimilarItemsHub = async (metadataId: PseuplexPartialMetadataI
 	const { requestExecutor } = options;
 	const metadataTransformOptions = getMetadataTransformOptionsForHub(options.letterboxdMetadataProvider.basePath, options);
 	const filmOpts = lbtransform.getFilmOptsFromPartialMetadataId(metadataId);
-	const metadataIdInPath = metadataTransformOptions.qualifiedMetadataIds
-		? qualifyPartialMetadataID(metadataId, options.letterboxdMetadataProvider.sourceSlug)
-		: metadataId;
-	const hubPath = `${metadataTransformOptions.metadataBasePath}/${metadataIdInPath}/${options.relativePath}`;
+	const hubPath = `${options.letterboxdMetadataProvider.basePath}/${metadataId}/${options.relativePath}`;
 	return new LetterboxdFilmsHub({
 		hubPath: hubPath,
 		title: options.title,
