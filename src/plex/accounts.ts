@@ -54,7 +54,7 @@ export class PlexServerAccountsStore {
 			return this._fetchTokenServerOwnerAccount(token);
 		}, {
 			itemLifetime: (60 * 60 * 24), // 24 hour lifetime
-			nullItemLifetime: 30 // 30 seconds
+			nullItemLifetime: 120 // 120 seconds
 		});
 		this._transientTokens = new CachedFetcher((token) => {
 			return undefined!;
@@ -257,12 +257,14 @@ export class PlexServerAccountsStore {
 	}
 
 
-	startAutoCleaningTransientTokens() {
+	startAutoCleaningTokens() {
 		this._transientTokens.startAutoClean();
+		this._ownerTokens.startAutoClean();
 	}
 
-	stopAutoCleaningTransientTokens() {
+	stopAutoCleaningTokens() {
 		this._transientTokens.stopAutoClean();
+		this._ownerTokens.stopAutoClean();
 	}
 
 	registerTransientToken(transientToken: string, tokenInfo: PlexTransientTokenInfo) {

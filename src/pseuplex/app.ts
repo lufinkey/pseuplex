@@ -1445,7 +1445,7 @@ export class PseuplexApp {
 		onHttpsListening?: (port: number) => void,
 		onHttpolyglotListening?: (port: number) => void,
 	}) {
-		this.plexServerAccounts.startAutoCleaningTransientTokens();
+		this.plexServerAccounts.startAutoCleaningTokens();
 		if(this.httpsServer) {
 			const port = this.httpsPort!;
 			this.httpsServer!.listen(port, () => {
@@ -1484,7 +1484,7 @@ export class PseuplexApp {
 		this.httpolyglotServer?.close((error) => {
 			evts?.onHttpolyglotClosed?.(error);
 		});
-		this.plexServerAccounts.stopAutoCleaningTransientTokens();
+		this.plexServerAccounts.stopAutoCleaningTokens();
 	}
 
 
