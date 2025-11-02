@@ -56,7 +56,13 @@ export class CachedFetcher<TItem> {
 	}
 
 	async fetch(id: string | number): Promise<TItem> {
-		const itemTask = this._fetcher(id);
+		let itemTask: Promise<TItem>;
+		try {
+			itemTask = this._fetcher(id);
+		} catch(error) {
+			this.delete(id);
+			throw error;
+		}
 		return await this.set(id, itemTask);
 	}
 
