@@ -87,13 +87,13 @@ export const calculatePlexP12Password = (prefs: {ProcessedMachineIdentifier}): s
 export const getPlexP12Path = (opts: {appDataPath?: string, appCachePath?: string}) => {
 	switch(process.platform) {
 		case 'win32':
-			return `${opts?.appDataPath || `${os.homedir()}/AppData/Local/Plex Media Server`}/Cache/cert-v2.p12`;
+			return `${opts?.appCachePath || `${opts?.appDataPath || `${os.homedir()}/AppData/Local/Plex Media Server`}/Cache`}/cert-v2.p12`;
 
 		case 'darwin':
 			return `${opts?.appCachePath || `${os.homedir()}/Library/Caches/PlexMediaServer`}/cert-v2.p12`;
 
 		case 'linux':
 		default:
-			return `${opts?.appDataPath || PlexAppDataDir_Linux}/Cache/cert-v2.p12`;
+			return `${opts?.appCachePath || `${opts?.appDataPath || PlexAppDataDir_Linux}/Cache`}/cert-v2.p12`;
 	}
 };
