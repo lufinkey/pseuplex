@@ -133,9 +133,9 @@ dist
 .DS_Store
 
 # private data
+docker-compose.yml
 /plugindeps
 /external
-/plex_docker/docker-compose.yml
 /keys
 /config/config.json
 /config/csr.conf
