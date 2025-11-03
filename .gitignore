@@ -134,6 +134,7 @@ dist
 
 # private data
 docker-compose.yml
+/dockerdata
 /plugindeps
 /external
 /keys

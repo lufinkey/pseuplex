@@ -1,0 +1,21 @@
+{
+	"port": 32397,
+	"plex": {
+		"host": "http://192.168.1.123:32421",
+		"token": "<PLEX SERVER ADMIN TOKEN>",
+		"appDataPath": "/plex-config",
+		"appCachePath": "/plex-cache"
+	},
+	"ssl": {
+		"autoP12Path": true,
+		"autoP12Password": true,
+		"watchCertChanges": true
+	},
+	"perUser": {
+		"exampleuser@example.com": {
+			"letterboxd": {
+				"username": "letterboxdusername"
+			}
+		}
+	}
+}
