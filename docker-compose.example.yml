@@ -3,7 +3,7 @@ services:
     image: ghcr.io/lufinkey/pseuplex:latest
     restart: unless-stopped
     ports:
-      # Setting this to 32400 will override the traffic that would normally auto resolve to plex (NOTE: You must also redirect your plex container to a non-32400 external port)
+      # Setting the external port to 32400 will override the traffic that would normally auto resolve to plex (NOTE: You must also redirect your plex container to a non-32400 external port)
       - "32400:32397"
     volumes:
       # Mount your config.json file here.
@@ -34,7 +34,7 @@ services:
       # The hosts that the plex server should advertise
       - ADVERTISE_IP=https://mydomain.com:32400,http://mydomain.com:32400,http://192.168.1.123:32400/
     ports:
-      # Send the traffic to a port other than 32400, so that plex doesn't automatically resolve requests to here
+      # Send the traffic to a port other than 32400, so that plex requests dont bypass the proxy
       - 32421:32400
     hostname: mydomain.com
     volumes:
