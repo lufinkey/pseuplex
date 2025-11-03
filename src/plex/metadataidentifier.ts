@@ -8,7 +8,7 @@ export type PlexMetadataKeyParts = {
 	relativePath?: string;
 };
 
-export const parseMetadataIDFromKeyOrThrow = (metadataKey: string | null | undefined, basePath: string): PlexMetadataKeyParts | null => {
+export const parseMetadataIDFromKeyOrThrow = (metadataKey: string, basePath: string): PlexMetadataKeyParts | null => {
 	if(!metadataKey) {
 		throw httpError(400, `Invalid empty metadata key`);
 	}
@@ -40,7 +40,7 @@ export const parseMetadataIDFromKeyOrThrow = (metadataKey: string | null | undef
 	};
 };
 
-export const parseMetadataIDFromKey = (metadataKey: string | null | undefined, basePath: string, warnOnFailure: boolean = true): PlexMetadataKeyParts | null => {
+export const parseMetadataIDFromKey = (metadataKey: string, basePath: string, warnOnFailure: boolean = true): PlexMetadataKeyParts | null => {
 	try {
 		return parseMetadataIDFromKeyOrThrow(metadataKey, basePath);
 	} catch(error) {

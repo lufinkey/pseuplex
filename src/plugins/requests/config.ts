@@ -1,8 +1,10 @@
-import { PseuplexConfigBase } from '../../pseuplex/configbase';
+import { PseuplexConfigBase } from '../../pseuplex';
 
 type RequestsFlags = {
 	requests?: {
 		enabled?: boolean;
+		requestableSeasons?: boolean;
+		partiallyAvailableOverlay?: boolean;
 	},
 };
 type RequestsPerUserPluginConfig = {

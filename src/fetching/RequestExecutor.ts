@@ -14,6 +14,7 @@ export type RequestExecutorOptions = {
 	occasionalDelay?: number;
 }
 
+/// Throttles requests so that the server doesn't throw 429
 export class RequestExecutor {
 	maxRetries: number;
 	defaultDelay: number;
@@ -118,8 +119,10 @@ export class RequestExecutor {
 		} while(delaySeconds > 0);
 		// do the request
 		if(remainingRetries <= 0) {
+			// no more retries, so just do work or fail
 			return await this._doRequestWork(work, abortSignal);
 		}
+		// do request and retry on failure
 		try {
 			return await this._doRequestWork(work, abortSignal);
 		} catch(error) {
@@ -191,24 +194,5 @@ export class RequestExecutor {
 			retryAfterSeconds = this.defaultDelay;
 		}
 		return retryAfterSeconds;
-	}
-}
-
-
-export class RequestManager {
-	readonly options: RequestExecutorOptions;
-	readonly executors: {[domain: string]: RequestExecutor} = {};
-
-	constructor(options: RequestExecutorOptions) {
-		this.options = options;
-	}
-
-	do<T>(domain: string, work: () => Promise<T>, abortSignal?: AbortSignal): Promise<T> {
-		let executor = this.executors[domain];
-		if(!executor) {
-			executor = new RequestExecutor(this.options);
-			this.executors[domain] = executor;
-		}
-		return executor.do(work, abortSignal);
 	}
 }

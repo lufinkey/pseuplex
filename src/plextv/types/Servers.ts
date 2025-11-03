@@ -1,8 +1,8 @@
 
 import {
-	PlexXMLBoolean,
 	PlexMediaItemType
 } from '../../plex/types';
+import { BooleanQueryParam } from '../../utils/queryparams';
 
 export type PlexTVSharedServer = {
 	id: `${number}` | number;
@@ -13,13 +13,13 @@ export type PlexTVSharedServer = {
 	name: string; // server name
 	invitedAt: `${number}` | number;
 	acceptedAt: `${number}` | number;
-	allowSync: PlexXMLBoolean;
-	allowCameraUpload: PlexXMLBoolean;
-	allowChannels: PlexXMLBoolean;
-	allowTuners: PlexXMLBoolean;
-	allowSubtitleAdmin: PlexXMLBoolean;
-	owned: PlexXMLBoolean;
-	allLibraries: PlexXMLBoolean;
+	allowSync: BooleanQueryParam;
+	allowCameraUpload: BooleanQueryParam;
+	allowChannels: BooleanQueryParam;
+	allowTuners: BooleanQueryParam;
+	allowSubtitleAdmin: BooleanQueryParam;
+	owned: BooleanQueryParam;
+	allLibraries: BooleanQueryParam;
 	filterAll: string;
 	filterMovies: string;
 	filterMusic: string;
@@ -33,7 +33,7 @@ export type PlexTVSharedServerSection = {
 	key: `${number}` | number;
 	title: string;
 	type: PlexMediaItemType;
-	shared: PlexXMLBoolean;
+	shared: BooleanQueryParam;
 };
 
 export type PlexTVSharedServersPage = {
@@ -45,3 +45,22 @@ export type PlexTVSharedServersPage = {
 		SharedServer?: PlexTVSharedServer[];
 	}
 };
+
+export type PlexTVAccessTokensPage = PlexTVAccessTokenInfo[];
+
+export type PlexTVAccessTokenInfo = {
+	type: PlexTVAccessTokenType;
+	token: string;
+	owned: boolean
+	device?: string;
+	title?: string;
+	createdAt: string; // "2025-11-01T19:48:28Z"
+	// invited: PlexTVAccessTokenInvite
+	// settings: PlexTVAccessTokenSettings
+	// sections: PlexTVAccessTokenSection[]
+};
+
+export enum PlexTVAccessTokenType {
+	Device = 'device',
+	Server = 'server'
+}

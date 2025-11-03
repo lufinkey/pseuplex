@@ -1,12 +1,10 @@
-
-import qs from 'querystring';
 import { PlexAuthContext } from '../../plex/types';
-import { parseHttpContentType, plexXMLToJS } from '../../plex/serialization';
-import { httpResponseError } from '../../utils/error';
+import { plexHttpRequest } from '../../plex/api/core';
+import { Logger } from '../../logging';
 
 export type PlexTVAPIRequestOptions = {
 	authContext?: PlexAuthContext | null,
-	verbose?: boolean,
+	logger?: Logger,
 }
 
 export const plexTVFetch = async <TResult>(options: (PlexTVAPIRequestOptions & {
@@ -15,56 +13,14 @@ export const plexTVFetch = async <TResult>(options: (PlexTVAPIRequestOptions & {
 	params?: {[key: string]: any} | null,
 	headers?: {[key: string]: string},
 })): Promise<TResult> => {
-	const method = options.method || 'GET';
 	// build URL
 	let url = `https://plex.tv/${options.endpoint}`;
-	if(options.params != null || options.authContext != null) {
-		url += '?';
-		let hasQuery = false;
-		if(options.params != null) {
-			const paramsQs = qs.stringify(options.params);
-			if(paramsQs.length > 0) {
-				url += paramsQs;
-				hasQuery = true;
-			}
-		}
-		if(options.authContext != null) {
-			const contextQs = qs.stringify(options.authContext);
-			if(contextQs.length > 0) {
-				if(hasQuery) {
-					url += '&';
-				}
-				url += contextQs;
-			}
-		}
-	}
-	// send request
-	if(options.verbose) {
-		console.log(`Sending request ${method} ${url}`);
-	}
-	const res = await fetch(url, {
-		method,
-		headers: options.headers
+	// perform http request
+	return await plexHttpRequest(url, {
+		method: options.method,
+		params: options.params,
+		headers: options.headers,
+		authContext: options.authContext,
+		logger: options.logger,
 	});
-	if(!res.ok) {
-		if(options.verbose) {
-			console.error(`Got response ${res.status} for ${method} ${url}: ${res.statusText}`);
-		}
-		res.body?.cancel();
-		throw httpResponseError(url, res);
-	}
-	// parse response
-	const responseText = await res.text();
-	if(!responseText) {
-		return undefined!;
-	}
-	const contentType = parseHttpContentType(res.headers.get('content-type')).contentTypes[0];
-	//console.log(`Response (${contentTypeInfo.contentType}):\n${responseText}`);
-	if(contentType == 'application/json') {
-		return JSON.parse(responseText);
-	} else if(contentType == 'application/xml' || contentType == 'text/xml' || responseText.startsWith('<')) {
-		return await plexXMLToJS(responseText);
-	} else {
-		return JSON.parse(responseText);
-	}
 };

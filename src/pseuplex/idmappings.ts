@@ -1,5 +1,12 @@
+import { parseMetadataIDFromKey } from '../plex/metadataidentifier';
+import { PseuplexMetadataSource } from './types';
+import { parseMetadataID } from './metadataidentifier';
 
-export class IDMappings {
+export type PseuplexPrivateToPublicIDsMap = {
+	[privateId: string]: (number | string)
+};
+
+export class PseuplexIDRemappings {
 	private _privateToPublicIds: {[key: string]: number} = {};
 	private _publicToPrivateIds: {[id: number]: string} = {};
 	private _nextPrivateID: number;
@@ -11,7 +18,7 @@ export class IDMappings {
 	}
 
 	static create() {
-		return new IDMappings(Number.MAX_SAFE_INTEGER-1, -1);
+		return new PseuplexIDRemappings(Number.MAX_SAFE_INTEGER-1, -1);
 	}
 
 	private generatePrivateID(): number {
@@ -39,5 +46,37 @@ export class IDMappings {
 
 	getPrivateIDFromPublicID(id: number | string): string | null {
 		return this._publicToPrivateIds[id] ?? null;
+	}
+
+	getPublicSanitizedMetadataKey(metadataKey: string, metadataRatingKey: (string | undefined), privateToPublicIds?: PseuplexPrivateToPublicIDsMap | undefined): string {
+		// check if ID needs to be mapped
+		let metadataKeyParts = parseMetadataIDFromKey(metadataKey, '/library/metadata/');
+		let metadataIdString = metadataKeyParts?.id;
+		if(!metadataIdString) {
+			metadataIdString = metadataRatingKey;
+			if(!metadataIdString) {
+				// failed to find the ID of the item
+				return metadataKey;
+			}
+		}
+		const metadataId = parseMetadataID(metadataIdString);
+		if(!metadataId.source || metadataId.source == PseuplexMetadataSource.Plex) {
+			// don't map plex IDs
+			return metadataKey;
+		}
+		// map the ID
+		const publicId = privateToPublicIds?.[metadataIdString] ?? this.getPublicIDFromPrivateID(metadataIdString);
+		const publicMetadataKey = `/library/metadata/${publicId}` + (metadataKeyParts?.relativePath ?? '');
+		return publicMetadataKey;
+	}
+
+	getPublicSanitizedMetadataRatingKey(metadataRatingKey: string, privateToPublicIds?: PseuplexPrivateToPublicIDsMap | undefined) : string {
+		const metadataId = parseMetadataID(metadataRatingKey);
+		if(!metadataId.source || metadataId.source == PseuplexMetadataSource.Plex) {
+			// don't map plex IDs
+			return metadataRatingKey;
+		}
+		// map the ID
+		return (privateToPublicIds?.[metadataRatingKey] ?? this.getPublicIDFromPrivateID(metadataRatingKey)).toString();
 	}
 }

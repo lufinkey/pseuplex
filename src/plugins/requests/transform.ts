@@ -1,5 +1,5 @@
 import * as plexTypes from '../../plex/types';
-import { parsePlexMetadataGuidOrThrow } from '../../plex/metadataidentifier';
+import { parsePlexMetadataGuid } from '../../plex/metadataidentifier';
 import {
 	PseuplexMetadataSource,
 	PseuplexPartialMetadataIDString,
@@ -80,7 +80,7 @@ export const createRequestPartialMetadataId = (idParts: RequestPartialMetadataID
 };
 
 export const createRequestItemMetadataKey = (options: {
-	basePath: string,
+	metadataBasePath: string,
 	qualifiedMetadataId: boolean,
 	requestProviderSlug: string,
 	mediaType: plexTypes.PlexMediaItemType,
@@ -90,10 +90,10 @@ export const createRequestItemMetadataKey = (options: {
 }): string => {
 	if(options.qualifiedMetadataId) {
 		const metadataId = createRequestFullMetadataId(options);
-		return `${options.basePath}/${metadataId}`
+		return `${options.metadataBasePath}/${metadataId}`
 			+ (options.children ? ChildrenRelativePath : '');
 	} else {
-		return `${options.basePath}/${options.requestProviderSlug}/${options.mediaType}/${options.plexId}`
+		return `${options.metadataBasePath}/${options.requestProviderSlug}/${options.mediaType}/${options.plexId}`
 			+ (options.season != null ? `${SeasonRelativePath}${options.season}` : '')
 			+ (options.children ? ChildrenRelativePath : '');
 	}
@@ -200,13 +200,13 @@ export const parsePartialRequestMetadataId = (metadataId: PseuplexPartialMetadat
 };
 
 export type TransformRequestMetadataOptions = {
-	basePath: string,
+	metadataBasePath: string,
 	parentKey?: string,
 	parentRatingKey?: string,
 	requestProviderSlug: string,
 	children?: boolean,
 	qualifiedMetadataIds: boolean;
-	transformRatingKey?: boolean;
+	transformRatingKey: boolean;
 };
 
 export const setMetadataItemKeyToRequestKey = (metadataItem: plexTypes.PlexMetadataItem, opts: TransformRequestMetadataOptions) => {
@@ -216,10 +216,14 @@ export const setMetadataItemKeyToRequestKey = (metadataItem: plexTypes.PlexMetad
 		itemGuid = metadataItem.parentGuid;
 		season = metadataItem.index;
 	}
-	const guidParts = parsePlexMetadataGuidOrThrow(itemGuid!);
+	const guidParts = parsePlexMetadataGuid(itemGuid!);
+	if(!guidParts) {
+		console.error("Unable to set metadata item key to request key");
+		return;
+	}
 	const children = opts?.children ?? metadataItem.key.endsWith(ChildrenRelativePath);
 	metadataItem.key = createRequestItemMetadataKey({
-		basePath: opts.basePath,
+		metadataBasePath: opts.metadataBasePath,
 		qualifiedMetadataId: opts.qualifiedMetadataIds,
 		requestProviderSlug: opts.requestProviderSlug,
 		mediaType: guidParts.type as plexTypes.PlexMediaItemType,
@@ -243,7 +247,34 @@ export const setMetadataItemKeyToRequestKey = (metadataItem: plexTypes.PlexMetad
 	}
 };
 
-export const transformRequestableChildMetadata = (metadataItem: plexTypes.PlexMetadataItem, opts: TransformRequestMetadataOptions) => {
+export type TransformRequestableChildMetadataOptions = TransformRequestMetadataOptions & {
+	overlayedImageEndpoint: string | undefined;
+	requested: boolean;
+};
+
+export const transformRequestableChildMetadata = (metadataItem: plexTypes.PlexMetadataItem, opts: TransformRequestableChildMetadataOptions) => {
 	setMetadataItemKeyToRequestKey(metadataItem, opts);
 	metadataItem.title = `Request: ${metadataItem.title}`;
+	if(metadataItem.type == plexTypes.PlexMediaItemType.Season && opts.overlayedImageEndpoint) {
+		const thumb = metadataItem.thumb || metadataItem.parentThumb || metadataItem.grandparentThumb;
+		if(thumb) {
+			const overlayName = opts.requested ? 'requestedSeason' : 'requestSeason';
+			metadataItem.thumb = `${opts.overlayedImageEndpoint}?overlay=${overlayName}&url=${encodeURIComponent(thumb)}`;
+		}
+	}
+};
+
+export const addPartiallyAvailableBannerIfNeeded = (serverMetadataItem: plexTypes.PlexMetadataItem, discoverMetadataItem: plexTypes.PlexMetadataItem, opts: {
+	overlayedImageEndpoint: string,
+}): boolean => {
+	const serverChildCount = serverMetadataItem.childCount ?? serverMetadataItem.leafCount;
+	const discoverChildCount = discoverMetadataItem.childCount ?? discoverMetadataItem.leafCount;
+	if(serverChildCount && discoverChildCount && serverChildCount < discoverChildCount) {
+		const thumb = serverMetadataItem.thumb || discoverMetadataItem.thumb;
+		if(thumb) {
+			serverMetadataItem.thumb = `${opts.overlayedImageEndpoint}?overlay=partiallyAvailable&url=${encodeURIComponent(thumb)}`;
+		}
+		return true;
+	}
+	return false;
 };

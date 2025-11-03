@@ -1,4 +1,4 @@
-import { PseuplexConfigBase } from '../../pseuplex/configbase';
+import { PseuplexConfigBase } from '../../pseuplex';
 
 export type DashboardHubConfig = {
 	plugin: string;
@@ -16,6 +16,9 @@ type DashboardFlags = {
 type DashboardPerUserPluginConfig = {
 	//
 } & DashboardFlags;
-export type DashboardPluginConfig = PseuplexConfigBase<DashboardPerUserPluginConfig> & DashboardFlags & {
-	//
-};
+export type DashboardPluginConfig = (PseuplexConfigBase<DashboardPerUserPluginConfig> & DashboardFlags & {
+	dashboard?: {
+		id?: number;
+		uuid?: string;
+	}
+});

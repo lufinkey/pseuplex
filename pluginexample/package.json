@@ -1,0 +1,21 @@
+{
+	"private": true,
+	"name": "pseuplex-plugin-example",
+	"version": "1.0.0",
+	"description": "An example plugin for the pseudo metadata proxy for plex",
+	"license": "Zlib",
+	"type": "module",
+	"main": "dist/index.js",
+	"scripts": {
+		"build": "tsc",
+		"test": "echo \"Error: no test specified\" && exit 1",
+		"prepare": "npm run build"
+	},
+	"devDependencies": {
+		"@types/node": "^22.16.5",
+		"typescript": "^5.9.2"
+	},
+	"peerDependencies": {
+		"pseuplex": "^0.2.2"
+	}
+}

@@ -68,7 +68,7 @@ export enum MediaRequestStatus {
 	Declined = 3
 };
 
-export type MediaRequestItem = {
+export type CreateRequestItemResult = {
 	id: number;
 	status: MediaRequestStatus;
 	media: (MediaItemInfo & {
@@ -97,6 +97,19 @@ export type MediaRequestInfo = {
 	profileId: number;
 	rootFolder: string;
 };
+
+export type MovieRequestInfo = MediaRequestInfo;
+
+export type TVRequestInfo = MediaRequestInfo & {
+	seasons: {
+		id: number; //898
+		seasonNumber: number; // 3
+		status: MediaRequestStatus; // 2
+		createdAt: string; // "2025-08-05T01:59:41.000Z"
+		updatedAt: string; // "2025-08-05T01:59:41.000Z"
+	}[];
+	seasonCount: number; // 1
+}
 
 
 
@@ -143,7 +156,9 @@ export enum MediaStatus {
 	Pending = 2,
 	Processing = 3,
 	PartiallyAvailable = 4,
-	Available = 5
+	Available = 5,
+	Deleted = 6,
+	AvailableButNotInOverseerr = 7, // unsure of this one
 };
 
 export type MediaItemInfo = {
@@ -240,7 +255,7 @@ export type Movie = {
 		twitterId: string;
 	};
 	mediaInfo: (MediaItemInfo & {
-		requests: MediaRequestInfo[];
+		requests: MovieRequestInfo[];
 	});
 	watchProviders: WatchProvider[][];
 };
@@ -315,7 +330,7 @@ export type TVShow = {
 		name: string
 	}[];
 	mediaInfo: (MediaItemInfo & {
-		requests: MediaRequestInfo[];
+		requests: TVRequestInfo[];
 	});
 	watchProviders: WatchProvider[][];
 };
@@ -346,6 +361,7 @@ export type TVSeason = {
 	airDate: string;
 	episodeCount: number;
 	name: string;
+	status?: MediaStatus;
 	overview: string;
 	posterPath: string;
 	seasonNumber: number;

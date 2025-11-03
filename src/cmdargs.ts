@@ -1,40 +1,29 @@
+import { LoggingOptions } from './logging';
 
 export type CommandArguments = {
 	configPath?: string,
-	logRequestPathMappings?: boolean,
-	logFullURLs?: boolean,
-	logPlexFuckery?: boolean,
-	logOutgoingRequests?: boolean,
-	logUserRequests?: boolean,
-	logUserRequestHeaders?: boolean,
-	logUserResponses?: boolean,
-	logUserResponseHeaders?: boolean,
-	logUserResponseBody?: boolean,
-	logProxyRequests?: boolean,
-	logProxyRequestHeaders?: boolean,
-	logProxyResponses?: boolean,
-	logProxyResponseHeaders?: boolean,
-	logProxyResponseBody?: boolean,
-	logProxyErrorResponseBody?: boolean,
-	logWebsocketMessagesFromUser?: boolean,
-	logWebsocketMessagesToUser?: boolean,
-	logWebsocketMessagesFromServer?: boolean,
-	logWebsocketMessagesToServer?: boolean,
-	logWebsocketErrors?: boolean,
 	verbose?: boolean,
 	verboseHttpTraffic?: boolean,
 	verboseWsTraffic?: boolean,
-}
+	noInstallPlugins?: boolean,
+	installPluginsAndExit?: boolean,
+} & LoggingOptions;
 
 enum CmdFlag {
 	configPath = '--config',
-	logPlexFuckery = '--log-plex-fuckery',
+	installPluginsAndExit = '--install-plugins-and-exit',
+	noInstallPlugins = '--no-install-plugins',
+	logTimestamps = '--log-timestamps',
+	logLogLevel = '--log-loglevel',
+	logPlexTokenInfo = '--log-plex-tokens',
+	logWatchedPaths = '--log-watched-paths',
 	logOutgoingRequests = '--log-outgoing-requests',
 	logUserRequests = '--log-user-requests',
 	logUserRequestHeaders = '--log-user-request-headers',
 	logUserResponses = '--log-user-responses',
 	logUserResponseHeaders = '--log-user-response-headers',
 	logUserResponseBody = '--log-user-response-body',
+	logUnsecureUserRequests = '--log-unsecure-user-requests',
 	logProxyRequests = '--log-proxy-requests',
 	logProxyRequestHeaders = '--log-proxy-request-headers',
 	logProxyResponses = '--log-proxy-responses',
@@ -42,10 +31,10 @@ enum CmdFlag {
 	logProxyResponseBody = '--log-proxy-response-body',
 	logProxyErrorResponseBody = '--log-proxy-response-body',
 	logWebsocketErrors = '--log-websocket-errors',
-	logWebsocketFromUser = '--log-websocket-from-user',
-	logWebsocketToUser = '--log-websocket-to-user',
-	logWebsocketFromServer = '--log-websocket-from-server',
-	logWebsocketToServer = '--log-websocket-to-server',
+	logWebsocketConnections = '--log-websocket-connections',
+	logSentNotifications = '--log-sent-notifications',
+	logAdminNotifications = '--log-admin-notifications',
+	logOverseerrUsers = '--log-overseerr-users',
 	verbose = '--verbose',
 	verboseHttpTraffic = '--verbose-http-traffic',
 	verboseWsTraffic = '--verbose-ws-traffic',
@@ -91,8 +80,28 @@ export const parseCmdArgs = (args: string[]): CommandArguments => {
 					parsedArgs.configPath = flagVal;
 					break;
 
-				case CmdFlag.logPlexFuckery:
-					parsedArgs.logPlexFuckery = true;
+				case CmdFlag.noInstallPlugins:
+					parsedArgs.noInstallPlugins = true;
+					break;
+
+				case CmdFlag.installPluginsAndExit:
+					parsedArgs.installPluginsAndExit = true;
+					break;
+
+				case CmdFlag.logTimestamps:
+					parsedArgs.logTimestamps = true;
+					break;
+
+				case CmdFlag.logLogLevel:
+					parsedArgs.logLogLevel = true;
+					break;
+
+				case CmdFlag.logPlexTokenInfo:
+					parsedArgs.logPlexTokenInfo = true;
+					break;
+
+				case CmdFlag.logWatchedPaths:
+					parsedArgs.logWatchedPaths = true;
 					break;
 				
 				case CmdFlag.logOutgoingRequests:
@@ -117,6 +126,10 @@ export const parseCmdArgs = (args: string[]): CommandArguments => {
 				
 				case CmdFlag.logUserResponseBody:
 					parsedArgs.logUserResponseBody = true;
+					break;
+
+				case CmdFlag.logUnsecureUserRequests:
+					parsedArgs.logUnsecureUserRequests = true;
 					break;
 				
 				case CmdFlag.logProxyRequests:
@@ -143,34 +156,36 @@ export const parseCmdArgs = (args: string[]): CommandArguments => {
 					parsedArgs.logProxyErrorResponseBody = true;
 					break;
 
-				case CmdFlag.logWebsocketFromUser:
-					parsedArgs.logWebsocketMessagesFromUser = true;
-					break;
-
-				case CmdFlag.logWebsocketToUser:
-					parsedArgs.logWebsocketMessagesToUser = true;
-					break;
-
-				case CmdFlag.logWebsocketFromServer:
-					parsedArgs.logWebsocketMessagesFromServer = true;
-					break;
-
-				case CmdFlag.logWebsocketToServer:
-					parsedArgs.logWebsocketMessagesToServer = true;
+				case CmdFlag.logWebsocketConnections:
+					parsedArgs.logWebsocketConnections = true;
 					break;
 
 				case CmdFlag.logWebsocketErrors:
 					parsedArgs.logWebsocketErrors = true;
 					break;
+
+				case CmdFlag.logSentNotifications:
+					parsedArgs.logSentPlexNotifications = true;
+					break;
+
+				case CmdFlag.logAdminNotifications:
+					parsedArgs.logAdminNotificationsFromServer = true;
+					break;
+
+				case CmdFlag.logOverseerrUsers:
+					parsedArgs.logOverseerrUserMatches = true;
+					parsedArgs.logOverseerrUserMatchFailures = true;
+					parsedArgs.logOverseerrUsers = true;
+					break;
 				
 				case CmdFlag.verbose:
 					parsedArgs.verbose = true;
+					parsedArgs.logDebug = true;
 					parsedArgs.logUserRequests = true;
 					parsedArgs.logUserResponses = true;
 					break;
 
 				case CmdFlag.verboseHttpTraffic:
-					parsedArgs.verboseHttpTraffic = true;
 					parsedArgs.verboseHttpTraffic = true;
 					parsedArgs.logFullURLs = true;
 					parsedArgs.logOutgoingRequests = true;
@@ -190,16 +205,16 @@ export const parseCmdArgs = (args: string[]): CommandArguments => {
 
 				case CmdFlag.verboseWsTraffic:
 					parsedArgs.verboseWsTraffic = true;
-					parsedArgs.logWebsocketMessagesFromUser = true;
-					parsedArgs.logWebsocketMessagesToUser = true;
-					parsedArgs.logWebsocketMessagesFromServer = true;
-					parsedArgs.logWebsocketMessagesToServer = true;
+					parsedArgs.logFullURLs = true;
+					parsedArgs.logWebsocketConnections = true;
 					parsedArgs.logWebsocketErrors = true;
+					parsedArgs.logAdminNotificationsFromServer = true;
+					parsedArgs.logSentPlexNotifications = true;
 					break;
 
 				case CmdFlag.verboseTraffic:
-					parsedArgs.verboseHttpTraffic = true;
 					parsedArgs.logFullURLs = true;
+					parsedArgs.verboseHttpTraffic = true;
 					parsedArgs.logOutgoingRequests = true;
 					parsedArgs.logUserRequests = true;
 					parsedArgs.logUserRequestHeaders = true;
@@ -214,11 +229,10 @@ export const parseCmdArgs = (args: string[]): CommandArguments => {
 					//parsedArgs.logProxyResponseBody = true;
 					parsedArgs.logProxyErrorResponseBody = true;
 					parsedArgs.verboseWsTraffic = true;
-					parsedArgs.logWebsocketMessagesFromUser = true;
-					parsedArgs.logWebsocketMessagesToUser = true;
-					parsedArgs.logWebsocketMessagesFromServer = true;
-					parsedArgs.logWebsocketMessagesToServer = true;
+					parsedArgs.logWebsocketConnections = true;
 					parsedArgs.logWebsocketErrors = true;
+					parsedArgs.logAdminNotificationsFromServer = true;
+					parsedArgs.logSentPlexNotifications = true;
 					break;
 				
 				default:

@@ -1,0 +1,23 @@
+{
+	// Visit https://aka.ms/tsconfig to read more about this file
+	"compilerOptions": {
+		"rootDir": "./src",
+		"outDir": "./dist",
+
+		"module": "nodenext",
+		"target": "esnext",
+		"types": ["node"],
+		"resolveJsonModule": true,
+
+		"sourceMap": true,
+		"declaration": true,
+		"declarationMap": true,
+
+		"strictNullChecks": true,
+		"verbatimModuleSyntax": true,
+		"isolatedModules": true,
+		"noUncheckedSideEffectImports": true,
+		"moduleDetection": "force",
+		"skipLibCheck": true,
+	}
+}

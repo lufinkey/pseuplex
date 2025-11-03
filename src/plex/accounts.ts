@@ -4,9 +4,17 @@ import {
 } from './types';
 import * as plexServerAPI from './api';
 import * as plexTVAPI from '../plextv/api';
-import { PlexTVCurrentUserInfo } from '../plextv/types/User';
-import { HttpResponseError } from '../utils/error';
+import { PlexTVCurrentUserInfo } from '../plextv/types';
+import { Logger } from '../logging';
+import { CachedFetcher } from '../fetching/CachedFetcher';
+import { httpError, HttpResponseError } from '../utils/error';
 import { PlexServerPropertiesStore } from './serverproperties';
+
+export type PlexTransientTokenInfo = {
+	creatorToken: string;
+	type: string;
+	scope: string;
+};
 
 export type PlexServerAccountInfo = {
 	email: string;
@@ -14,120 +22,114 @@ export type PlexServerAccountInfo = {
 	plexUserID: number | string;
 	serverUserID: number | string;
 	isServerOwner: boolean;
+	transient?: PlexTransientTokenInfo;
 };
 
 export type PlexServerAccountsStoreOptions = {
 	plexServerProperties: PlexServerPropertiesStore;
 	sharedServersMinLifetime?: number;
-	logPlexFuckery?: boolean;
+	logger?: Logger;
 };
+
+const TransientTokenPrefix = 'transient-';
 
 export class PlexServerAccountsStore {
 	readonly plexServerProperties: PlexServerPropertiesStore;
 	readonly sharedServersMinLifetime: number;
 	
-	_tokensToPlexOwnersMap: {[token: string]: PlexServerAccountInfo} = {};
-	_tokensToPlexUsersMap: {[token: string]: PlexServerAccountInfo} = {};
-	
-	_serverOwnerTokenCheckTasks: {[key: string]: Promise<PlexServerAccountInfo | null>} = {};
 	_sharedServersTask: Promise<void> | null = null;
 	_lastSharedServersFetchTime: number | null = null;
 
-	_logPlexFuckery?: boolean;
+	_ownerTokens: CachedFetcher<PlexServerAccountInfo | null>;
+	_sharedTokens: {[token: string]: PlexServerAccountInfo} = {};
+	_transientTokens: CachedFetcher<PlexTransientTokenInfo>;
+
+	_logger?: Logger;
 
 	constructor(options: PlexServerAccountsStoreOptions) {
 		this.plexServerProperties = options.plexServerProperties;
 		this.sharedServersMinLifetime = options.sharedServersMinLifetime ?? 60;
-		this._logPlexFuckery = options.logPlexFuckery;
+		this._logger = options.logger;
+		this._ownerTokens = new CachedFetcher((token: string) => {
+			return this._fetchTokenServerOwnerAccount(token);
+		}, {
+			itemLifetime: (60 * 60 * 24), // 24 hour lifetime
+			nullItemLifetime: 120 // 120 seconds
+		});
+		this._transientTokens = new CachedFetcher((token) => {
+			return undefined!;
+		}, {
+			itemLifetime: (60 * 60 * 48), // 48 hour lifetime
+		});
 	}
 
 	get lastSharedServersFetchTime() {
 		return this._lastSharedServersFetchTime;
 	}
 
-	isTokenMapped(token: string): boolean {
-		if(this._tokensToPlexOwnersMap[token] || this._tokensToPlexUsersMap[token]) {
-			return true;
-		}
-		return false;
-	}
-
 	/// Returns the account info if the token belongs to the server owner, otherwise returns null
 	private async _fetchTokenServerOwnerAccount(token: string): Promise<PlexServerAccountInfo | null> {
-		let task = this._serverOwnerTokenCheckTasks[token];
-		if(task) {
-			// wait for existing task
-			return await task;
-		}
+		// send request for myplex account
+		let myPlexAccountPage: PlexMyPlexAccountPage | null;
 		try {
-			task = (async () => {
-				// send request for myplex account
-				let myPlexAccountPage: PlexMyPlexAccountPage | null;
-				try {
-					myPlexAccountPage = await plexServerAPI.getMyPlexAccount({
-						...this.plexServerProperties.requestOptions,
-						authContext: {
-							'X-Plex-Token': token
-						}
-					});
-				} catch(error) {
-					// 401 means the token isn't authorized as the server owner
-					if((error as HttpResponseError).httpResponse?.status == 401) {
-						return null;
-					}
-					// all non-401 errors should still get thrown
-					throw error;
+			myPlexAccountPage = await plexServerAPI.getMyPlexAccount({
+				...this.plexServerProperties.requestOptions,
+				authContext: {
+					'X-Plex-Token': token
 				}
-				// check that required data exists
-				if(!myPlexAccountPage?.MyPlex?.username) {
-					console.error(`Missing plex account username in MyPlex account response`);
-					return null;
-				}
-				// fetch the rest of the user data from plex
-				const plexTvOptions: plexTVAPI.PlexTVAPIRequestOptions = {...this.plexServerProperties.requestOptions};
-				delete (plexTvOptions as {serverURL?: string}).serverURL;
-				let plexUserInfo: PlexTVCurrentUserInfo;
-				try {
-					plexUserInfo = await plexTVAPI.getCurrentUser({
-						...plexTvOptions,
-						authContext: {
-							'X-Plex-Token': token
-						},
-					});
-				} catch (error) {
-					if((error as HttpResponseError).httpResponse?.status == 401) {
-						if(this._logPlexFuckery) {
-							console.error("The plex server owner wasn't able to fetch account info:");
-							console.error(error);
-						}
-						return null;
-					}
-					throw error;
-				}
-				// ensure the account info matches the owner info
-				if (plexUserInfo.email != myPlexAccountPage.MyPlex.username
-				   && plexUserInfo.username != myPlexAccountPage.MyPlex.username) {
-					console.error(`User info ${plexUserInfo.email ?? plexUserInfo.username} doesnt match plex server owner ${myPlexAccountPage.MyPlex.username}`);
-					return null;
-				}
-				// add user info for owner
-				const userInfo: PlexServerAccountInfo = {
-					email: myPlexAccountPage.MyPlex.username,
-					serverUserID: 1, // user 1 is the server owner
-					plexUsername: plexUserInfo.username,
-					plexUserID: plexUserInfo.id,
-					isServerOwner: true
-				};
-				this._tokensToPlexOwnersMap[token] = userInfo;
-				return userInfo;
-			})();
-			// store pending task and wait
-			this._serverOwnerTokenCheckTasks[token] = task;
-			return await task;
-		} finally {
-			// delete pending task
-			delete this._serverOwnerTokenCheckTasks[token];
+			});
+		} catch(error) {
+			// 401 or 403 means the token isn't authorized as the server owner
+			//  (this changed from 401 to 403 in a version update)
+			const httpResponse = (error as HttpResponseError).httpResponse;
+			if(httpResponse?.status == 401 || httpResponse?.status == 403) {
+				return null;
+			}
+			// all non 401/403 errors should still get thrown
+			throw error;
 		}
+		// check that required data exists
+		if(!myPlexAccountPage?.MyPlex?.username) {
+			console.error(`Missing plex account username in MyPlex account response`);
+			return null;
+		}
+		// fetch the rest of the user data from plex
+		const plexTvOptions: plexTVAPI.PlexTVAPIRequestOptions = {...this.plexServerProperties.requestOptions};
+		delete (plexTvOptions as {serverURL?: string}).serverURL;
+		let plexUserInfo: PlexTVCurrentUserInfo;
+		try {
+			plexUserInfo = await plexTVAPI.getCurrentUser({
+				...plexTvOptions,
+				authContext: {
+					'X-Plex-Token': token
+				},
+			});
+		} catch (error) {
+			const httpResponse = (error as HttpResponseError).httpResponse;
+			if(httpResponse?.status == 401 || httpResponse?.status == 403) {
+				// this shouldn't hit, but since there was a past version of plex where it did (as a bug), we should log here and handle gracefully
+				console.error("The plex server owner wasn't able to fetch account info:");
+				console.error(error);
+				return null;
+			}
+			throw error;
+		}
+		// ensure the account info matches the owner info
+		if (plexUserInfo.email != myPlexAccountPage.MyPlex.username
+			&& plexUserInfo.username != myPlexAccountPage.MyPlex.username) {
+			console.error(`User info ${plexUserInfo.email ?? plexUserInfo.username} doesnt match plex server owner ${myPlexAccountPage.MyPlex.username}`);
+			return null;
+		}
+		// return user info for owner
+		const userInfo: PlexServerAccountInfo = {
+			email: myPlexAccountPage.MyPlex.username,
+			serverUserID: 1, // user 1 is the server owner
+			plexUsername: plexUserInfo.username,
+			plexUserID: plexUserInfo.id,
+			isServerOwner: true
+		};
+		this._logger?.logPlexTokenRegistered(token, userInfo);
+		return userInfo;
 	}
 
 	/// Refetches the list of shared servers if needed
@@ -158,20 +160,24 @@ export class PlexServerAccountsStore {
 						if(sharedServer.accessToken && sharedServer.email) {
 							newServerTokens.add(sharedServer.accessToken);
 							const userID = Number.parseInt(sharedServer.userID);
-							this._tokensToPlexUsersMap[sharedServer.accessToken] = {
+							const userInfo: PlexServerAccountInfo = {
 								email: sharedServer.email,
 								serverUserID: !Number.isNaN(userID) ? userID : sharedServer.userID,
 								plexUsername: sharedServer.username,
 								plexUserID: sharedServer.id,
 								isServerOwner: false
 							};
+							this._sharedTokens[sharedServer.accessToken] = userInfo;
+							this._logger?.logPlexTokenRegistered(sharedServer.accessToken, userInfo);
 						}
 					}
 				}
 				// delete old server tokens
-				for(const token in this._tokensToPlexUsersMap) {
+				for(const token in this._sharedTokens) {
 					if(!newServerTokens.has(token)) {
-						delete this._tokensToPlexUsersMap[token];
+						const userInfo = this._sharedTokens[token];
+						delete this._sharedTokens[token];
+						this._logger?.logPlexTokenUnregistered(token, userInfo);
 					}
 				}
 				// update the last time that the server users was fetched
@@ -187,27 +193,57 @@ export class PlexServerAccountsStore {
 		}
 	}
 
-	async getUserInfo(authContext: PlexAuthContext): Promise<PlexServerAccountInfo | null> {
-		const token = authContext['X-Plex-Token'];
-		if(!token) {
-			return null;
+	async getNonTransientUserInfo(token: string): Promise<PlexServerAccountInfo | null> {
+		if(token.startsWith(TransientTokenPrefix)) {
+			throw httpError(403, "Transient token is not allowed in this context");
 		}
-		// get user info for token
-		let userInfo: (PlexServerAccountInfo | null) = this._tokensToPlexOwnersMap[token] ?? this._tokensToPlexUsersMap[token];
+		// get owner user info if any
+		let userInfo = await this._ownerTokens.getOrFetch(token);
 		if(userInfo) {
 			return userInfo;
 		}
-		// check if the token belongs to the server owner
-		userInfo = await this._fetchTokenServerOwnerAccount(token);
+		// get shared user info if any
+		userInfo = this._sharedTokens[token];
 		if(userInfo) {
 			return userInfo;
 		}
 		// refetch shared users for server if needed
 		if(await this._refetchSharedServersIfAble()) {
 			// get the token user info (if any)
-			return this._tokensToPlexUsersMap[token] ?? null;
+			return this._sharedTokens[token] ?? null;
 		}
 		return null;
+	}
+
+	async getUserInfo(authContext: PlexAuthContext): Promise<PlexServerAccountInfo | null> {
+		let token = authContext['X-Plex-Token'];
+		if(!token) {
+			return null;
+		}
+		// check if token is a transient token
+		let transientToken: string | undefined;
+		let transientInfo = await this._transientTokens.get(token);
+		if(transientInfo) {
+			transientToken = token;
+			token = transientInfo.creatorToken;
+		} else if(token.startsWith(TransientTokenPrefix)) {
+			throw httpError(401, "Invalid token");
+		}
+		// get user info from non-transient token
+		let userInfo = await this.getNonTransientUserInfo(token);
+		if(!userInfo) {
+			return null;
+		}
+		// attach transient info if needed
+		if(transientInfo) {
+			userInfo = {
+				...userInfo,
+				transient: {
+					...transientInfo,
+				},
+			};
+		}
+		return userInfo;
 	}
 
 	async getUserInfoOrNull(authContext: PlexAuthContext): Promise<PlexServerAccountInfo | null> {
@@ -218,5 +254,23 @@ export class PlexServerAccountsStore {
 			console.error(error);
 			return null;
 		}
+	}
+
+
+	startAutoCleaningTokens() {
+		this._transientTokens.startAutoClean();
+		this._ownerTokens.startAutoClean();
+	}
+
+	stopAutoCleaningTokens() {
+		this._transientTokens.stopAutoClean();
+		this._ownerTokens.stopAutoClean();
+	}
+
+	registerTransientToken(transientToken: string, tokenInfo: PlexTransientTokenInfo) {
+		if(tokenInfo.creatorToken.startsWith(TransientTokenPrefix)) {
+			throw httpError(403, "Transient tokens cannot create other transient tokens");
+		}
+		this._transientTokens.setSync(transientToken, tokenInfo);
 	}
 }

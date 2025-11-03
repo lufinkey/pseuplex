@@ -1,7 +1,6 @@
-
+import zlib from 'zlib';
 import xml2js from 'xml2js';
 import express from 'express';
-import * as plexTypes from './types';
 
 export const parseHttpContentType = (contentType: string | null | undefined): {contentTypes: string[], contentTypeSuffix: string} => {
 	if(!contentType) {
@@ -141,23 +140,50 @@ export const plexJSToXML = (json: any): string => {
 	return xmlBuilder.buildObject(json);
 };
 
-
-export const serializeResponseContent = (userReq: express.Request, userRes: express.Response, data: any): {
+export type SerializedPlexAPIResponse = {
 	contentType: string;
-	data: string;
- } => {
+	data: Buffer;
+	dataString: string;
+};
+
+export const serializeResponseContent = (userReq: express.Request, userRes: express.Response, data: any): SerializedPlexAPIResponse => {
 	const acceptTypes = parseHttpContentTypeFromHeader(userReq, 'accept').contentTypes;
 	if(acceptTypes.indexOf('application/json') != -1) {
+		const dataString = JSON.stringify(data);
 		return {
-			contentType: 'application/json',
-			data: JSON.stringify(data)
+			contentType: 'application/json; charset=utf8',
+			dataString,
+			data: Buffer.from(dataString, 'utf8'),
 		}
 	} else {
 		const xmlContentType = acceptTypes.find((item) => (item.endsWith('/xml')));
 		// convert to xml
+		const dataString = plexJSToXML(data);
 		return {
 			contentType: xmlContentType || 'application/xml',
-			data: plexJSToXML(data)
+			dataString,
+			data: Buffer.from(dataString, 'utf8'),
 		};
 	}
 };
+
+export const encodeResponseContentIfAble = async (userReq: express.Request, userRes: express.Response, data: Buffer): Promise<Buffer | null> => {
+	const acceptedEncodings = userReq.header('Accept-Encoding')?.split(',').map((e) => e.trim().toLowerCase());
+	const encoding = 'gzip';
+	if(!acceptedEncodings || acceptedEncodings.indexOf(encoding) == -1) {
+		return null;
+	}
+	const encodedResData = await new Promise<Buffer>((resolve, reject) => {
+		zlib.gzip(data, (error, result) => {
+			if(error) {
+				reject(error);
+			} else {
+				resolve(result);
+			}
+		});
+	});
+	userRes.setHeader('Content-Encoding', encoding);
+	userRes.setHeader('X-Plex-Content-Original-Length', data.length);
+	userRes.setHeader('X-Plex-Content-Compressed-Length', encodedResData.length);
+	return encodedResData;
+}

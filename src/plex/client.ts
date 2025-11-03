@@ -76,7 +76,7 @@ export class PlexClient {
 }
 
 
-export const getPlexMediaProviderClient = async (requestOptions: plexServerAPI.PlexAPIRequestOptions, requestExecutor: RequestExecutor | null | undefined): Promise<PlexMediaProviderClient> => {
+const getPlexMediaProviderClient = async (requestOptions: plexServerAPI.PlexAPIRequestOptions, requestExecutor: RequestExecutor | null | undefined): Promise<PlexMediaProviderClient> => {
 	// fetch server root page
 	let rootPage: plexTypes.PlexServerRootPage | plexTypes.PlexProviderRootPage;
 	const reqOpts: plexServerAPI.PlexServerFetchOptions = {

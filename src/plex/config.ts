@@ -6,7 +6,7 @@ import crypto from 'crypto';
 import child_process from 'child_process';
 import WinRegistry from 'winreg';
 import { plexXMLToJS } from './serialization';
-import { PlexPreferences } from './types/preferences';
+import { PlexPreferences } from './types';
 
 const execFileAsync = util.promisify(child_process.execFile);
 

@@ -134,6 +134,9 @@ dist
 
 # private data
 docker-compose.yml
+/plugindeps
+/external
 /keys
 /config/config.json
 /config/csr.conf
+/config/authCache.json

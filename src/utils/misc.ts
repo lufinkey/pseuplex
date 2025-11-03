@@ -1,10 +1,4 @@
 
-import qs from 'querystring';
-import express from 'express';
-import {
-	httpError,
-} from './error';
-
 export type WithOptionalProps<T> = {
 	[key in keyof T]?: T[key]
 };
@@ -12,74 +6,6 @@ export type WithOptionalProps<T> = {
 export type WithOptionalPropsRecursive<T> = T extends Array<infer U> ? Array<WithOptionalPropsRecursive<U>> : {
 	[key in keyof T]?: WithOptionalPropsRecursive<T[key]>
 };
-
-export const stringParam = (value: any): string | undefined => {
-	if(typeof value === 'string') {
-		return value;
-	} else if(value) {
-		throw httpError(400, `Invalid parameter ${value}`);
-	}
-	return undefined;
-};
-
-export const stringArrayParam = (value: any): string[] | undefined => {
-	if(value instanceof Array) {
-		return value.flatMap((dir) => (typeof dir === 'string' ? dir.split(',') : dir));
-	}
-	const str = stringParam(value);
-	if(str == undefined) {
-		return undefined;
-	}
-	return str.split(',');
-};
-
-export const intParam = (value: any): number | undefined => {
-	if(typeof value === 'number') {
-		return value;
-	}
-	if(value) {
-		if(typeof value !== 'string') {
-			throw httpError(400, `Invalid integer ${value}`);
-		}
-		const intVal = Number.parseInt(value);
-		if(Number.isNaN(intVal)) {
-			throw httpError(400, `${value} is not an integer`);
-		}
-		return intVal;
-	}
-	return undefined;
-};
-
-export const intArrayParam = (value: any): number[] | undefined => {
-	if(typeof value === 'number') {
-		return [value];
-	}
-	if(value instanceof Array) {
-		return value.map((val) => {
-			return intParam(val)!;
-		});
-	}
-	if(typeof value === 'string') {
-		return value.split(',').map((val) => {
-			return intParam(val)!;
-		});
-	}
-	return undefined;
-};
-
-export const booleanParam = (value: any): boolean | undefined => {
-	if(typeof value === 'boolean') {
-		return value;
-	} else if(value == undefined) {
-		return value;
-	}
-	if(value == 1 || value == 'true') {
-		return true;
-	} else if(value == 0 || value == 'false') {
-		return false;
-	}
-	throw httpError(400, `${value} is not a boolean`);
-}
 
 export const mapObject = <TNewValue,TValue>(obj: object, mapper: (key: string, value: TValue) => TNewValue) => {
 	const mappedObject = {};
@@ -102,146 +28,44 @@ export const combinePathSegments = (part1: string, part2: string) => {
 	return `${part1}/${part2}`;
 };
 
-export type URLPathParts = {
-	path: string;
-	query?: string;
-	hash?: string;
-};
-
-export type URLPath = {
-	path: string;
-	query?: string;
-	queryItems?: qs.ParsedUrlQuery;
-	hash?: string;
-};
-
-export const parseURLPathParts = (urlPath: string): URLPathParts => {
-	const queryIndex = urlPath.indexOf('?');
-	const hashIndex = urlPath.indexOf('#');
-	if(queryIndex != -1) {
-		if(hashIndex != -1) {
-			if(hashIndex < queryIndex) {
-				return {
-					path: urlPath.substring(0, hashIndex),
-					hash: urlPath.substring(hashIndex+1)
-				};
-			} else {
-				return {
-					path: urlPath.substring(0, queryIndex),
-					query: urlPath.substring(queryIndex+1, hashIndex),
-					hash: urlPath.substring(hashIndex+1)
-				};
-			}
-		} else {
-			return {
-				path: urlPath.substring(0, queryIndex),
-				query: urlPath.substring(queryIndex+1)
-			};
-		}
-	}
-	else if(hashIndex != -1) {
-		return {
-			path: urlPath.substring(0, hashIndex),
-			hash: urlPath.substring(hashIndex+1)
-		};
-	} else {
-		return {
-			path: urlPath
-		};
-	}
-};
-
-export const stringifyURLPathParts = (urlPathObj: URLPathParts): string => {
-	let urlPath = urlPathObj.path;
-	if(urlPathObj.query != null) {
-		urlPath += `?${urlPathObj.query}`;
-	}
-	if(urlPathObj.hash != null) {
-		urlPath += `#${urlPathObj.hash}`;
-	}
-	return urlPath;
-};
-
-export const parseURLPath = (urlPath: string): URLPath => {
-	const parts = parseURLPathParts(urlPath);
-	const newParts = (parts as URLPath);
-	if(parts.query != null) {
-		newParts.queryItems = qs.parse(parts.query);
-	}
-	return newParts;
-};
-
-export const stringifyURLPath = (urlPathObj: URLPath): string => {
-	let urlPath = urlPathObj.path;
-	if(urlPathObj.queryItems != null) {
-		urlPath += `?${qs.stringify(urlPathObj.queryItems)}`;
-	}
-	if(urlPathObj.hash != null) {
-		urlPath += `#${urlPathObj.hash}`;
-	}
-	return urlPath;
-};
-
-export const parseQueryParams = (req: express.Request, includeParam: (key:string) => boolean): {[key:string]: any} => {
-	const params: {[key:string]: any} = {};
-	for(const key in req.query) {
-		if(includeParam(key)) {
-			params[key] = req.query[key];
-		}
-	}
-	return params;
-};
-
-export const addQueryArgumentToURLPath = (urlPath: string, queryEntry: string) => {
-	const parts = parseURLPathParts(urlPath);
-	if(!parts.query) {
-		parts.query = queryEntry;
-	} else {
-		parts.query += `&${queryEntry}`;
-	}
-	return stringifyURLPathParts(parts);
-};
-
-export const forArrayOrSingle = <T>(item: T | T[], callback: (item: T) => void) => {
+export const forArrayOrSingle = <T>(item: T | T[] | undefined, callback: (item: T, index: number) => void) => {
 	if(item) {
 		if(item instanceof Array) {
-			for(const element of item) {
-				callback(element);
-			}
+			item.forEach(callback);
 		} else {
-			callback(item);
+			callback(item, 0);
 		}
 	}
 };
 
-export const transformArrayOrSingle = <T,U>(item: T | T[] | undefined, callback: (item: T) => U): (U | U[]) => {
+export const transformArrayOrSingle = <T,U>(item: T | T[] | undefined, callback: (item: T, index: number) => U): (U | U[]) => {
 	if(item) {
 		if(item instanceof Array) {
 			return item.map(callback);
 		} else {
-			return callback(item);
+			return callback(item, 0);
 		}
 	} else {
 		return item as any;
 	}
 };
 
-export const forArrayOrSingleAsyncParallel = async <T>(item: T | T[], callback: (item: T) => Promise<void>): Promise<void> => {
+export const forArrayOrSingleAsyncParallel = async <T>(item: T | T[], callback: (item: T, index: number) => Promise<void>): Promise<void> => {
 	if(item) {
 		if(item instanceof Array) {
 			await Promise.all(item.map(callback));
 		} else {
-			await callback(item);
+			await callback(item, 0);
 		}
 	}
 };
 
-export const transformArrayOrSingleAsyncParallel = async <T,U>(item: T | T[] | undefined, callback: (item: T) => Promise<U>): Promise<U | U[] | undefined> => {
+export const transformArrayOrSingleAsyncParallel = async <T,U>(item: T | T[] | undefined, callback: (item: T, index: number) => Promise<U>): Promise<U | U[] | undefined> => {
 	if(item) {
 		if(item instanceof Array) {
 			return await Promise.all(item.map(callback));
 		} else {
-			return await callback(item);
+			return await callback(item, 0);
 		}
 	} else {
 		return item as any;
@@ -279,7 +103,16 @@ export const firstOrSingle = <T>(arrayOrSingle: (T | T[] | undefined)): T | unde
 	return undefined;
 };
 
-export const isNullOrEmpty = (obj: any) => {
+export const arrayFromArrayOrSingle = <T>(arrayOrSingle: (T | T[] | undefined)): T[] => {
+	if(arrayOrSingle instanceof Array) {
+		return arrayOrSingle;
+	} else if(arrayOrSingle) {
+		return [arrayOrSingle];
+	}
+	return [];
+};
+
+export const isArrayNullOrEmpty = (obj: any) => {
 	return (!obj || (obj instanceof Array && obj.length === 0));
 };
 
@@ -294,4 +127,4 @@ export const mergeObjects = <T1 extends {[key: (string | number)]: any}, T2 exte
 		}
 	}
 	return newObj;
-}
+};

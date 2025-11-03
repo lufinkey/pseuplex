@@ -1,4 +1,12 @@
-#!/bin/sh
-cd "$(dirname "$(realpath "$0")")" || exit $?
+#!/bin/bash
+
+# enter base directory
+cd "${BASH_SOURCE%/*}" || exit $?
+
+# install dependencies and build
 npm install || exit $?
-npm start -- --config=config/config.json || exit $?
+npm run build || exit $?
+
+# run the app
+export NODE_ENV=production
+npm start -- --config=config/config.json --log-timestamps --log-loglevel --log-watched-paths || exit $?

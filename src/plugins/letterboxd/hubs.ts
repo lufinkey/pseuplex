@@ -6,7 +6,9 @@ import {
 	PseuplexPartialMetadataIDString,
 	qualifyPartialMetadataID,
 	PseuplexHubSectionInfo,
-	PseuplexFeedHubLoggingOptions,
+	PseuplexMetadataPathTransformOptions,
+	PseuplexHubMetadataTransformOptions,
+	getMetadataTransformOptionsForHub,
 } from '../../pseuplex';
 import { ListFetchInterval } from '../../fetching/LoadableList';
 import { RequestExecutor } from '../../fetching/RequestExecutor';
@@ -15,21 +17,22 @@ import { LetterboxdMetadataProvider } from './metadata';
 import { LetterboxdActivityFeedHub } from './activityfeedhub';
 import { LetterboxdFilmsHub } from './filmshub';
 import { LetterboxdFilmListHub } from './filmlisthub';
+import { Logger } from '../../logging';
 
 
-export const createUserFollowingFeedHub = (letterboxdUsername: string, options: {
+export const createUserFollowingFeedHub = (letterboxdUsername: string, options: (PseuplexHubMetadataTransformOptions & {
 	hubPath: string,
 	style: plexTypes.PlexHubStyle,
 	promoted?: boolean,
 	uniqueItemsOnly: boolean,
-	metadataTransformOptions?: PseuplexMetadataTransformOptions,
 	letterboxdMetadataProvider: LetterboxdMetadataProvider,
 	section?: PseuplexHubSectionInfo,
 	matchToPlexServerMetadata?: boolean,
-	loggingOptions?: PseuplexFeedHubLoggingOptions,
+	logger?: Logger,
 	requestExecutor?: RequestExecutor,
-}): LetterboxdActivityFeedHub => {
+})): LetterboxdActivityFeedHub => {
 	const { requestExecutor } = options;
+	const metadataTransformOptions = getMetadataTransformOptionsForHub(options.letterboxdMetadataProvider.basePath, options);
 	return new LetterboxdActivityFeedHub({
 		hubPath: options.hubPath,
 		title: `Friends Activity on Letterboxd (${letterboxdUsername})`,
@@ -40,14 +43,11 @@ export const createUserFollowingFeedHub = (letterboxdUsername: string, options: 
 		style: options.style,
 		promoted: options.promoted,
 		uniqueItemsOnly: options.uniqueItemsOnly,
-		metadataTransformOptions: options.metadataTransformOptions ?? {
-			metadataBasePath: options.letterboxdMetadataProvider.basePath,
-			qualifiedMetadataId: false
-		},
+		metadataTransformOptions,
 		letterboxdMetadataProvider: options.letterboxdMetadataProvider,
 		section: options.section,
 		matchToPlexServerMetadata: options.matchToPlexServerMetadata,
-		loggingOptions: options.loggingOptions,
+		logger: options.logger,
 	}, async (pageToken) => {
 		const reqOpts: letterboxd.GetUserFollowingFeedOptions = {
 			after: pageToken?.token ?? undefined,
@@ -65,29 +65,22 @@ export const createUserFollowingFeedHub = (letterboxdUsername: string, options: 
 };
 
 
-export const createSimilarItemsHub = async (metadataId: PseuplexPartialMetadataIDString, options: {
+export const createSimilarItemsHub = async (metadataId: PseuplexPartialMetadataIDString, options: (PseuplexHubMetadataTransformOptions & {
 	relativePath: string,
 	title: string,
 	style: plexTypes.PlexHubStyle,
 	promoted?: boolean,
-	metadataTransformOptions?: PseuplexMetadataTransformOptions,
 	letterboxdMetadataProvider: LetterboxdMetadataProvider,
 	defaultCount?: number,
 	section?: PseuplexHubSectionInfo,
 	matchToPlexServerMetadata?: boolean,
-	loggingOptions?: PseuplexFeedHubLoggingOptions,
+	logger?: Logger,
 	requestExecutor?: RequestExecutor,
-}) => {
+})) => {
 	const { requestExecutor } = options;
-	const metadataTransformOpts: PseuplexMetadataTransformOptions = options.metadataTransformOptions ?? {
-		metadataBasePath: options.letterboxdMetadataProvider.basePath,
-		qualifiedMetadataId: false
-	};
+	const metadataTransformOptions = getMetadataTransformOptionsForHub(options.letterboxdMetadataProvider.basePath, options);
 	const filmOpts = lbtransform.getFilmOptsFromPartialMetadataId(metadataId);
-	const metadataIdInPath = metadataTransformOpts.qualifiedMetadataId
-		? qualifyPartialMetadataID(metadataId, options.letterboxdMetadataProvider.sourceSlug)
-		: metadataId;
-	const hubPath = `${metadataTransformOpts.metadataBasePath}/${metadataIdInPath}/${options.relativePath}`;
+	const hubPath = `${options.letterboxdMetadataProvider.basePath}/${metadataId}/${options.relativePath}`;
 	return new LetterboxdFilmsHub({
 		hubPath: hubPath,
 		title: options.title,
@@ -100,10 +93,10 @@ export const createSimilarItemsHub = async (metadataId: PseuplexPartialMetadataI
 		uniqueItemsOnly: true,
 		listStartFetchInterval: 'never',
 		letterboxdMetadataProvider: options.letterboxdMetadataProvider,
-		metadataTransformOptions: metadataTransformOpts,
+		metadataTransformOptions,
 		section: options.section,
 		matchToPlexServerMetadata: options.matchToPlexServerMetadata,
-		loggingOptions: options.loggingOptions,
+		logger: options.logger,
 	}, async (pageHref: string | null) => {
 		let opts: letterboxd.GetSimilarFilmsOptions;
 		if(pageHref) {
@@ -123,24 +116,20 @@ export const createSimilarItemsHub = async (metadataId: PseuplexPartialMetadataI
 };
 
 
-export const createListHub = async (listId: lbtransform.PseuplexLetterboxdListID, options: {
+export const createListHub = async (listId: lbtransform.PseuplexLetterboxdListID, options: (PseuplexHubMetadataTransformOptions & {
 	path: string,
 	style: plexTypes.PlexHubStyle,
 	promoted?: boolean,
-	metadataTransformOptions?: PseuplexMetadataTransformOptions,
 	letterboxdMetadataProvider: LetterboxdMetadataProvider,
 	defaultCount?: number,
 	listStartFetchInterval?: ListFetchInterval,
 	section?: PseuplexHubSectionInfo,
 	matchToPlexServerMetadata?: boolean,
-	loggingOptions?: PseuplexFeedHubLoggingOptions,
+	logger?: Logger,
 	requestExecutor?: RequestExecutor,
-}) => {
+})) => {
 	const { requestExecutor } = options;
-	const metadataTransformOpts: PseuplexMetadataTransformOptions = options.metadataTransformOptions ?? {
-		metadataBasePath: options.letterboxdMetadataProvider.basePath,
-		qualifiedMetadataId: false
-	};
+	const metadataTransformOptions = getMetadataTransformOptionsForHub(options.letterboxdMetadataProvider.basePath, options);
 	const listOpts = lbtransform.getFilmListOptsFromPartialListId(listId);
 	return new LetterboxdFilmListHub({
 		hubPath: options.path,
@@ -154,10 +143,10 @@ export const createListHub = async (listId: lbtransform.PseuplexLetterboxdListID
 		uniqueItemsOnly: false,
 		listStartFetchInterval: options.listStartFetchInterval,
 		letterboxdMetadataProvider: options.letterboxdMetadataProvider,
-		metadataTransformOptions: metadataTransformOpts,
+		metadataTransformOptions,
 		section: options.section,
 		matchToPlexServerMetadata: options.matchToPlexServerMetadata,
-		loggingOptions: options.loggingOptions,
+		logger: options.logger,
 	}, async (pageHref: string | null) => {
 		let opts: letterboxd.GetFilmListOptions;
 		if(pageHref) {

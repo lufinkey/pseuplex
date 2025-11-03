@@ -1,12 +1,10 @@
 import qs from 'querystring';
-import express from 'express';
 import * as letterboxd from 'letterboxd-retriever';
 import * as plexTypes from '../../plex/types';
 import {
 	doesRequestIncludeFirstPinnedContentDirectory,
 	IncomingPlexAPIRequest,
 } from '../../plex/requesthandling';
-import { parseMetadataIDFromKey } from '../../plex/metadataidentifier';
 import {
 	PseuplexApp,
 	PseuplexPlugin,
@@ -28,7 +26,8 @@ import {
 	PseuplexRelatedHubsSource,
 	getPlexRelatedHubsEndpoints,
 	PseuplexMetadataRelatedHubsResponseFilterContext,
-	PseuplexMetadataItem
+	PseuplexMetadataItem,
+	PseuplexRouterApp,
 } from '../../pseuplex';
 import { LetterboxdPluginConfig } from './config';
 import {
@@ -40,15 +39,16 @@ import {
 	createListHub,
 } from './hubs'
 import * as lbTransform from './transform';
+import { LetterboxdPluginDef } from './plugindef';
 import { RequestExecutor } from '../../fetching/RequestExecutor';
 import { httpError } from '../../utils/error';
+import { parseStringQueryParam } from '../../utils/queryparams';
 import {
 	forArrayOrSingleAsyncParallel,
 	pushToArray,
-	stringParam
 } from '../../utils/misc';
 
-export default (class LetterboxdPlugin implements PseuplexPlugin {
+export default (class LetterboxdPlugin implements LetterboxdPluginDef, PseuplexPlugin {
 	static slug = 'letterboxd';
 	readonly slug: string = LetterboxdPlugin.slug;
 	readonly app: PseuplexApp;
@@ -88,20 +88,15 @@ export default (class LetterboxdPlugin implements PseuplexPlugin {
 				override fetch(letterboxdUsername: string): PseuplexHub | Promise<PseuplexHub> {
 					// TODO validate that the profile exists
 					return createUserFollowingFeedHub(letterboxdUsername, {
+						...app.requiredHubMetadataTransformOptions(),
 						hubPath: `${this.basePath}/${letterboxdUsername}`,
 						style: plexTypes.PlexHubStyle.Shelf,
 						promoted: true,
 						uniqueItemsOnly: true,
 						letterboxdMetadataProvider: self.metadata,
-						...(app.alwaysUseLibraryMetadataPath ? {
-							metadataTransformOptions: {
-								metadataBasePath: '/library/metadata',
-								qualifiedMetadataId: true,
-							},
-						} : undefined),
 						//section: section,
 						//matchToPlexServerMetadata: true
-						loggingOptions: app.loggingOptions,
+						logger: app.logger,
 						requestExecutor,
 					});
 				}
@@ -119,19 +114,14 @@ export default (class LetterboxdPlugin implements PseuplexPlugin {
 
 				override fetch(metadataId: PseuplexPartialMetadataIDString): PseuplexHub | Promise<PseuplexHub> {
 					return createSimilarItemsHub(metadataId, {
+						...app.requiredHubMetadataTransformOptions(),
 						relativePath: this.relativePath,
 						title: "Similar Films on Letterboxd",
 						style: plexTypes.PlexHubStyle.Shelf,
 						//promoted: true,
 						letterboxdMetadataProvider: self.metadata,
-						...(app.alwaysUseLibraryMetadataPath ? {
-							metadataTransformOptions: {
-								metadataBasePath: '/library/metadata',
-								qualifiedMetadataId: true,
-							},
-						} : undefined),
 						defaultCount: 12,
-						loggingOptions: app.loggingOptions,
+						logger: app.logger,
 						requestExecutor,
 					});
 				}
@@ -184,18 +174,13 @@ export default (class LetterboxdPlugin implements PseuplexPlugin {
 
 				override fetch(listId: lbTransform.PseuplexLetterboxdListID): PseuplexHub | Promise<PseuplexHub> {
 					return createListHub(listId, {
+						...app.requiredHubMetadataTransformOptions(),
 						path: `${this.basePath}/${listId}`,
 						style: plexTypes.PlexHubStyle.Shelf,
 						promoted: true,
 						letterboxdMetadataProvider: self.metadata,
-						...(app.alwaysUseLibraryMetadataPath ? {
-							metadataTransformOptions: {
-								metadataBasePath: '/library/metadata',
-								qualifiedMetadataId: true,
-							},
-						} : undefined),
 						defaultCount: 12,
-						loggingOptions: app.loggingOptions,
+						logger: app.logger,
 						requestExecutor,
 					});
 				}
@@ -210,7 +195,7 @@ export default (class LetterboxdPlugin implements PseuplexPlugin {
 			relatedHubsProviders: [
 				this.hubs.similar,
 			],
-			plexGuidToInfoCache: this.app.plexGuidToInfoCache,
+			plexIdToInfoCache: this.app.plexIdToInfoCache,
 			requestExecutor,
 		});
 	}
@@ -257,33 +242,34 @@ export default (class LetterboxdPlugin implements PseuplexPlugin {
 		},
 	}
 
-	defineRoutes(router: express.Express) {
+	defineRoutes(router: PseuplexRouterApp) {
 		// get metadata item(s)
 		router.get(`${this.metadata.basePath}/:id`, [
-			this.app.middlewares.plexAuthentication,
-			this.app.middlewares.plexRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexMetadataPage> => {
-				console.log(`\ngot request for letterboxd item ${req.params.id}`);
+			this.app.middlewares.plexAuthentication(),
+			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexMetadataPage> => {
+				console.log(`Got request for letterboxd item ${req.params.id}`);
 				const context = this.app.contextForRequest(req);
 				const params: plexTypes.PlexMetadataPageParams = req.plex.requestParams;
 				const itemIdsStr = req.params.id?.trim();
 				if(!itemIdsStr) {
 					throw httpError(400, "No slug was provided");
 				}
-				const ids = itemIdsStr.split(',');
+				const metadataIds = itemIdsStr.split(',');
 				// get metadatas from letterboxd
 				const metadataProvider = this.metadata;
-				const resData = await metadataProvider.get(ids, {
+				const resData = await metadataProvider.get(metadataIds, {
 					context: context,
 					includePlexDiscoverMatches: true,
 					includeUnmatched: true,
 					transformMatchKeys: true,
 					metadataBasePath: metadataProvider.basePath,
+					includeMetadataUnavailability: this.app.sendsMetadataUnavailability,
 					qualifiedMetadataIds: false,
 					plexParams: params,
 				});
 				// cache metadata access if needed
-				if(ids.length == 1) {
-					this.app.pluginMetadataAccessCache?.cachePluginMetadataAccessIfNeeded(metadataProvider, ids[0], req.path, resData.MediaContainer.Metadata, context);
+				if(metadataIds.length == 1) {
+					this.app.pluginMetadataAccessCache?.cachePluginMetadataAccessIfNeeded(metadataProvider, metadataIds[0], req.path, resData.MediaContainer.Metadata, context);
 				}
 				// add related hubs if included
 				if(params.includeRelated == 1) {
@@ -293,7 +279,6 @@ export default (class LetterboxdPlugin implements PseuplexPlugin {
 						if(!metadataId) {
 							return;
 						}
-						const metadataIdParts = parsePartialMetadataID(metadataId);
 						// add letterboxd hubs
 						const metadataProvider = this.metadata;
 						const relHubsData = await metadataProvider.getRelatedHubs(metadataId, {
@@ -312,7 +297,7 @@ export default (class LetterboxdPlugin implements PseuplexPlugin {
 						await this.app.filterResponse('metadataRelatedHubsFromProvider', relHubsData, {
 							userReq:req,
 							userRes:res,
-							metadataId:metadataIdParts,
+							metadataId,
 							metadataProvider,
 							from: PseuplexRelatedHubsSource.Library,
 						});
@@ -324,7 +309,8 @@ export default (class LetterboxdPlugin implements PseuplexPlugin {
 				await this.app.filterResponse('metadataFromProvider', resData, {
 					userReq:req,
 					userRes:res,
-					metadataProvider
+					metadataProvider,
+					metadataIds,
 				});
 				// send unavailable notification(s) if needed
 				this.app.sendMetadataUnavailableNotificationsIfNeeded(resData, params, context);
@@ -335,20 +321,19 @@ export default (class LetterboxdPlugin implements PseuplexPlugin {
 		// get hubs related to metadata item
 		for(const {endpoint, hubsSource} of getPlexRelatedHubsEndpoints(`${this.metadata.basePath}/:id`)) {
 			router.get(endpoint, [
-				this.app.middlewares.plexAuthentication,
-				this.app.middlewares.plexRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexHubsPage> => {
-					const id = req.params.id;
+				this.app.middlewares.plexAuthentication(),
+				this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexHubsPage> => {
+					const metadataId = req.params.id;
 					const context = this.app.contextForRequest(req);
-					const params = plexTypes.parsePlexHubPageParams(req, {fromListPage:true});
+					const plexParams = plexTypes.parsePlexHubListPageParams(req);
 					// add similar items hub
 					const metadataProvider = this.metadata;
-					const resData = await metadataProvider.getRelatedHubs(id, {
-						plexParams: params,
+					const resData = await metadataProvider.getRelatedHubs(metadataId, {
+						plexParams,
 						context,
 						from: hubsSource,
 					});
 					// filter response
-					const metadataId = parsePartialMetadataID(id);
 					await this.app.filterResponse('metadataRelatedHubsFromProvider', resData, {
 						userReq:req,
 						userRes:res,
@@ -364,8 +349,8 @@ export default (class LetterboxdPlugin implements PseuplexPlugin {
 		
 		// get similar films on letterboxd as a hub
 		router.get(`${this.metadata.basePath}/:id/${this.hubs.similar.relativePath}`, [
-			this.app.middlewares.plexAuthentication,
-			this.app.middlewares.plexRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexHubsPage> => {
+			this.app.middlewares.plexAuthentication(),
+			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexHubsPage> => {
 				const id = req.params.id;
 				const context = this.app.contextForRequest(req);
 				const params = plexTypes.parsePlexHubPageParams(req, {fromListPage:false});
@@ -376,8 +361,8 @@ export default (class LetterboxdPlugin implements PseuplexPlugin {
 		
 		// get letterboxd friend activity as a hub
 		router.get(`${this.hubs.userFollowingActivity.basePath}/:letterboxdUsername`, [
-			this.app.middlewares.plexAuthentication,
-			this.app.middlewares.plexRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexMetadataPage> => {
+			this.app.middlewares.plexAuthentication(),
+			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexMetadataPage> => {
 				const context = this.app.contextForRequest(req);
 				const letterboxdUsername = req.params['letterboxdUsername'];
 				if(!letterboxdUsername) {
@@ -387,15 +372,15 @@ export default (class LetterboxdPlugin implements PseuplexPlugin {
 				const hub = await this.hubs.userFollowingActivity.get(letterboxdUsername);
 				return await hub.getHubPage({
 					...params,
-					listStartToken: stringParam(req.query['listStartToken'])
+					listStartToken: parseStringQueryParam(req.query['listStartToken'])
 				}, context);
 			})
 		]);
 		
 		// get letterboxd list as a hub
 		router.get(`${this.hubs.list.basePath}/:listId`, [
-			this.app.middlewares.plexAuthentication,
-			this.app.middlewares.plexRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexHubPage> => {
+			this.app.middlewares.plexAuthentication(),
+			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res): Promise<plexTypes.PlexHubPage> => {
 				const listId = req.params['listId'];
 				if(!listId) {
 					throw httpError(400, "No list ID provided");
@@ -417,9 +402,9 @@ export default (class LetterboxdPlugin implements PseuplexPlugin {
 		const friendsActvityHubEnabled = userPrefs?.letterboxd?.friendsActivityHubEnabled ?? config.letterboxd?.friendsActivityHubEnabled ?? false;
 		// add friends activity feed hub if enabled
 		if(friendsActvityHubEnabled && userPrefs?.letterboxd?.username) {
-			const params = plexTypes.parsePlexHubPageParams(context.userReq, {fromListPage:true});
+			const plexParams = plexTypes.parsePlexHubPageParams(context.userReq, {fromListPage:true});
 			const hub = await this.hubs.userFollowingActivity.get(userPrefs.letterboxd.username);
-			const page = await hub.getHubListEntry(params, this.app.contextForRequest(context.userReq));
+			const page = await hub.getHubListEntry(plexParams, this.app.contextForRequest(context.userReq));
 			if(!resData.MediaContainer.Hub) {
 				resData.MediaContainer.Hub = [];
 			} else if(!(resData.MediaContainer.Hub instanceof Array)) {
@@ -488,7 +473,7 @@ export default (class LetterboxdPlugin implements PseuplexPlugin {
 	async _addFriendReviewsIfNeeded(resData: PseuplexMetadataPage, context: PseuplexResponseFilterContext) {
 		const userInfo = context.userReq.plex.userInfo;
 		const plexAuthContext = context.userReq.plex.authContext;
-		const reqParams = context.userReq.plex.requestParams;
+		const reqParams: plexTypes.PlexMetadataPageParams = context.userReq.plex.requestParams;
 		// get prefs
 		const config = this.config;
 		const userPrefs = config.perUser[userInfo.email];
@@ -514,6 +499,7 @@ export default (class LetterboxdPlugin implements PseuplexPlugin {
 					}
 					// attach letterboxd friends reviews
 					const getFilmOpts = lbTransform.getFilmOptsFromPartialMetadataId(letterboxdMetadataId);
+					console.log(`Fetching letterboxd friend reviews for film ${JSON.stringify(getFilmOpts)} and user ${letterboxdUsername}`);
 					const friendViewings = await letterboxd.getReviews({
 						...getFilmOpts,
 						userSlug: letterboxdUsername,
@@ -534,4 +520,4 @@ export default (class LetterboxdPlugin implements PseuplexPlugin {
 			});
 		}
 	}
-} as PseuplexPluginClass);
+} satisfies PseuplexPluginClass);

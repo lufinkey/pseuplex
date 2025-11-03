@@ -1,26 +1,42 @@
-
 import fs from 'fs';
-import { SSLConfig } from './utils/ssl';
-import { IPv4NormalizeModeKey } from './utils/ip';
-import { PseuplexConfigBase } from './pseuplex/configbase';
-import { PseuplexServerProtocol } from './pseuplex/types/server';
-import { LetterboxdPluginConfig } from './plugins/letterboxd/config';
-import { RequestsPluginConfig } from './plugins/requests/config';
-import { OverseerrRequestsPluginConfig } from './plugins/requests/providers/overseerr/config';
+import type { SSLConfig } from './utils/ssl';
+import type { IPv4NormalizeModeKey } from './utils/ip';
+import type { PseuplexConfigBase } from './pseuplex/configbase';
+import type { PseuplexServerProtocol } from './pseuplex/types/server';
+import type { PasswordLockPluginConfig } from './plugins/passwordlock/config';
+import type { LetterboxdPluginConfig } from './plugins/letterboxd/config';
+import type { RequestsPluginConfig } from './plugins/requests/config';
+import type { DashboardPluginConfig } from './plugins/dashboard/config';
+import type { OverseerrRequestsPluginConfig } from './plugins/requests/providers/overseerr/config';
+import type { LoggingOptions } from './logging';
 
 export type Config = {
 	protocol?: PseuplexServerProtocol,
-	port: number;
+	host?: string;
+	port?: number;
+	httpPort?: number;
+	httpsPort?: number;
 	ipv4ForwardingMode?: IPv4NormalizeModeKey;
+	trustProxy?: boolean;
+	sendMetadataUnavailability?: boolean;
 	forwardMetadataRefreshToPluginMetadata?: boolean;
+	redirectPlexStreams?: boolean;
+	imageOverlays?: {
+		enabled?: boolean;
+		overrides?: {[overlayName: string]: string};
+	},
+	remapMetadataIds?: boolean;
 	plex: {
 		host?: string;
-		port?: number;
+		secureHost?: string;
+		redirectHost?: string;
+		secureRedirectHost?: string;
 		token: string;
 		processedMachineIdentifier?: string;
 		appDataPath?: string;
 		metadataHost?: string;
 		notificationSocketRetryInterval?: number;
+		overwritePrivatePort?: number | boolean;
 	},
 	ssl?: SSLConfig & {
 		autoP12Path?: boolean;
@@ -28,9 +44,15 @@ export type Config = {
 		watchCertChanges?: boolean;
 		certReloadDelay?: number;
 	},
-} & PseuplexConfigBase<{}>
+	logging?: LoggingOptions;
+	plugins?: {
+		[id: string]: string
+	}
+} & PseuplexConfigBase<{[key: string]: any}>
+	& PasswordLockPluginConfig
 	& LetterboxdPluginConfig
 	& RequestsPluginConfig
+	& DashboardPluginConfig
 	& OverseerrRequestsPluginConfig;
 
 export const readConfigFile = async (path: string): Promise<Config> => {

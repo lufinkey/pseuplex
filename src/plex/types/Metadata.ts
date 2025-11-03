@@ -1,8 +1,7 @@
-
+import express from 'express';
 import {
 	PlexContentRating,
 	PlexMediaItemType,
-	PlexXMLBoolean
 } from './common';
 import { PlexHubWithItems } from './Hub';
 import {
@@ -11,32 +10,46 @@ import {
 import {
 	PlexMediaContainer
 } from './MediaContainer';
+import {
+	BooleanQueryParam,
+	parseBooleanQueryParam,
+	parseIntQueryParam
+} from '../../utils/queryparams';
 
 export type PlexMetadataPageParams = {
-	includeConcerts?: PlexXMLBoolean;
-	includeExtras?: PlexXMLBoolean;
-	includeOnDeck?: PlexXMLBoolean;
-	includePopularLeaves?: PlexXMLBoolean;
-	includePreferences?: PlexXMLBoolean;
-	includeReviews?: PlexXMLBoolean;
-	includeChapters?: PlexXMLBoolean;
-	includeStations?: PlexXMLBoolean;
-	includeExternalMetadata?: PlexXMLBoolean;
-	asyncAugmentMetadata?: PlexXMLBoolean;
-	checkFiles?: PlexXMLBoolean;
-	asyncCheckFiles?: PlexXMLBoolean;
-	refreshAnalysis?: PlexXMLBoolean;
-	asyncRefreshAnalysis?: PlexXMLBoolean;
-	refreshLocalMediaAgent?: PlexXMLBoolean;
-	asyncRefreshLocalMediaAgent?: PlexXMLBoolean;
-	includeUserState?: PlexXMLBoolean;
-	includeRelated?: PlexXMLBoolean;
+	includeConcerts?: BooleanQueryParam;
+	includeExtras?: BooleanQueryParam;
+	includeOnDeck?: BooleanQueryParam;
+	includePopularLeaves?: BooleanQueryParam;
+	includePreferences?: BooleanQueryParam;
+	includeReviews?: BooleanQueryParam;
+	includeChapters?: BooleanQueryParam;
+	includeStations?: BooleanQueryParam;
+	includeExternalMetadata?: BooleanQueryParam;
+	asyncAugmentMetadata?: BooleanQueryParam;
+	checkFiles?: BooleanQueryParam;
+	asyncCheckFiles?: BooleanQueryParam;
+	refreshAnalysis?: BooleanQueryParam;
+	asyncRefreshAnalysis?: BooleanQueryParam;
+	refreshLocalMediaAgent?: BooleanQueryParam;
+	asyncRefreshLocalMediaAgent?: BooleanQueryParam;
+	includeUserState?: BooleanQueryParam;
+	includeRelated?: BooleanQueryParam;
 };
 
 export type PlexMetadataChildrenPageParams = {
-	excludeAllLeaves?: boolean;
 	'X-Plex-Container-Start'?: number;
 	'X-Plex-Container-Size'?: number;
+	excludeAllLeaves?: boolean;
+};
+
+export const parsePlexMetadataChildrenPageParams = (req: express.Request): PlexMetadataChildrenPageParams => {
+	const query = req.query;
+	return {
+		'X-Plex-Container-Start': parseIntQueryParam(query['X-Plex-Container-Start'] ?? req.header('x-plex-container-start')),
+		'X-Plex-Container-Size': parseIntQueryParam(query['X-Plex-Container-Size'] ?? req.header('x-plex-container-size')),
+		excludeAllLeaves: parseBooleanQueryParam(query['excludeAllLeaves']),
+	}
 };
 
 export type PlexMetadataCollection = {
@@ -56,6 +69,7 @@ export type PlexMetadataItem = {
 	type: PlexMediaItemType; // 'episode'
 	title: string; // "Some Episode Name"
 	originalTitle?: string;
+	editionTitle?: string;
 	tagline?: string;
 	summary?: string;
 	thumb?: string; // "/library/metadata/20205/thumb/98535429"
@@ -86,7 +100,8 @@ export type PlexMetadataItem = {
 	availabilityId?: string;
 	streamingMediaId?: string;
 	userState?: boolean;
-	childCount?: number;
+	childCount?: number; // I think this might be only be for /library/all
+	leafCount?: number;
 
 	Guid?: PlexGuid[];
 	Genre?: PlexGenre[];
@@ -125,16 +140,16 @@ export type PlexMetadataItem = {
 	grandparentTheme?: string; // "/library/metadata/20198/theme/45343402402354"
 };
 
-export type PlexMetadataPage = {
+export type PlexMetadataPage<TPlexMetadataItem extends PlexMetadataItem = PlexMetadataItem> = {
 	MediaContainer: PlexMediaContainer & {
 		librarySectionID?: string | number;
 		librarySectionTitle?: string;
 		librarySectionUUID?: string; // only included on PMS results
-		Metadata: PlexMetadataItem | PlexMetadataItem[]
+		Metadata: TPlexMetadataItem | TPlexMetadataItem[]
 	}
 };
 
-export type PlexMetadataChildrenPage = PlexMetadataPage & {
+export type PlexMetadataChildrenPage<TPlexMetadataItem extends PlexMetadataItem = PlexMetadataItem> = PlexMetadataPage<TPlexMetadataItem> & {
 	MediaContainer: {
 		nocache?: boolean;
 		key?: string; // "12345"

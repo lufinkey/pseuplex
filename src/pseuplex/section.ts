@@ -1,9 +1,9 @@
 import express from 'express';
 import * as plexTypes from '../plex/types';
 import type { PseuplexRequestContext } from './types';
-import type {
-	PseuplexHub,
-	PseuplexHubPageParams
+import {
+	pseuplexHubPageParamsFromHubListParams,
+	type PseuplexHub,
 } from './hub';
 
 export interface PseuplexSection {
@@ -19,7 +19,24 @@ export interface PseuplexSection {
 	getLibrarySectionsEntry(params: plexTypes.PlexLibrarySectionsPageParams, context: PseuplexRequestContext): Promise<plexTypes.PlexLibrarySection>;
 	getPromotedHubsPage(params: plexTypes.PlexHubListPageParams, context: PseuplexRequestContext): Promise<plexTypes.PlexSectionHubsPage>;
 	getHubsPage(params: plexTypes.PlexHubListPageParams, context: PseuplexRequestContext): Promise<plexTypes.PlexSectionHubsPage>;
+	getCollectionsPage(params: plexTypes.PlexCollectionsPageParams, context: PseuplexRequestContext): Promise<plexTypes.PlexCollectionsPage>;
+	getAllItemsPage(params: plexTypes.PlexSectionAllItemsParams, context: PseuplexRequestContext): Promise<plexTypes.PlexMetadataPage>;
+	getPrefsPage(context: PseuplexRequestContext): Promise<plexTypes.PlexPrefsPage>;
 }
+
+export type PseuplexSectionItemsPage = {
+	items: plexTypes.PlexMetadataItem[];
+	offset: number;
+	more: boolean;
+	totalItemCount?: number;
+};
+
+export type PseuplexSectionCollectionsPage = {
+	items: plexTypes.PlexCollection[];
+	offset: number;
+	more: boolean;
+	totalItemCount: number;
+};
 
 export type PseuplexSectionOptions = {
 	allowSync?: boolean;
@@ -29,6 +46,9 @@ export type PseuplexSectionOptions = {
 	title: string;
 	path: string;
 	hubsPath: string;
+	agent?: plexTypes.PlexLibraryAgent;
+	scanner?: plexTypes.PlexLibraryScanner;
+	language?: string; // "en-US"
 	hidden?: boolean;
 };
 
@@ -36,18 +56,25 @@ export class PseuplexSectionBase implements PseuplexSection {
 	readonly id: string | number;
 	readonly uuid?: string | undefined;
 	readonly type: plexTypes.PlexMediaItemType;
-	readonly title: string;
 	readonly path: string;
 	readonly hubsPath: string;
+	title: string;
+	agent?: plexTypes.PlexLibraryAgent;
+	scanner?: plexTypes.PlexLibraryScanner;
+	language?: string; // "en-US"
 	allowSync: boolean;
+	refreshing = false;
 
 	constructor(options: PseuplexSectionOptions) {
 		this.id = options.id;
 		this.uuid = options.uuid;
 		this.type = options.type ?? plexTypes.PlexMediaItemType.Mixed;
-		this.title = options.title;
 		this.path = options.path;
 		this.hubsPath = options.hubsPath;
+		this.title = options.title;
+		this.agent = options.agent;
+		this.scanner = options.scanner;
+		this.language = options.language;
 		this.allowSync = options.allowSync ?? false;
 	}
 
@@ -82,14 +109,17 @@ export class PseuplexSectionBase implements PseuplexSection {
 			title: await titlePromise,
 			uuid: this.uuid,
 			type: this.type,
-			refreshing: false,
+			refreshing: this.refreshing,
+			agent: this.agent,
+			scanner: this.scanner,
+			language: this.language,
 			Pivot: await pivotsPromise,
 		};
 	}
 
 	async getPivots?(): Promise<plexTypes.PlexPivot[]>;
 
-	async getLibrarySectionsEntry(params: plexTypes.PlexLibrarySectionsPageParams, context: PseuplexRequestContext): Promise<plexTypes.PlexLibrarySection> {
+	async getLibrarySectionsEntry(params: plexTypes.PlexLibrarySectionsPageParams, context: PseuplexRequestContext & {from: PseuplexAllSectionsSource}): Promise<plexTypes.PlexLibrarySection> {
 		const titlePromise = this.getTitle(context);
 		return {
 			allowSync: this.allowSync,
@@ -97,31 +127,31 @@ export class PseuplexSectionBase implements PseuplexSection {
 			uuid: this.uuid!,
 			type: this.type,
 			title: await titlePromise,
-			refreshing: false,
+			refreshing: this.refreshing,
+			agent: this.agent,
+			scanner: this.scanner,
+			language: this.language,
 			filters: true,
 			content: true,
 			directory: true,
 		};
 	}
-
+	
+	
 	getHubs?(params: plexTypes.PlexHubListPageParams, context: PseuplexRequestContext): Promise<PseuplexHub[]>;
 	getPromotedHubs?(params: plexTypes.PlexHubListPageParams, context: PseuplexRequestContext): Promise<PseuplexHub[]>;
 
-	private async hubPageFromHubs(
-		params: plexTypes.PlexHubListPageParams,
+	private async hubPageFromHubs(options: {
+		plexParams: plexTypes.PlexHubListPageParams,
 		context: PseuplexRequestContext,
 		hubsPromise: (PseuplexHub[] | Promise<PseuplexHub[] | undefined> | undefined),
 		promoted: boolean,
-	): Promise<plexTypes.PlexSectionHubsPage> {
-		const titlePromise = this.getTitle(context);
-		const hubs = (await hubsPromise) ?? [];
-		const hubPageParams: PseuplexHubPageParams = {
-			count: params.count,
-			includeMeta: params.includeMeta,
-			excludeFields: params.excludeFields
-		};
+	}): Promise<plexTypes.PlexSectionHubsPage> {
+		const titlePromise = this.getTitle(options.context);
+		const hubs = (await options.hubsPromise) ?? [];
+		const hubPageParams = pseuplexHubPageParamsFromHubListParams(options.plexParams);
 		const hubEntriesPromise = Promise.all(hubs.map((hub) => {
-			return hub.getHubListEntry(hubPageParams, context)
+			return hub.getHubListEntry(hubPageParams, options.context);
 		}));
 		return {
 			MediaContainer: {
@@ -130,26 +160,105 @@ export class PseuplexSectionBase implements PseuplexSection {
 				librarySectionID: this.id,
 				librarySectionTitle: await titlePromise,
 				librarySectionUUID: this.uuid!,
+				identifier: plexTypes.PlexPluginIdentifier.PlexAppLibrary,
 				Hub: await hubEntriesPromise,
 			}
 		};
 	}
 	
-	async getHubsPage(params: plexTypes.PlexHubListPageParams, context: PseuplexRequestContext): Promise<plexTypes.PlexSectionHubsPage> {
-		return await this.hubPageFromHubs(
-			params,
+	async getHubsPage(plexParams: plexTypes.PlexHubListPageParams, context: PseuplexRequestContext): Promise<plexTypes.PlexSectionHubsPage> {
+		return await this.hubPageFromHubs({
+			plexParams,
 			context,
-			this.getHubs?.(params, context),
-			false
-		);
+			hubsPromise: this.getHubs?.(plexParams, context),
+			promoted: false,
+		});
+	}
+	
+	async getPromotedHubsPage(plexParams: plexTypes.PlexHubListPageParams, context: PseuplexRequestContext): Promise<plexTypes.PlexSectionHubsPage> {
+		return await this.hubPageFromHubs({
+			plexParams,
+			context,
+			hubsPromise: this.getPromotedHubs?.(plexParams, context),
+			promoted: true,
+		});
 	}
 
-	async getPromotedHubsPage(params: plexTypes.PlexHubListPageParams, context: PseuplexRequestContext): Promise<plexTypes.PlexSectionHubsPage> {
-		return await this.hubPageFromHubs(
-			params,
-			context,
-			this.getHubs?.(params, context),
-			true
-		);
+
+	getCollections?(plexParams: plexTypes.PlexCollectionsPageParams, context: PseuplexRequestContext): Promise<PseuplexSectionCollectionsPage>;
+
+	getCollectionsMeta?(plexParams: plexTypes.PlexCollectionsPageParams, context: PseuplexRequestContext): Promise<plexTypes.PlexMeta>;
+
+	async getCollectionsPage(plexParams: plexTypes.PlexCollectionsPageParams, context: PseuplexRequestContext): Promise<plexTypes.PlexCollectionsPage> {
+		const titlePromise = this.getTitle(context);
+		const metaPromise = this.getCollectionsMeta?.(plexParams, context);
+		const chunk = await this.getCollections?.(plexParams, context);
+		const meta = await metaPromise;
+		const title = await titlePromise;
+		return {
+			MediaContainer: {
+				size: chunk?.items.length ?? 0,
+				totalSize: chunk ? chunk.totalItemCount : 0,
+				offset: chunk ? chunk.offset : 0,
+				allowSync: false,
+				content: plexTypes.PlexLibrarySectionContentType.Secondary,
+				identifier: plexTypes.PlexPluginIdentifier.PlexAppLibrary,
+				librarySectionID: this.id,
+				librarySectionTitle: title,
+				librarySectionUUID: this.uuid!,
+				title1: title,
+				viewGroup: this.type,
+				Meta: meta,
+				Metadata: chunk?.items ?? [],
+			}
+		};
+	}
+
+
+	getAllItems?(plexParams: plexTypes.PlexSectionAllItemsParams, context: PseuplexRequestContext): Promise<PseuplexSectionItemsPage>;
+
+	async getAllItemsPage(plexParams: plexTypes.PlexSectionAllItemsParams, context: PseuplexRequestContext): Promise<plexTypes.PlexMetadataPage> {
+		const titlePromise = this.getTitle(context);
+		const itemsPage = await this.getAllItems?.(plexParams, context);
+		return {
+			MediaContainer: {
+				size: itemsPage?.items.length ?? 0,
+				totalSize: itemsPage ? itemsPage.totalItemCount : 0,
+				offset: itemsPage?.offset,
+				allowSync: false,
+				librarySectionID: this.id,
+				librarySectionTitle: await titlePromise,
+				librarySectionUUID: this.uuid!,
+				identifier: plexTypes.PlexPluginIdentifier.PlexAppLibrary,
+				Metadata: itemsPage?.items ?? [],
+			}
+		};
+	}
+
+
+	getPrefs?(context: PseuplexRequestContext): Promise<plexTypes.PlexSetting[]>;
+	
+	async getPrefsPage(context: PseuplexRequestContext): Promise<plexTypes.PlexPrefsPage> {
+		const prefItems = await this.getPrefs?.(context) ?? [];
+		return {
+			MediaContainer: {
+				size: prefItems.length,
+				Setting: prefItems,
+			}
+		};
 	}
 }
+
+
+export enum PseuplexAllSectionsSource {
+	Sections = '',
+	AllSections = 'all',
+};
+
+export const endpointForPseuplexSectionsSource = (source: PseuplexAllSectionsSource) => {
+	let endpoint = '/library/sections';
+	if(source) {
+		endpoint += `/${source}`;
+	}
+	return endpoint;
+};

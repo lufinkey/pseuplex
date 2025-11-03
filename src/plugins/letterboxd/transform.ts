@@ -6,22 +6,27 @@ import {
 	PseuplexMetadataSource,
 	PseuplexMetadataTransformOptions,
 	PseuplexRequestContext,
-} from '../../pseuplex';
-import {
 	parsePartialMetadataID,
 	PseuplexMetadataIDString,
 	PseuplexPartialMetadataIDString,
 	stringifyMetadataID,
-	stringifyPartialMetadataID
-} from '../../pseuplex/metadataidentifier';
+	stringifyPartialMetadataID,
+	nonexistantMediaItems,
+} from '../../pseuplex';
 import {
-	intParam,
+	parseIntQueryParam,
+	createBooleanQueryParam,
+} from '../../utils/queryparams';
+import {
 	combinePathSegments
 } from '../../utils/misc';
 import { LetterboxdMetadataProvider } from './metadata';
-import { booleanQueryParam } from '../../plex/api/serialization';
+import { httpError } from '../../utils/error';
 
 export const partialMetadataIdFromFilmInfo = (filmInfo: letterboxd.FilmPage): PseuplexPartialMetadataIDString => {
+	if(!filmInfo.pageData.slug) {
+		throw httpError(500, "Missing film slug in letterboxd film info");
+	}
 	return stringifyPartialMetadataID({
 		directory: filmInfo.pageData.type,
 		id: filmInfo.pageData.slug
@@ -42,6 +47,9 @@ export const getFilmOptsFromPartialMetadataId = (metadataId: PseuplexPartialMeta
 };
 
 export const fullMetadataIdFromFilmInfo = (filmInfo: letterboxd.FilmPage, opts?: {asUrl?: boolean}): PseuplexMetadataIDString => {
+	if(!filmInfo.pageData.slug) {
+		throw httpError(500, "Missing film slug in letterboxd film info");
+	}
 	return stringifyMetadataID({
 		isURL: opts?.asUrl,
 		source: PseuplexMetadataSource.Letterboxd,
@@ -56,7 +64,7 @@ export const filmInfoToPlexMetadata = (filmInfo: letterboxd.FilmPage, context: P
 	const fullMetadataId = fullMetadataIdFromFilmInfo(filmInfo,{asUrl:false});
 	return {
 		// guid: fullMetadataIdFromFilmInfo(filmInfo, {asUrl:true}),
-		key: combinePathSegments(options.metadataBasePath, options.qualifiedMetadataId ? fullMetadataId : partialMetadataId),
+		key: combinePathSegments(options.metadataBasePath, options.qualifiedMetadataIds ? fullMetadataId : partialMetadataId),
 		ratingKey: fullMetadataId,
 		type: plexTypes.PlexMediaItemType.Movie,
 		title: filmInfo.ldJson.name,
@@ -64,7 +72,7 @@ export const filmInfoToPlexMetadata = (filmInfo: letterboxd.FilmPage, context: P
 		thumb: filmInfo.ldJson.image,
 		tagline: filmInfo.pageData.tagline,
 		summary: filmInfo.pageData.description,
-		year: intParam(releasedEvent?.[0]?.startDate),
+		year: parseIntQueryParam(releasedEvent?.[0]?.startDate),
 		Pseuplex: {
 			isOnServer: false,
 			unavailable: true,
@@ -99,18 +107,9 @@ export const filmInfoToPlexMetadata = (filmInfo: letterboxd.FilmPage, context: P
 			return viewingToPlexReview(viewing);
 		}),
 		// dont include this for the older (non react native) Android app
-		Media: (!plexTypes.plexUserIsNativeAndroidMobileAppPre2025(context.plexAuthContext)) ? [
-			{
-				id: 'nonexistant' as any,
-				Part: [
-					{
-						id: 'nonexistant' as any,
-						accessible: false,
-						exists: false,
-					} as plexTypes.PlexMediaPart
-				]
-			} as plexTypes.PlexMedia
-		] : undefined,
+		Media: nonexistantMediaItems({
+			unavailable: options.includeMetadataUnavailability,
+		}, context)
 	};
 };
 
@@ -128,6 +127,9 @@ export const filmInfoGuids = (filmInfo: letterboxd.FilmPage) => {
 };
 
 export const partialMetadataIdFromFilm = (film: letterboxd.Film): PseuplexPartialMetadataIDString => {
+	if(!film.slug) {
+		throw httpError(500, "Missing film slug in letterboxd film");
+	}
 	return stringifyPartialMetadataID({
 		directory: film.type,
 		id: film.slug
@@ -135,6 +137,9 @@ export const partialMetadataIdFromFilm = (film: letterboxd.Film): PseuplexPartia
 };
 
 export const fullMetadataIdFromFilm = (film: letterboxd.Film, opts:{asUrl:boolean}): PseuplexMetadataIDString => {
+	if(!film.slug) {
+		throw httpError(500, "Missing film slug in letterboxd film");
+	}
 	return stringifyMetadataID({
 		isURL: opts.asUrl,
 		source: PseuplexMetadataSource.Letterboxd,
@@ -145,7 +150,7 @@ export const fullMetadataIdFromFilm = (film: letterboxd.Film, opts:{asUrl:boolea
 
 export const filmToPlexMetadata = (film: letterboxd.Film, options: PseuplexMetadataTransformOptions): plexTypes.PlexMetadataItem => {
 	const fullMetadataId = fullMetadataIdFromFilm(film, {asUrl:false});
-	const metadataId = options.qualifiedMetadataId ? fullMetadataId : partialMetadataIdFromFilm(film);
+	const metadataId = options.qualifiedMetadataIds ? fullMetadataId : partialMetadataIdFromFilm(film);
 	return {
 		// guid: fullMetadataIdFromFilm(film, {asUrl:true}),
 		key: combinePathSegments(options.metadataBasePath, metadataId),
@@ -154,7 +159,7 @@ export const filmToPlexMetadata = (film: letterboxd.Film, options: PseuplexMetad
 		title: film.name,
 		//slug: fullMetadataId,
 		thumb: film.imageURL,
-		year: intParam(film.year)
+		year: parseIntQueryParam(film.year)
 	};
 };
 
@@ -207,10 +212,10 @@ export const getFilmListOptsFromPartialListId = (listId: PseuplexLetterboxdListI
 	const query = queryString ? qs.parse(queryString) : undefined;
 	if(query) {
 		if(query.detail) {
-			query.detail = booleanQueryParam(query.detail as any) as any;
+			query.detail = createBooleanQueryParam(query.detail as any) as any;
 		}
 		if(query.upcoming) {
-			query.upcoming = booleanQueryParam(query.upcoming as any) as any;
+			query.upcoming = createBooleanQueryParam(query.upcoming as any) as any;
 		}
 		if(typeof query.genre === 'string') {
 			query.genre = query.genre.split(',');

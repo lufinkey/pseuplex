@@ -1,7 +1,6 @@
 
 import express from 'express';
 import {
-	PlexXMLBoolean,
 	PlexMediaItemType
 } from './common';
 import {
@@ -16,10 +15,10 @@ import {
 } from './Meta';
 import { PlexMediaContainer } from './MediaContainer';
 import {
-	intParam,
-	stringArrayParam,
-	booleanParam
-} from '../../utils/misc';
+	parseIntQueryParam,
+	parseStringArrayQueryParam,
+	parseBooleanQueryParam,
+} from '../../utils/queryparams';
 
 
 export enum PlexHubNumericType {
@@ -51,27 +50,36 @@ export type PlexHubWithItems = PlexHub & {
 
 
 export type PlexHubPageParams = {
+	'X-Plex-Container-Start'?: number;
+	'X-Plex-Container-Size'?: number;
 	contentDirectoryID?: string[];
 	pinnedContentDirectoryID?: string[];
 	includeMeta?: boolean;
 	excludeFields?: string[]; // "summary"
-	start?: number;
-	count?: number;
 };
 
 export const parsePlexHubPageParams = (req: express.Request, options: {fromListPage: boolean}): PlexHubPageParams => {
-	const query = req.query;
-	if(!query) {
-		return {};
+	if(options.fromListPage) {
+		const hubListParams = parsePlexHubListPageParams(req);
+		return plexHubPageParamsFromHubListParams(hubListParams);
 	}
+	const query = req.query ?? {};
 	return {
-		start: options.fromListPage ? undefined : intParam(query['X-Plex-Container-Start'] ?? req.header('x-plex-container-start')),
-		count: options.fromListPage ? intParam(query['count']) : intParam(query['X-Plex-Container-Size'] ?? req.header('x-plex-container-size')),
-		contentDirectoryID: stringArrayParam(query['contentDirectoryID']),
-		pinnedContentDirectoryID: stringArrayParam(query['pinnedContentDirectoryID']),
-		excludeFields: stringArrayParam(query['excludeFields']),
-		includeMeta: booleanParam(query['includeMeta'])
-	};
+		'X-Plex-Container-Start': parseIntQueryParam(query['X-Plex-Container-Start'] ?? req.header('x-plex-container-start')),
+		'X-Plex-Container-Size': parseIntQueryParam(query['X-Plex-Container-Size'] ?? req.header('x-plex-container-size')),
+		contentDirectoryID: parseStringArrayQueryParam(query['contentDirectoryID']),
+		pinnedContentDirectoryID: parseStringArrayQueryParam(query['pinnedContentDirectoryID']),
+		excludeFields: parseStringArrayQueryParam(query['excludeFields']),
+		includeMeta: parseBooleanQueryParam(query['includeMeta']),
+	} satisfies (PlexHubPageParams & Partial<PlexHubPageParams>);
+};
+
+export const plexHubPageParamsFromHubListParams = (hubListParams: PlexHubListPageParams): PlexHubPageParams => {
+	const params: Partial<PlexHubListPageParams & PlexHubPageParams> = {...hubListParams};
+	params['X-Plex-Container-Size'] = params.count;
+	delete params.count;
+	delete params['X-Plex-Container-Start'];
+	return params;
 };
 
 export type PlexHubPage = {
@@ -82,7 +90,10 @@ export type PlexHubPage = {
 };
 
 
+
 export type PlexHubListPageParams = {
+	contentDirectoryID?: string[];
+	pinnedContentDirectoryID?: string[];
 	count?: number;
 	includeLibraryPlaylists?: boolean;
 	includeStations?: boolean;
@@ -98,13 +109,15 @@ export const parsePlexHubListPageParams = (req: express.Request): PlexHubListPag
 		return {};
 	}
 	return {
-		count: intParam(query['count']),
-		includeLibraryPlaylists: booleanParam(query['includeLibraryPlaylists']),
-		includeStations: booleanParam(query['includeStations']),
-		includeRecentChannels: booleanParam(query['includeRecentChannels']),
-		includeMeta: booleanParam(query['includeMeta']),
-		includeExternalMetadata: booleanParam(query['includeExternalMetadata']),
-		excludeFields: stringArrayParam(query['excludeFields'])
+		contentDirectoryID: parseStringArrayQueryParam(query['contentDirectoryID']),
+		pinnedContentDirectoryID: parseStringArrayQueryParam(query['pinnedContentDirectoryID']),
+		count: parseIntQueryParam(query['count']),
+		includeLibraryPlaylists: parseBooleanQueryParam(query['includeLibraryPlaylists']),
+		includeStations: parseBooleanQueryParam(query['includeStations']),
+		includeRecentChannels: parseBooleanQueryParam(query['includeRecentChannels']),
+		includeMeta: parseBooleanQueryParam(query['includeMeta']),
+		includeExternalMetadata: parseBooleanQueryParam(query['includeExternalMetadata']),
+		excludeFields: parseStringArrayQueryParam(query['excludeFields'])
 	};
 };
 

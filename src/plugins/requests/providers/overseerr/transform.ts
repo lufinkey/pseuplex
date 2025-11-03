@@ -37,12 +37,14 @@ export const mediaStatusFromOverseerrMediaStatus = (status: overseerrTypes.Media
 };
 
 export const transformOverseerrRequestItem = (
-	request: overseerrTypes.MediaRequestItem | overseerrTypes.MediaRequestInfo,
-	mediaItem: overseerrTypes.MediaItemInfo
+	request: overseerrTypes.CreateRequestItemResult | overseerrTypes.MediaRequestInfo,
+	mediaItem: overseerrTypes.MediaItemInfo,
+	opts: {seasons?: number[] | undefined},
 ): RequestInfo => {
 	return {
 		requestId: request.id,
 		requestStatus: requestStatusFromOverseerrRequestStatus(request.status),
 		mediaStatus: mediaStatusFromOverseerrMediaStatus(mediaItem.status),
+		seasons: opts.seasons,
 	};
 }

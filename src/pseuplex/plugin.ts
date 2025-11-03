@@ -3,11 +3,15 @@ import http from 'http';
 import express from 'express';
 import * as plexTypes from '../plex/types';
 import { IncomingPlexAPIRequest } from '../plex/requesthandling';
-import { PseuplexMetadataPage, PseuplexRequestContext } from './types';
+import { PseuplexMetadataChildrenPage, PseuplexMetadataPage, PseuplexRequestContext } from './types';
 import { PseuplexHubProvider } from './hub';
 import { PseuplexMetadataProvider, PseuplexRelatedHubsSource } from './metadata';
-import { PseuplexMetadataIDParts, PseuplexPartialMetadataIDParts } from './metadataidentifier';
-import { PseuplexSection } from './section';
+import {
+	PseuplexMetadataIDParts,
+	PseuplexPartialMetadataIDString
+} from './metadataidentifier';
+import { PseuplexAllSectionsSource, PseuplexSection } from './section';
+import { PseuplexRouterApp } from './router';
 
 
 export type PseuplexResponseFilterContext = {
@@ -17,27 +21,47 @@ export type PseuplexResponseFilterContext = {
 	previousFilterPromises?: Promise<void>[];
 };
 
+export type PseuplexSectionsFilterContext = PseuplexResponseFilterContext & {
+	from: PseuplexAllSectionsSource;
+};
+
+export type PseuplexMetadataResponseFilterContext = PseuplexResponseFilterContext & {
+	metadataIds: PseuplexMetadataIDParts[];
+};
+
+export type PseuplexMetadataChildrenResponseFilterContext = PseuplexResponseFilterContext & {
+	metadataId: PseuplexMetadataIDParts;
+};
+
 export type PseuplexMetadataRelatedHubsResponseFilterContext = PseuplexResponseFilterContext & {
 	metadataId: PseuplexMetadataIDParts;
 	from: PseuplexRelatedHubsSource;
 };
 
 export type PseuplexMetadataFromProviderResponseFilterContext = PseuplexResponseFilterContext & {
+	metadataIds: PseuplexPartialMetadataIDString[];
 	metadataProvider: PseuplexMetadataProvider;
 };
 
 export type PseuplexMetadataRelatedHubsFromProviderResponseFilterContext = PseuplexResponseFilterContext & {
-	metadataId: PseuplexPartialMetadataIDParts;
+	metadataId: PseuplexPartialMetadataIDString;
 	metadataProvider: PseuplexMetadataProvider;
 	from: PseuplexRelatedHubsSource;
+};
+
+export type PseuplexSectionHubsResponseFilterContext = PseuplexResponseFilterContext & {
+	sectionId: string;
 };
 
 export type PseuplexResponseFilter<TResponseData, TContext extends PseuplexResponseFilterContext = PseuplexResponseFilterContext> = (resData: TResponseData, context: TContext) => void | Promise<void>;
 export type PseuplexResponseFilters = {
 	mediaProviders?: PseuplexResponseFilter<plexTypes.PlexServerMediaProvidersPage>;
+	sections?: PseuplexResponseFilter<plexTypes.PlexLibrarySectionsPage, PseuplexSectionsFilterContext>;
 	hubs?: PseuplexResponseFilter<plexTypes.PlexLibraryHubsPage>;
 	promotedHubs?: PseuplexResponseFilter<plexTypes.PlexLibraryHubsPage>;
-	metadata?: PseuplexResponseFilter<PseuplexMetadataPage>;
+	sectionHubs?: PseuplexResponseFilter<plexTypes.PlexSectionHubsPage, PseuplexSectionHubsResponseFilterContext>;
+	metadata?: PseuplexResponseFilter<PseuplexMetadataPage, PseuplexMetadataResponseFilterContext>;
+	metadataChildren?: PseuplexResponseFilter<PseuplexMetadataChildrenPage, PseuplexMetadataChildrenResponseFilterContext>;
 	metadataRelatedHubs?: PseuplexResponseFilter<plexTypes.PlexHubsPage, PseuplexMetadataRelatedHubsResponseFilterContext>;
 	findGuidInLibrary?: PseuplexResponseFilter<plexTypes.PlexMetadataPage, PseuplexResponseFilterContext>;
 
@@ -55,7 +79,8 @@ export interface PseuplexPlugin {
 	readonly hubs?: { readonly [hubName: string]: PseuplexHubProvider };
 	readonly responseFilters?: PseuplexReadOnlyResponseFilters;
 
-	defineRoutes?: (router: express.Express) => void;
+	defineRoutes?: (router: PseuplexRouterApp) => void;
+	defineFallbackRoutes?: (router: PseuplexRouterApp) => void;
 	hasSections?: (context: PseuplexRequestContext) => Promise<boolean>;
 	getSections?: (context: PseuplexRequestContext) => Promise<PseuplexSection[]>;
 	shouldListenToPlexServerNotifications?: () => boolean;

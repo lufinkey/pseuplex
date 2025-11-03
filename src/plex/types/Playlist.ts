@@ -1,6 +1,10 @@
 import { PlexMediaItemType } from './common';
 import { PlexMetadataItem } from './Metadata';
 
+export enum PlexPlaylistType {
+	Video = 'video',
+}
+
 export type PlexPlaylist = {
 	guid: string; // "com.plexapp.agents.none://d8895e9a-06d9-4549-a4d5-6e4d74a19bb9"
 	ratingKey: string; // "42548"
@@ -9,18 +13,18 @@ export type PlexPlaylist = {
 	title: string;
 	summary: string;
 	smart: boolean;
-	playlistType: PlexMediaItemType;
+	playlistType: PlexPlaylistType;
 	composite: string; // "/playlists/42548/composite/1726155341"
-	viewCount: number;
-	lastViewedAt: number; // 1720153977
-	thumb: string; // "/library/metadata/42548/thumb/1726155341"
+	viewCount?: number;
+	lastViewedAt?: number; // 1720153977
+	thumb?: string; // "/library/metadata/42548/thumb/1726155341"
 	duration: number; // 350663000
 	leafCount: number; // number of items in the playlist
 	addedAt: number; // 1720153977
 	updatedAt: number; // 1726155341
 };
 
-export type PlexPlaylistPage = {
+export type PlexPlaylistsPage = {
 	MediaContainer: {
 		size: number;
 		Metadata: PlexPlaylist[];
@@ -41,7 +45,7 @@ export type PlexPlaylistItemsPage = {
 		composite: string; // "/playlists/42548/composite/1726155341"
 		duration: number; // 350663 (seems to be playlist.duration / 1000)
 		leafCount: number; // number of items in the playlist
-		playlistType: PlexMediaItemType;
+		playlistType: PlexPlaylistType;
 		ratingKey: string; // "42548"
 		smart: boolean;
 		title: string;

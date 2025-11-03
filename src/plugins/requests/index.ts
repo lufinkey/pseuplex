@@ -10,18 +10,24 @@ import { PlexServerAccountInfo } from '../../plex/accounts';
 import {
 	PseuplexApp,
 	PseuplexConfigBase,
+	PseuplexMetadataChildrenPage,
 	PseuplexMetadataProvider,
 	PseuplexMetadataSource,
 	PseuplexPlugin,
 	PseuplexPluginClass,
-	PseuplexReadOnlyResponseFilters
+	PseuplexReadOnlyResponseFilters,
+	PseuplexRequestContext,
+	PseuplexResponseFilterContext,
+	PseuplexRouterApp
 } from '../../pseuplex';
 import * as extPlexTransform from '../../pseuplex/externalplex/transform';
 import {
-	stringParam,
-	intParam,
+	parseStringQueryParam,
+	parseIntQueryParam,
+} from '../../utils/queryparams';
+import {
 	pushToArray,
-	isNullOrEmpty,
+	isArrayNullOrEmpty,
 	findInArrayOrSingle,
 	forArrayOrSingle,
 	firstOrSingle,
@@ -31,34 +37,30 @@ import {
 	RequestsProvider,
 	RequestsProviders,
 } from './provider';
-import { OverseerrRequestsProvider } from './providers/overseerr';
+import OverseerrRequestsProvider from './providers/overseerr';
 import { PlexRequestsHandler } from './handler';
 import * as reqsTransform from './transform';
 import { RequestsPluginConfig } from './config';
+import { RequestsPluginDef } from './plugindef';
 
-export default (class RequestsPlugin implements PseuplexPlugin {
+const RequestProviderClasses = [
+	OverseerrRequestsProvider,
+];
+
+export default (class RequestsPlugin implements RequestsPluginDef, PseuplexPlugin {
 	static slug = 'requests';
 	readonly slug = RequestsPlugin.slug;
 	readonly app: PseuplexApp;
-	readonly requestProviders: RequestsProviders = {};
 	readonly requestsHandler: PlexRequestsHandler;
 
 	constructor(app: PseuplexApp) {
 		this.app = app;
-		const requestProviders = [
-			new OverseerrRequestsProvider(app)
-		];
-		for(const provider of requestProviders) {
-			this.requestProviders[provider.slug] = provider;
-		}
 		this.requestsHandler = new PlexRequestsHandler({
+			plugin: this,
 			basePath: `/${this.app.slug}/${PseuplexMetadataSource.Request}`,
-			requestProviders: this.requestProviders,
-			plexMetadataClient: this.app.plexMetadataClient,
-			plexGuidToInfoCache: this.app.plexGuidToInfoCache,
-			loggingOptions: {
-				logOutgoingRequests: app.loggingOptions.logOutgoingRequests,
-			}
+			requestProviders: RequestProviderClasses.map((providerClass) => {
+				return new providerClass(app);
+			})
 		});
 	}
 
@@ -75,39 +77,48 @@ export default (class RequestsPlugin implements PseuplexPlugin {
 	}
 
 	responseFilters?: PseuplexReadOnlyResponseFilters = {
-		findGuidInLibrary: async (resData, context) => {
-			const plexAuthContext = context.userReq.plex.authContext;
-			const userToken = plexAuthContext['X-Plex-Token'];
-			if(!userToken) {
+		findGuidInLibrary: async (resData, filterContext) => {
+			const reqContext = this.app.contextForRequest(filterContext.userReq);
+			const plexUserToken = reqContext.plexAuthContext?.['X-Plex-Token'];
+			if(!plexUserToken) {
 				return;
 			}
-			const plexUserInfo = context.userReq.plex.userInfo;
+			const plexUserInfo = filterContext.userReq.plex.userInfo;
 			// check if requests are enabled
-			const requestsEnabled = this.config.perUser[plexUserInfo.email]?.requests?.enabled ?? this.config.requests?.enabled;
+			const requestsEnabled = this.requestsEnabledForContext(reqContext);
 			if(!requestsEnabled) {
 				return;
 			}
 			// wait for all previous filters
-			await Promise.all(context.previousFilterPromises ?? []);
+			await Promise.all(filterContext.previousFilterPromises ?? []);
 			// only show request option if no items were found
-			if(!isNullOrEmpty(resData.MediaContainer.Metadata)) {
+			if(!isArrayNullOrEmpty(resData.MediaContainer.Metadata)) {
 				return;
 			}
 			// get request provider
-			const requestProvider = await this._getRequestsProviderForPlexUser(userToken, plexUserInfo);
+			const requestProvider = await this.requestsHandler.getRequestsProviderForPlexUser(plexUserToken, plexUserInfo);
 			if(!requestProvider) {
 				return;
 			}
 			// parse params
-			const mediaType = intParam(context.userReq.query['type']) as plexTypes.PlexMediaItemTypeNumeric;
-			let guid = stringParam(context.userReq.query['guid']);
+			let mediaType = parseIntQueryParam(filterContext.userReq.query['type']) as plexTypes.PlexMediaItemTypeNumeric;
+			let guid = parseStringQueryParam(filterContext.userReq.query['guid']);
 			let season: number | undefined = undefined;
 			if(!guid) {
-				guid = stringParam(context.userReq.query['show.guid']);
+				guid = parseStringQueryParam(filterContext.userReq.query['show.guid']);
 				if(!guid) {
 					return;
 				}
-				season = intParam(context.userReq.query['season.index']);
+				season = parseIntQueryParam(filterContext.userReq.query['season.index']);
+			}
+			if(mediaType == null) {
+				const guidParts = parsePlexMetadataGuid(guid);
+				if(guidParts?.protocol == plexTypes.PlexMetadataGuidProtocol.Plex && guidParts.type) {
+					mediaType = plexTypes.PlexMediaItemTypeToNumeric[guidParts.type];
+				} else {
+					console.error(`No media type specified in request`);
+					return;
+				}
 			}
 			// create hook metadata
 			const metadataItem = await this.requestsHandler.createRequestButtonMetadata({
@@ -116,7 +127,7 @@ export default (class RequestsPlugin implements PseuplexPlugin {
 				season,
 				requestProvider,
 				plexMetadataClient: this.app.plexMetadataClient,
-				authContext: plexAuthContext,
+				context: reqContext,
 				moviesLibraryId: this.config.plex.requestedMoviesLibraryId,
 				tvShowsLibraryId: this.config.plex.requestedTVShowsLibraryId,
 				useLibraryMetadataPath: this.app.alwaysUseLibraryMetadataPath,
@@ -126,10 +137,88 @@ export default (class RequestsPlugin implements PseuplexPlugin {
 			}
 			resData.MediaContainer.Metadata = pushToArray(resData.MediaContainer.Metadata, metadataItem);
 			resData.MediaContainer.size += 1;
-		}
+			if(resData.MediaContainer.totalSize != null) {
+				resData.MediaContainer.totalSize += 1;
+			}
+		},
+
+		metadataChildren: async (resData, filterContext) => {
+			const reqContext = this.app.contextForRequest(filterContext.userReq);
+			const plexParams = plexTypes.parsePlexMetadataChildrenPageParams(filterContext.userReq);
+			const plexUserToken = filterContext.userReq.plex.authContext?.['X-Plex-Token'];
+			if(!plexUserToken) {
+				return;
+			}
+			const plexUserInfo = filterContext.userReq.plex.userInfo;
+			// get prefs
+			const requestsEnabled = this.requestsEnabledForContext(reqContext);
+			if(!requestsEnabled) {
+				return;
+			}
+			const showRequestableSeasons = this.requestableSeasonsEnabledForContext(reqContext);
+			const partiallyAvailableOverlay = this.partiallyAvailableOverlayEnabledForContext(reqContext);
+			const requestsProvider = await this.requestsHandler.getRequestsProviderForPlexUser(plexUserToken, plexUserInfo);
+			// add requestable seasons if able
+			if((showRequestableSeasons || partiallyAvailableOverlay) && !filterContext.metadataId.source && requestsProvider) {
+				await Promise.all(filterContext.previousFilterPromises ?? []);
+				// get guid for id
+				const plexGuid = await this.app.plexServerIdToGuidCache.getOrFetch(filterContext.metadataId.id);
+				const plexGuidParts = plexGuid ? parsePlexMetadataGuid(plexGuid) : null;
+				if(plexGuidParts?.id
+					&& plexGuidParts.type == plexTypes.PlexMediaItemType.TVShow
+					&& plexGuidParts.protocol == plexTypes.PlexMetadataGuidProtocol.Plex
+				) {
+					// add requestable seasons if needed
+					if(showRequestableSeasons) {
+						const fullIdString = reqsTransform.createRequestFullMetadataId({
+							mediaType: plexGuidParts.type as plexTypes.PlexMediaItemType,
+							plexId: plexGuidParts.id,
+							requestProviderSlug: requestsProvider.slug,
+						});
+						await this.requestsHandler.addRequestableSeasons(resData, {
+							plexId: plexGuidParts.id,
+							plexType: plexGuidParts.type,
+							plexParams,
+							transformMatchKeys: false,
+							metadataBasePath: '/library/metadata',
+							qualifiedMetadataIds: true,
+							requestsProvider,
+							parentKey: `/library/metadata/${fullIdString}`,
+							parentRatingKey: fullIdString,
+							partiallyAvailableOverlay: partiallyAvailableOverlay,
+							overlayedImageEndpoint: this.app.overlayedImageEndpoint,
+						}, reqContext);
+					}
+					else if(partiallyAvailableOverlay && this.app.overlayedImageEndpoint) {
+						// fetch other children (seasons) from plex metadata provider
+						// TODO cache this data
+						const discoverMetadataPage= await this.app.plexMetadataClient.getMetadataChildren(plexGuidParts.id, plexParams);
+						// add partially available overlays if needed
+						console.log(`adding overlays for ${(resData.MediaContainer.Metadata as any).length} seasons`);
+						forArrayOrSingle(resData.MediaContainer.Metadata, (metadataItem) => {
+							// find matching child from plex server
+							const discoverItem = metadataItem.index != null ?
+								findInArrayOrSingle(discoverMetadataPage.MediaContainer.Metadata, (cmpMetadataItem) => {
+									return (cmpMetadataItem.index == metadataItem.index);
+								})
+								: undefined;
+							if(!discoverItem) {
+								console.log(`skipped`);
+								return;
+							}
+							console.log("adding overlay");
+							// add partially available overlay if needed
+							reqsTransform.addPartiallyAvailableBannerIfNeeded(metadataItem, discoverItem, {
+								overlayedImageEndpoint: this.app.overlayedImageEndpoint!
+							});
+						});
+					}
+				}
+			}
+		},
 	}
 
-	defineRoutes(router: express.Express) {
+	defineRoutes(router: PseuplexRouterApp) {
 		// handle different paths for a plex request
 		for(const endpoint of [
 			`${this.requestsHandler.basePath}/:providerSlug/:mediaType/:plexId`,
@@ -141,12 +230,12 @@ export default (class RequestsPlugin implements PseuplexPlugin {
 
 			// get metadata for requested item
 			router.get(endpoint, [
-				this.app.middlewares.plexAuthentication,
-				this.app.middlewares.plexRequestHandler(async (req: IncomingPlexAPIRequest, res) => {
+				this.app.middlewares.plexAuthentication(),
+				this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res) => {
 					// get request properties
 					const { providerSlug, mediaType, plexId } = req.params;
-					const season = intParam(req.params.season);
-					const plexParams = req.plex.requestParams;
+					const season = parseIntQueryParam(req.params.season);
+					const plexParams: plexTypes.PlexMetadataPageParams = req.plex.requestParams;
 					const context = this.app.contextForRequest(req);
 					// handle request
 					const resData = await this.requestsHandler.handlePlexRequest({
@@ -192,19 +281,24 @@ export default (class RequestsPlugin implements PseuplexPlugin {
 		}
 	}
 
-	async _getRequestsProviderForPlexUser(token: string, userInfo: PlexServerAccountInfo): Promise<RequestsProvider | null> {
-		for(const slug in this.requestProviders) {
-			const provider = this.requestProviders[slug];
-			try {
-				if(provider.isConfigured && await provider.canPlexUserMakeRequests(token, userInfo)) {
-					return provider;
-				}
-			} catch(error) {
-				console.error(`Failed check for whether user ${userInfo?.email} can make requests:`);
-				console.error(error);
-			}
-		}
-		return null;
+
+
+	requestsEnabledForContext(context: PseuplexRequestContext) {
+		const cfg = this.config;
+		const userPrefs = cfg.perUser[context.plexUserInfo.email];
+		return userPrefs?.requests?.enabled ?? cfg.requests?.enabled;
 	}
 
-} as PseuplexPluginClass);
+	requestableSeasonsEnabledForContext(context: PseuplexRequestContext) {
+		const cfg = this.config;
+		const userPrefs = cfg.perUser[context.plexUserInfo.email];
+		return userPrefs?.requests?.requestableSeasons ?? cfg.requests?.requestableSeasons;
+	}
+
+	partiallyAvailableOverlayEnabledForContext(context: PseuplexRequestContext) {
+		const cfg = this.config;
+		const userPrefs = cfg.perUser[context.plexUserInfo.email];
+		return userPrefs?.requests?.partiallyAvailableOverlay ?? cfg.requests?.partiallyAvailableOverlay;
+	}
+
+} satisfies PseuplexPluginClass);

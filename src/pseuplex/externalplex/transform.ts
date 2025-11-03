@@ -12,6 +12,7 @@ import {
 	stringifyMetadataID,
 	stringifyPartialMetadataID
 } from '../metadataidentifier';
+import { nonexistantMediaItems } from '../media';
 
 export const createPartialExternalPlexMetadataIdParts = (opts: {serverURL: string, metadataId: string}): PseuplexPartialMetadataIDParts => {
 	return {
@@ -71,32 +72,21 @@ export const transformExternalPlexMetadata = (metadataItem: plexTypes.PlexMetada
 			asUrl: false
 		});
 		pseuMetadataItem.ratingKey = fullMetadataId;
-		pseuMetadataItem.key = `${transformOpts.metadataBasePath}/${transformOpts.qualifiedMetadataId ? fullMetadataId : partialMetadataId}`;
+		pseuMetadataItem.key = `${transformOpts.metadataBasePath}/${transformOpts.qualifiedMetadataIds ? fullMetadataId : partialMetadataId}`;
 		pseuMetadataItem.Pseuplex = {
 			isOnServer: false,
 			unavailable: true,
 			metadataIds: {},
-			plexMetadataIds: {
+			externalPlexMetadataIds: {
 				[serverURL]: metadataId
-			}
+			},
 		};
 	} else {
 		console.error("Failed to parse metadataId from external plex metadata item");
 	}
 	// dont include this for the older (non react native) Android app
-	if (!plexTypes.plexUserIsNativeAndroidMobileAppPre2025(context.plexAuthContext)) {
-		pseuMetadataItem.Media = [
-			{
-				id: 'nonexistant' as any,
-				Part: [
-					{
-						id: 'nonexistant' as any,
-						accessible: false,
-						exists: false,
-					} as plexTypes.PlexMediaPart
-				]
-			} as plexTypes.PlexMedia
-		];
-	}
+	pseuMetadataItem.Media = nonexistantMediaItems({
+		unavailable: transformOpts.includeMetadataUnavailability,
+	}, context);
 	return pseuMetadataItem;
 };

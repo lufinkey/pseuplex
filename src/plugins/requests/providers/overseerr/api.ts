@@ -5,17 +5,18 @@ import {
 	UsersSortType,
 	User,
 	MediaType,
-	MediaRequestItem,
 	Language,
 	Movie,
-	TVShow
+	TVShow,
+	CreateRequestItemResult,
 } from './apitypes';
+import { Logger } from '../../../../logging';
 import { httpResponseError } from '../../../../utils/error';
 
 export type OverseerrAPIRequestOptions = {
 	serverURL: string,
 	apiKey?: string,
-	verbose?: boolean,
+	logger?: Logger,
 };
 
 const overseerrFetch = async (options: {
@@ -25,7 +26,7 @@ const overseerrFetch = async (options: {
 	params?: { [key: string]: any } | null,
 	headers?: { [key: string]: string },
 	apiKey?: string | null,
-	verbose?: boolean,
+	logger?: Logger,
 }) => {
 	// build URL
 	let url: string;
@@ -57,31 +58,19 @@ const overseerrFetch = async (options: {
 		reqBody = JSON.stringify(options.params);
 	}
 	// send request
-	if(options.verbose) {
-		console.log(`Sending request ${method} ${url}`);
-		if(reqBody) {
-			console.log(reqBody);
-		}
-	}
-	// send request
-	const res = await fetch(url, {
+	const reqOpts: RequestInit = {
 		method,
 		headers,
 		body: reqBody
-	});
+	};
+	options.logger?.logOutgoingRequest(url, reqOpts);
+	const res = await fetch(url, reqOpts);
+	const resData = (await res.json()) as any;
+	options.logger?.logOutgoingRequestResponse(res, reqOpts, resData);
 	if (!res.ok) {
-		if(options.verbose) {
-			console.error(`Got response ${res.status} for ${method} ${url}: ${res.statusText}`);
-		}
-		res.body?.cancel();
 		throw httpResponseError(url, res);
 	}
 	// parse response
-	const resBody = await res.text();
-	if (!resBody) {
-		return undefined;
-	}
-	const resData = JSON.parse(resBody);
 	if(res.status != 200 && resData.message && Object.keys(resData).length == 1) {
 		throw httpResponseError(url, res, resData.message);
 	}
@@ -118,7 +107,7 @@ export type CreateRequestItem = {
 	userId?: number;
 };
 
-export const createRequest = async (params: CreateRequestItem, options: OverseerrAPIRequestOptions): Promise<MediaRequestItem> => {
+export const createRequest = async (params: CreateRequestItem, options: OverseerrAPIRequestOptions): Promise<CreateRequestItemResult> => {
 	return await overseerrFetch({
 		...options,
 		method: 'POST',

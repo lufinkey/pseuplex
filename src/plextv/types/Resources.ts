@@ -1,7 +1,7 @@
 
 import {
-	PlexXMLBoolean
-} from '../../plex/types';
+	BooleanQueryParam
+} from '../../utils/queryparams';
 
 export type PlexTVDevice = {
 	name: string; // "Server Name"
@@ -14,17 +14,17 @@ export type PlexTVDevice = {
 	createdAt: `${number}` | number;
 	lastSeenAt: `${number}` | number;
 	provides: string; // "server"
-	owned: PlexXMLBoolean;
+	owned: BooleanQueryParam;
 	ownerId?: `${number}` | number;
 	accessToken: string;
 	publicAddress: string;
-	httpsRequired: PlexXMLBoolean;
-	synced?: PlexXMLBoolean;
-	relay?: PlexXMLBoolean;
-	dnsRebindingProtection?: PlexXMLBoolean;
-	natLoopbackSupport: PlexXMLBoolean;
-	publicAddressMatches: PlexXMLBoolean;
-	presence?: PlexXMLBoolean;
+	httpsRequired: BooleanQueryParam;
+	synced?: BooleanQueryParam;
+	relay?: BooleanQueryParam;
+	dnsRebindingProtection?: BooleanQueryParam;
+	natLoopbackSupport: BooleanQueryParam;
+	publicAddressMatches: BooleanQueryParam;
+	presence?: BooleanQueryParam;
 	PlexTVDeviceConnection?: PlexTVDeviceConnection[]
 };
 
@@ -33,7 +33,7 @@ export type PlexTVDeviceConnection = {
 	address: string;
 	port: `${number}` | number;
 	uri: string;
-	local: PlexXMLBoolean;
+	local: BooleanQueryParam;
 };
 
 export type PlexTVResourcesPage = {
