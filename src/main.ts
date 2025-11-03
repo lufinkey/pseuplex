@@ -142,7 +142,7 @@ let args: CommandArguments;
 	};
 	// auto-determine p12 path if needed
 	if(!sslConfig.p12Path && cfg.ssl?.autoP12Path) {
-		let appDataPath = cfg.plex?.appDataPath;
+		let { appDataPath, appCachePath } = cfg.plex;
 		if(!appDataPath) {
 			// determine the path of plex's app data
 			if(process.platform == 'win32') {
@@ -153,7 +153,7 @@ let args: CommandArguments;
 				}
 			}
 		}
-		sslConfig.p12Path = await getPlexP12Path({appDataPath});
+		sslConfig.p12Path = await getPlexP12Path({appDataPath,appCachePath});
 	}
 	// calculate p12 password if needed
 	if(sslConfig.p12Path && !sslConfig.p12Password && cfg.ssl?.autoP12Password) {
