@@ -28,4 +28,4 @@ COPY package*.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 
 # Entrypoint is used here to allow signals (e.g. SIGTERM) to properly pass through to node process
-ENTRYPOINT [ "node", '--enable-source-maps', "dist/main.js", "--config=/config/config.json" ]
+ENTRYPOINT [ "node", "--enable-source-maps", "dist/main.js", "--config=/config/config.json" ]
