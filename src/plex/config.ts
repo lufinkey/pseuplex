@@ -84,16 +84,16 @@ export const calculatePlexP12Password = (prefs: {ProcessedMachineIdentifier}): s
 	return crypto.createHash('sha512').update(`plex${prefs.ProcessedMachineIdentifier}`).digest('hex');
 };
 
-export const getPlexP12Path = (opts: {appDataPath?: string}) => {
+export const getPlexP12Path = (opts: {appDataPath?: string, appCachePath?: string}) => {
 	switch(process.platform) {
 		case 'win32':
-			return `${opts?.appDataPath || `${os.homedir()}/AppData/Local/Plex Media Server`}/Cache/cert-v2.p12`;
+			return `${opts?.appCachePath || `${opts?.appDataPath || `${os.homedir()}/AppData/Local/Plex Media Server`}/Cache`}/cert-v2.p12`;
 
 		case 'darwin':
-			return `${os.homedir()}/Library/Caches/PlexMediaServer/cert-v2.p12`;
+			return `${opts?.appCachePath || `${os.homedir()}/Library/Caches/PlexMediaServer`}/cert-v2.p12`;
 
 		case 'linux':
 		default:
-			return `${opts?.appDataPath || PlexAppDataDir_Linux}/Cache/cert-v2.p12`;
+			return `${opts?.appCachePath || `${opts?.appDataPath || PlexAppDataDir_Linux}/Cache`}/cert-v2.p12`;
 	}
 };

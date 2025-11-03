@@ -34,6 +34,7 @@ export type Config = {
 		token: string;
 		processedMachineIdentifier?: string;
 		appDataPath?: string;
+		appCachePath?: string;
 		metadataHost?: string;
 		notificationSocketRetryInterval?: number;
 		overwritePrivatePort?: number | boolean;
