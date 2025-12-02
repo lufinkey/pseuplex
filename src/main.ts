@@ -1,6 +1,7 @@
 #!/usr/bin/env node --enable-source-maps
 import tls from 'tls';
 import sharp from 'sharp';
+import fs from 'fs';
 import * as constants from './constants';
 import {
 	Config,
@@ -33,7 +34,7 @@ import RequestsPlugin from './plugins/requests';
 import DashboardPlugin from './plugins/dashboard';
 import {
 	calculatePlexP12Password,
-	getPlexP12Path,
+	findPlexP12Path,
 	readPlexPreferences
 } from './plex/config';
 import { PlexPreferences } from './plex/types';
@@ -52,7 +53,7 @@ let plexPrefs: PlexPreferences | undefined = undefined;
 let cfg: Config;
 let args: CommandArguments;
 
-(async () => {
+(async () => { try {
 	const appVersionString = await getAppVersionString();
 	console.log(`${constants.APP_NAME} ${appVersionString}\n`);
 	console.log(`${(new Date()).toISOString()}`);
@@ -138,10 +139,13 @@ let args: CommandArguments;
 		p12Path: cfg.ssl?.p12Path,
 		p12Password: cfg.ssl?.p12Password,
 		certPath: cfg.ssl?.certPath,
-		keyPath: cfg.ssl?.keyPath
+		keyPath: cfg.ssl?.keyPath,
 	};
 	// auto-determine p12 path if needed
-	if(!sslConfig.p12Path && cfg.ssl?.autoP12Path) {
+	if(cfg.ssl?.autoP12Path && (!sslConfig.p12Path || !fs.existsSync(sslConfig.p12Path))) {
+		if(sslConfig.p12Path) {
+			console.error(`Failed to find plex p12 certificate at ${sslConfig.p12Path}. Other paths will be searched.`);
+		}
 		let { appDataPath, appCachePath } = cfg.plex;
 		if(!appDataPath) {
 			// determine the path of plex's app data
@@ -153,7 +157,8 @@ let args: CommandArguments;
 				}
 			}
 		}
-		sslConfig.p12Path = await getPlexP12Path({appDataPath,appCachePath});
+		sslConfig.p12Path = await findPlexP12Path({appDataPath,appCachePath});
+		console.log(`Using plex p12 certificate path ${sslConfig.p12Path}`);
 	}
 	// calculate p12 password if needed
 	if(sslConfig.p12Path && !sslConfig.p12Password && cfg.ssl?.autoP12Password) {
@@ -257,7 +262,7 @@ let args: CommandArguments;
 		});
 	}
 
-})().catch((error) => {
+} catch(error) {
 	console.error(error);
 	process.exit(2);
-});
+} })();

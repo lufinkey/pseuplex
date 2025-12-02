@@ -6,8 +6,9 @@ import {
 	PlexAPIRequestHandlerOptions
 } from '../plex/requesthandling';
 import {
-	parseMetadataID,
-	PseuplexMetadataIDParts
+	parsePseuplexMetadataID,
+	PseuplexMetadataIDParts,
+	PseuplexMetadataIDString,
 } from './metadataidentifier';
 import {
 	PseuplexIDRemappings,
@@ -20,24 +21,25 @@ import {
 	httpError,
 } from '../utils/error';
 
-export const parseMetadataIdsFromPathParam = (metadataIdsString: string): PseuplexMetadataIDParts[] => {
-	if(!metadataIdsString) {
-		return [];
-	}
-	return metadataIdsString.split(',').map((metadataId) => {
-		if(metadataId.indexOf(':') == -1 && metadataId.indexOf('%') != -1) {
-			metadataId = qs.unescape(metadataId);
-		}
-		return parseMetadataID(metadataId);
-	});
+
+export const parsePseuplexMetadataIDFromPathParam = (paramString: string): PseuplexMetadataIDParts => {
+	// express automatically unescapes the path parameters, so no need to unescape here
+	// TODO check if this logic works consistently. We might just want to check if we need to unescape anyways
+	return parsePseuplexMetadataID(paramString);
 };
 
-export const parseMetadataIdFromPathParam = (metadataIdString: string): PseuplexMetadataIDParts => {
-	if(metadataIdString.indexOf(':') == -1 && metadataIdString.indexOf('%') != -1) {
-		metadataIdString = qs.unescape(metadataIdString);
-	}
-	return parseMetadataID(metadataIdString);
+export const parsePseuplexMetadataIDStringsFromPathParam = (idsString: string): PseuplexMetadataIDString[] => {
+	// express automatically unescapes the path parameters, so no need to unescape here
+	// TODO check if this logic works consistently. We might just want to check if we need to unescape anyways
+	return idsString.split(',');
 };
+
+export const parsePseuplexMetadataIDsFromPathParam = (idsString: string): PseuplexMetadataIDParts[] => {
+	return parsePseuplexMetadataIDStringsFromPathParam(idsString)
+		.map((m) => parsePseuplexMetadataID(idsString));
+};
+
+
 
 export type PseuplexRemappedMetadataIdsRequest = IncomingPlexAPIRequest & {
 	remappedPlexMetadataIds: PseuplexPrivateToPublicIDsMap;
@@ -52,14 +54,15 @@ export const remapPublicToPrivateMetadataIdMiddleware = (
 		const privateToPublicIds: {[key: string]: (number | string)} = {};
 		const metadataIdString = req.params.metadataId;
 		if(metadataIdString) {
-			const metadataIdParts = parseMetadataIdFromPathParam(metadataIdString);
+			const metadataIdParts = parsePseuplexMetadataIDFromPathParam(metadataIdString);
 			if(!metadataIdParts.source) {
 				const privateId = metadataIdMappings.getPrivateIDFromPublicID(metadataIdParts.id);
 				if(privateId != null) {
 					// id is a mapped ID, so we need to handle the request
 					privateToPublicIds[privateId] = metadataIdParts.id;
 					const escapedPrivateId = qs.escape(privateId);
-					const queryIndex = req.url!.indexOf('?');
+					// we should assume req.url refers to the full url here, and not a sub url
+					const queryIndex = req.url.indexOf('?');
 					const queryString = (queryIndex != -1 ? req.url.slice(queryIndex) : '');
 					const newUrl = replaceIdInPath(req, escapedPrivateId) + queryString;
 					req.params.metadataId = escapedPrivateId;
@@ -82,11 +85,11 @@ export const remapPublicToPrivateMetadataIdsMiddleware = (
 		const privateToPublicIds: {[key: string]: (number | string)} = {};
 		const metadataIdsString = req.params.metadataId;
 		if(metadataIdsString) {
-			const metadataIdStrings = metadataIdsString.split(',');
+			const metadataIdStrings = parsePseuplexMetadataIDStringsFromPathParam(metadataIdsString);
 			let idsChanged = false;
 			for(let i=0; i<metadataIdStrings.length; i++) {
 				const metadataIdString = metadataIdStrings[i];
-				const metadataId = parseMetadataIdFromPathParam(metadataIdString);
+				const metadataId = parsePseuplexMetadataID(metadataIdString);
 				if(!metadataId.source) {
 					const privateId = metadataIdMappings.getPrivateIDFromPublicID(metadataId.id);
 					if(privateId != null) {
@@ -100,7 +103,8 @@ export const remapPublicToPrivateMetadataIdsMiddleware = (
 				}
 			}
 			if(idsChanged) {
-				const queryIndex = req.url!.indexOf('?');
+				// we should assume req.url refers to the full url here, and not a sub url
+				const queryIndex = req.url.indexOf('?');
 				const queryString = (queryIndex != -1 ? req.url.slice(queryIndex) : '');
 				const joinedMetadataIds = metadataIdStrings.join(',');
 				const newUrl = replaceIdInPath(req, joinedMetadataIds) + queryString;
@@ -128,7 +132,7 @@ export const pseuplexMetadataIdRequestMiddleware = <TResult>(
 			// let plex handle the empty api request
 			return false;
 		}
-		let metadataIdParts = parseMetadataIdFromPathParam(metadataId);
+		let metadataIdParts = parsePseuplexMetadataIDFromPathParam(metadataId);
 		if(!metadataIdParts.source) {
 			// id is a plex ID, so no need to handle this request
 			return false;
@@ -154,7 +158,7 @@ export const pseuplexMetadataIdsRequestMiddleware = <TResult>(
 		if(!metadataIdsString) {
 			throw httpError(400, "No ID provided");
 		}
-		const metadataIds = parseMetadataIdsFromPathParam(metadataIdsString);
+		const metadataIds = parsePseuplexMetadataIDsFromPathParam(metadataIdsString);
 		// check if any non-plex metadata IDs exist
 		let anyNonPlexIds: boolean = false;
 		for(let i=0; i<metadataIds.length; i++) {

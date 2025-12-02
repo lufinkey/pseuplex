@@ -1,13 +1,13 @@
+import express from 'express';
 import * as plexTypes from '../plex/types';
-import { parseMetadataIDFromKey } from '../plex/metadataidentifier';
 import { CachedFetcher } from '../fetching/CachedFetcher';
-import type {
-	PseuplexMetadataPathTransformOptions,
-	PseuplexMetadataTransformOptions,
-	PseuplexMetadataProvider,
-} from './metadata';
 import type { PseuplexRequestContext } from './types';
-import { parseMetadataID, stringifyPartialMetadataID } from './metadataidentifier';
+import {
+	parsePseuplexMetadataKey,
+	stringifyPseuplexMetadataKeyFromIDStrings,
+} from './metadataidentifier';
+import { PseuplexMetadataTransformOptions } from './metadata';
+import { parseStringQueryParam } from '../utils/queryparams';
 
 export type PseuplexHubPage = {
 	hub: plexTypes.PlexHub;
@@ -17,30 +17,27 @@ export type PseuplexHubPage = {
 	more: boolean;
 }
 
+export const HubStartTokenQueryParam = 'hubStartToken';
+
 export type PseuplexHubPageParams = plexTypes.PlexHubPageParams & {
-	listStartToken?: string | null | undefined;
+	hubStartToken?: string | null | undefined;
+};
+
+export const parsePseuplexHubPageParams = (req: express.Request, options: plexTypes.ParsePlexHubPageParamsOptions): PseuplexHubPageParams => {
+	const hubPageParams: PseuplexHubPageParams = plexTypes.parsePlexHubPageParams(req, options);
+	if(!options.fromListPage) {
+		const hubStartToken = parseStringQueryParam(req.query[HubStartTokenQueryParam]);
+		if(hubStartToken !== undefined) {
+			hubPageParams.hubStartToken = hubStartToken;
+		}
+	}
+	return hubPageParams;
 };
 
 export type PseuplexHubSectionInfo = {
 	id: string;
 	title: string;
 	uuid?: string;
-};
-
-export type PseuplexHubMetadataTransformOptions = {
-	metadataTransformOptions?: PseuplexMetadataPathTransformOptions;
-	includeMetadataUnavailability: boolean;
-};
-
-export const getMetadataTransformOptionsForHub = (metadataProviderBasePath: string, options: PseuplexHubMetadataTransformOptions): PseuplexMetadataTransformOptions => {
-	return options.metadataTransformOptions ? {
-		...options.metadataTransformOptions,
-		includeMetadataUnavailability: options.includeMetadataUnavailability,
-	} : {
-		metadataBasePath: metadataProviderBasePath,
-		qualifiedMetadataIds: false,
-		includeMetadataUnavailability: options.includeMetadataUnavailability,
-	};
 };
 
 export abstract class PseuplexHub {
@@ -81,28 +78,18 @@ export abstract class PseuplexHub {
 	
 	async getHubListEntry(params: PseuplexHubPageParams, context: PseuplexRequestContext): Promise<plexTypes.PlexHubWithItems> {
 		const page = await this.get(params, context);
-		let transformOpts = this.metadataTransformOptions;
-		let metadataBasePath = transformOpts.metadataBasePath;
-		if(metadataBasePath && !metadataBasePath.endsWith('/')) {
-			metadataBasePath += '/';
-		}
-		const metadataIds = page.items
+		const metadataIds: string[] = page.items
 			.map((item) => {
-				let metadataId = parseMetadataIDFromKey(item.key, metadataBasePath)?.id;
+				let metadataId = parsePseuplexMetadataKey(item.key)?.id;
 				if (!metadataId) {
 					metadataId = item.ratingKey;
-					if(metadataId && !transformOpts.qualifiedMetadataIds) {
-						// unqualify metadata id
-						const fullMetadataIdParts = parseMetadataID(metadataId);
-						metadataId = stringifyPartialMetadataID(fullMetadataIdParts);
-					}
 				}
-				return metadataId;
+				return metadataId!;
 			})
 			.filter((metadataId) => metadataId);
 		return {
 			...page.hub,
-			hubKey: (metadataIds.length > 0 ? `${metadataBasePath}${metadataIds.join(',')}` : undefined) as string,
+			hubKey: stringifyPseuplexMetadataKeyFromIDStrings(metadataIds),
 			size: (page.items?.length ?? 0),
 			more: page.more,
 			Metadata: page.items
@@ -114,7 +101,7 @@ export abstract class PseuplexHub {
 
 export const pseuplexHubPageParamsFromHubListParams = (hubListParams: plexTypes.PlexHubPageParams) => {
 	const hubPageParams: PseuplexHubPageParams = plexTypes.plexHubPageParamsFromHubListParams(hubListParams);
-	delete hubPageParams.listStartToken;
+	delete hubPageParams.hubStartToken;
 	return hubPageParams;
 };
 
@@ -131,6 +118,7 @@ export abstract class PseuplexHubProvider<THub extends PseuplexHub = PseuplexHub
 
 	transformHubID?(id: string): (string | Promise<string>);
 	abstract fetch(id: string): (THub | Promise<THub>);
+	abstract path(id: string): string;
 
 	async get(id: string): Promise<THub> {
 		if(id == null) {

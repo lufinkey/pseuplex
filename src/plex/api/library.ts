@@ -8,11 +8,11 @@ import {
 export const getLibraryMetadata = async (id: string | number | (string | number)[], options: (PlexAPIRequestOptions & {
 	params?: plexTypes.PlexMetadataPageParams,
 })): Promise<plexTypes.PlexMetadataPage> => {
-	const idString = (id instanceof Array) ? id.map((idVal) => qs.escape(idVal?.toString())).join(',') : qs.escape(id?.toString());
+	const idsString = (id instanceof Array) ? id.map((idVal) => qs.escape(idVal?.toString())).join(',') : qs.escape(id?.toString());
 	return await plexServerFetch<plexTypes.PlexMetadataPage>({
 		...options,
 		method: 'GET',
-		endpoint: `library/metadata/${idString}`,
+		endpoint: `library/metadata/${idsString}`,
 	});
 };
 

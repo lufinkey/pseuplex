@@ -19,7 +19,8 @@ import {
 	getPortFromRequest,
 	expressRequestDebugString,
 	remoteAddressOfRequest,
-	requestIsEncrypted
+	requestIsEncrypted,
+	urlFromServerRequest,
 } from '../utils/requesthandling';
 import { httpError } from '../utils/error';
 
@@ -139,7 +140,7 @@ export const plexThinProxy = (host: HostOrHostGetter, options: PlexProxyOptions,
 		if(innerProxyReqPathResolver) {
 			url = await innerProxyReqPathResolver(userReq);
 		} else {
-			url = userReq.url;
+			url = urlFromServerRequest(userReq);
 		}
 		// log proxy request
 		const proxyReqOpts = (userReq as ProxiedUserReq).___proxyReqOpts;

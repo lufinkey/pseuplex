@@ -1,14 +1,23 @@
-
+import qs from 'querystring';
 import * as plexTypes from './types';
 import { httpError } from '../utils/error';
 
-export type PlexMetadataKeyParts = {
+export type PlexSingularMetadataKeyParts = {
 	basePath: string;
 	id: string;
 	relativePath?: string;
 };
 
-export const parseMetadataIDFromKeyOrThrow = (metadataKey: string, basePath: string): PlexMetadataKeyParts | null => {
+export type PlexPluralMetadataKeyParts = {
+	basePath: string;
+	ids: string[];
+	relativePath?: string;
+};
+
+export const PlexLibraryMetadataBasePath = '/library/metadata';
+
+
+const parseRawPlexMetadataKeyOrThrow = (metadataKey: string, basePath: string): PlexSingularMetadataKeyParts => {
 	if(!metadataKey) {
 		throw httpError(400, `Invalid empty metadata key`);
 	}
@@ -28,21 +37,47 @@ export const parseMetadataIDFromKeyOrThrow = (metadataKey: string, basePath: str
 	const parsedBasePath = metadataKey.slice(0, idStartIndex);
 	const slashIndex = metadataKey.indexOf('/', idStartIndex);
 	if(slashIndex == -1) {
+		const idString = metadataKey.substring(idStartIndex);
 		return {
 			basePath: parsedBasePath,
-			id: metadataKey.substring(idStartIndex)
+			id: idString
 		};
 	}
+	const idString = metadataKey.substring(idStartIndex, slashIndex);
 	return {
 		basePath: parsedBasePath,
-		id: metadataKey.substring(idStartIndex, slashIndex),
+		id: idString,
 		relativePath: metadataKey.substring(slashIndex)
 	};
 };
 
-export const parseMetadataIDFromKey = (metadataKey: string, basePath: string, warnOnFailure: boolean = true): PlexMetadataKeyParts | null => {
+export const parsePlexMetadataKeyOrThrow = (metadataKey: string): PlexSingularMetadataKeyParts => {
+	return parseRawPlexMetadataKeyOrThrow(metadataKey, PlexLibraryMetadataBasePath);
+};
+
+export const parsePlexMetadataKey = (metadataKey: string, warnOnFailure: boolean = true): PlexSingularMetadataKeyParts | null => {
 	try {
-		return parseMetadataIDFromKeyOrThrow(metadataKey, basePath);
+		return parsePlexMetadataKeyOrThrow(metadataKey);
+	} catch(error) {
+		if(warnOnFailure) {
+			console.warn((error as Error).message);
+		}
+		return null;
+	}
+};
+
+export const parsePlexPluralMetadataKeyOrThrow = (metadataKey: string): PlexPluralMetadataKeyParts => {
+	const rawMetadataKeyParts = parseRawPlexMetadataKeyOrThrow(metadataKey, PlexLibraryMetadataBasePath);
+	const ids = rawMetadataKeyParts.id.split(',');
+	const pluralKeyParts = (rawMetadataKeyParts as Partial<PlexPluralMetadataKeyParts>);
+	delete (rawMetadataKeyParts as Partial<typeof rawMetadataKeyParts>).id;
+	pluralKeyParts.ids = ids;
+	return pluralKeyParts as PlexPluralMetadataKeyParts;
+};
+
+export const parsePlexPluralMetadataKey = (metadataKey: string, warnOnFailure: boolean = true): PlexPluralMetadataKeyParts | null => {
+	try {
+		return parsePlexPluralMetadataKeyOrThrow(metadataKey);
 	} catch(error) {
 		if(warnOnFailure) {
 			console.warn((error as Error).message);

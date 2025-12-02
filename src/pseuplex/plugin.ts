@@ -64,9 +64,6 @@ export type PseuplexResponseFilters = {
 	metadataChildren?: PseuplexResponseFilter<PseuplexMetadataChildrenPage, PseuplexMetadataChildrenResponseFilterContext>;
 	metadataRelatedHubs?: PseuplexResponseFilter<plexTypes.PlexHubsPage, PseuplexMetadataRelatedHubsResponseFilterContext>;
 	findGuidInLibrary?: PseuplexResponseFilter<plexTypes.PlexMetadataPage, PseuplexResponseFilterContext>;
-
-	metadataFromProvider?: PseuplexResponseFilter<PseuplexMetadataPage, PseuplexMetadataFromProviderResponseFilterContext>;
-	metadataRelatedHubsFromProvider?: PseuplexResponseFilter<plexTypes.PlexHubsPage, PseuplexMetadataRelatedHubsFromProviderResponseFilterContext>;
 };
 export type PseuplexResponseFilterName = keyof PseuplexResponseFilters;
 export type PseuplexReadOnlyResponseFilters = {

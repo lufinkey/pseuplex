@@ -1,5 +1,6 @@
 import http from 'http';
 import express from 'express';
+import { urlFromServerRequest } from '../../utils/requesthandling';
 import { parseStringQueryParam } from '../../utils/queryparams';
 import { parseURLPath } from '../../utils/url';
 
@@ -40,8 +41,13 @@ const PlexAuthContextKeys: (keyof PlexAuthContext)[] = [
 export const parseAuthContextFromRequest = (req: express.Request | http.IncomingMessage): PlexAuthContext => {
 	// get query if needed
 	let query: {[key: string]: any} = (req as express.Request).query;
-	if(!query) {
-		const urlParts = parseURLPath(req.url!);
+	if(query) {
+		// copy query contents (in express 5, the object does not persist changes)
+		query = {...query};
+	} else {
+		// parse query items
+		const reqUrl = urlFromServerRequest(req);
+		const urlParts = parseURLPath(reqUrl);
 		query = urlParts.queryItems ?? {};
 	}
 	// parse each key

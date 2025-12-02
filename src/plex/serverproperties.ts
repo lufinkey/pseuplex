@@ -55,7 +55,7 @@ export class PlexServerPropertiesStore {
 		const key = `/library/sections/${id}`;
 		const sections = (await this.getLibrarySections()).MediaContainer.Directory;
 		for(const section of sections) {
-			if(section.key == key || section.key == id || (section as any as plexTypes.PlexContentDirectory).id == id) {
+			if(section.key == key || section.key == id || (section as Partial<plexTypes.PlexContentDirectory>).id == id) {
 				return section;
 			}
 		}

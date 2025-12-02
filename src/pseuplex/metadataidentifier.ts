@@ -1,7 +1,16 @@
 
 import qs from 'querystring';
-import { plexLibraryMetadataPathToHubsMetadataPath } from '../plex/metadataidentifier';
+import {
+	parsePlexMetadataKeyOrThrow,
+	parsePlexPluralMetadataKeyOrThrow,
+	PlexLibraryMetadataBasePath,
+	plexLibraryMetadataPathToHubsMetadataPath,
+	PlexPluralMetadataKeyParts,
+	PlexSingularMetadataKeyParts
+} from '../plex/metadataidentifier';
 import { PseuplexRelatedHubsSource } from './metadata';
+import { PseuplexMetadataItem } from './types';
+
 
 export type PseuplexMetadataIDParts = {
 	isURL?: boolean;
@@ -19,7 +28,7 @@ export type PseuplexMetadataIDString =
 	| `${string}://${string}/${string}`
 	| `${string}://${string}/${string}${string}`;
 
-export const parseMetadataID = (idString: PseuplexMetadataIDString): PseuplexMetadataIDParts => {
+export const parsePseuplexMetadataID = (idString: PseuplexMetadataIDString): PseuplexMetadataIDParts => {
 	// find metadata source / protocol
 	let delimiterIndex = idString.indexOf(':');
 	if(delimiterIndex === -1) {
@@ -112,7 +121,146 @@ export const parseMetadataID = (idString: PseuplexMetadataIDString): PseuplexMet
 	};
 };
 
-export const stringifyMetadataID = (idParts: PseuplexMetadataIDParts): PseuplexMetadataIDString => {
+
+
+export const unescapeMetadataIdStringIfNeeded = (metadataIdString: string): PseuplexMetadataIDString => {
+	if(!metadataIdString) {
+		return metadataIdString;
+	}
+	if(metadataIdString.indexOf(':') == -1 && metadataIdString.indexOf('%') != -1) {
+		return qs.unescape(metadataIdString);
+	}
+	return metadataIdString;
+};
+
+
+export const parsePseuplexMetadataKeyOrThrow = (metadataKey: string): PlexSingularMetadataKeyParts => {
+	const metadataKeyParts = parsePlexMetadataKeyOrThrow(metadataKey);
+	// only unescape if the key is definitely not plural
+	if(metadataKeyParts.id.indexOf(',') == -1) {
+		if(metadataKeyParts.id.indexOf(':') == -1 && metadataKeyParts.id.indexOf('%') != -1) {
+			metadataKeyParts.id = qs.unescape(metadataKeyParts.id);
+			// TODO maybe log a warning if there's a comma after unescaping?
+		}
+	}
+	return metadataKeyParts;
+};
+
+export const parsePseuplexMetadataKey = (metadataKey: string, warnOnFailure: boolean = true): (PlexSingularMetadataKeyParts | null) => {
+	try {
+		return parsePseuplexMetadataKeyOrThrow(metadataKey);
+	} catch(error) {
+		if(warnOnFailure) {
+			console.warn((error as Error).message);
+		}
+		return null;
+	}
+};
+
+
+
+export type PseuplexSingularMetadataKeyParts = {
+	basePath: string;
+	idParts: PseuplexMetadataIDParts;
+	relativePath?: string;
+};
+
+export const parsePseuplexKeyAndIDOrThrow = (metadataKey: string): PseuplexSingularMetadataKeyParts => {
+	const metadataKeyParts = parsePseuplexMetadataKeyOrThrow(metadataKey);
+	const metadataIdString = metadataKeyParts.id;
+	const pseuMetadataKeyParts = (metadataKeyParts as Partial<PseuplexSingularMetadataKeyParts>);
+	delete (metadataKeyParts as Partial<typeof metadataKeyParts>).id;
+	pseuMetadataKeyParts.idParts = parsePseuplexMetadataID(metadataIdString);
+	return pseuMetadataKeyParts as PseuplexSingularMetadataKeyParts;
+};
+
+export const parsePseuplexMetadataKeyAndID = (metadataKey: string, warnOnFailure: boolean = true): (PseuplexSingularMetadataKeyParts | null) => {
+	try {
+		return parsePseuplexKeyAndIDOrThrow(metadataKey);
+	} catch(error) {
+		if(warnOnFailure) {
+			console.warn((error as Error).message);
+		}
+		return null;
+	}
+};
+
+
+
+export const parsePseuplexPluralMetadataKeyOrThrow = (metadataKey: string): PlexPluralMetadataKeyParts => {
+	const metadataKeyParts = parsePlexPluralMetadataKeyOrThrow(metadataKey);
+	metadataKeyParts.ids = metadataKeyParts.ids.map((idString) => {
+		return unescapeMetadataIdStringIfNeeded(idString);
+	});
+	return metadataKeyParts;
+};
+
+export const parsePseuplexPluralMetadataKey = (metadataKey: string, warnOnFailure: boolean = true): (PlexPluralMetadataKeyParts | null) => {
+	try {
+		return parsePseuplexPluralMetadataKeyOrThrow(metadataKey);
+	} catch(error) {
+		if(warnOnFailure) {
+			console.warn((error as Error).message);
+		}
+		return null;
+	}
+};
+
+
+
+export type PsuplexPluralMetadataKeyParts = {
+	basePath: string;
+	idsParts: PseuplexMetadataIDParts[];
+	relativePath?: string;
+};
+
+export const parsePseuplexMetadataKeyAndIDsOrThrow = (metadataKey: string): PsuplexPluralMetadataKeyParts => {
+	const metadataKeyParts = parsePseuplexPluralMetadataKeyOrThrow(metadataKey);
+	const metadataIdStrings = metadataKeyParts.ids;
+	const pseuMetadataKeyParts = (metadataKeyParts as Partial<PsuplexPluralMetadataKeyParts>);
+	delete (metadataKeyParts as Partial<typeof metadataKeyParts>).ids;
+	pseuMetadataKeyParts.idsParts = metadataIdStrings.map((idString) => parsePseuplexMetadataID(idString));
+	return pseuMetadataKeyParts as PsuplexPluralMetadataKeyParts;
+};
+
+export const parsePseuplexMetadataKeyAndIDs = (metadataKey: string, warnOnFailure: boolean = true): (PsuplexPluralMetadataKeyParts | null) => {
+	try {
+		return parsePseuplexMetadataKeyAndIDsOrThrow(metadataKey);
+	} catch(error) {
+		if(warnOnFailure) {
+			console.warn((error as Error).message);
+		}
+		return null;
+	}
+};
+
+
+
+export const parsePseuplexMetadataIDStringFromItem = (metadataItem: PseuplexMetadataItem, warnOnFailure: boolean = true): PseuplexMetadataIDString | null => {
+	if(metadataItem.ratingKey) {
+		return metadataItem.ratingKey;
+	}
+	const metadataKeyParts = parsePseuplexMetadataKey(metadataItem.key, warnOnFailure);
+	if(metadataKeyParts) {
+		return metadataKeyParts.id;
+	}
+	if(warnOnFailure) {
+		console.warn(`No metadata ID could be found on metadata item ${metadataItem.title}`);
+	}
+	return null;
+};
+
+export const parsePseuplexMetadataIDFromItem = (metadataItem: PseuplexMetadataItem, warnOnFailure: boolean = true): PseuplexMetadataIDParts | null => {
+	const metadataIdString = parsePseuplexMetadataIDStringFromItem(metadataItem, warnOnFailure);
+	if(!metadataIdString) {
+		return null;
+	}
+	return parsePseuplexMetadataID(metadataIdString);
+};
+
+
+
+export const stringifyPseuplexMetadataID = (idParts: PseuplexMetadataIDParts): PseuplexMetadataIDString => {
 	let idString: string;
 	if(idParts.isURL) {
 		if(idParts.directory == null && idParts.relativePath == null) {
@@ -143,6 +291,39 @@ export const stringifyMetadataID = (idParts: PseuplexMetadataIDParts): PseuplexM
 	return idString;
 };
 
+export const stringifyPseuplexMetadataKeyFromIDString = (idString: PseuplexMetadataIDString | number, relativePath?: string) => {
+	const escMetadataId = qs.escape(idString.toString());
+	let metadataKey = `${PlexLibraryMetadataBasePath}/${escMetadataId}`;
+	if(relativePath) {
+		metadataKey += relativePath;
+	}
+	return metadataKey;
+};
+
+export const stringifyPseuplexMetadataKeyFromIDStrings = (idStrings: (PseuplexMetadataIDString | number)[], relativePath?: string) => {
+	const escMetadataIds = idStrings.map((idStr) => qs.escape(idStr.toString())).join(',');
+	let metadataKey = `${PlexLibraryMetadataBasePath}/${escMetadataIds}`;
+	if(relativePath) {
+		metadataKey += relativePath;
+	}
+	return metadataKey;
+}
+
+export const stringifyPseuplexMetadataKeyAndID = (keyParts: PseuplexSingularMetadataKeyParts) => {
+	const metadataId = stringifyPseuplexMetadataID(keyParts.idParts);
+	let metadataKey = `${keyParts.basePath}/${qs.escape(metadataId)}`;
+	if(keyParts.relativePath) {
+		metadataKey += keyParts.relativePath;
+	}
+	return metadataKey;
+};
+
+export const stringifyPseuplexPluralMetadataKey = (keyParts: PlexPluralMetadataKeyParts) => {
+	return `${keyParts.basePath}${keyParts.ids.map((mid) => qs.escape(mid)).join(',')}${keyParts.relativePath ?? ''}`;
+};
+
+
+
 export type PseuplexPartialMetadataIDParts = {
 	directory?: string;
 	id: string;
@@ -152,7 +333,7 @@ export type PseuplexPartialMetadataIDString =
 	`${string}`
 	| `${string}:${string}`;
 
-export const parsePartialMetadataID = (metadataId: PseuplexPartialMetadataIDString): PseuplexPartialMetadataIDParts => {
+export const parsePartialPseuplexMetadataID = (metadataId: PseuplexPartialMetadataIDString): PseuplexPartialMetadataIDParts => {
 	let colonIndex = metadataId.indexOf(':');
 	if(colonIndex == -1) {
 		return {id:qs.unescape(metadataId)};
@@ -163,7 +344,9 @@ export const parsePartialMetadataID = (metadataId: PseuplexPartialMetadataIDStri
 	};
 };
 
-export const stringifyPartialMetadataID = (idParts: PseuplexPartialMetadataIDParts): PseuplexPartialMetadataIDString => {
+
+
+export const stringifyPartialPseuplexMetadataID = (idParts: PseuplexPartialMetadataIDParts): PseuplexPartialMetadataIDString => {
 	if(idParts.directory == null) {
 		return qs.escape(idParts.id);
 	} else {
@@ -171,9 +354,11 @@ export const stringifyPartialMetadataID = (idParts: PseuplexPartialMetadataIDPar
 	}
 };
 
-export const qualifyPartialMetadataID = (metadataId: PseuplexPartialMetadataIDString, source: string) => {
+export const qualifyPartialPseuplexMetadataID = (metadataId: PseuplexPartialMetadataIDString, source: string) => {
 	return `${source}:${metadataId}`;
 };
+
+
 
 export const getPlexRelatedHubsEndpoints = (metadataEndpoint: string): {
 	endpoint: string,

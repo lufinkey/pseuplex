@@ -96,6 +96,33 @@ export class Logger {
 		return true;
 	}
 
+	fullUrlStringOfRequest(req: express.Request | http.IncomingMessage) {
+		const exReq = req as express.Request;
+		if(exReq.baseUrl) {
+			return exReq.baseUrl + req.url!;
+		} else {
+			return req.url!;
+		}
+	}
+
+	urlStringOfRequest(req: express.Request | http.IncomingMessage) {
+		// return full url if enabled
+		if(this.options.logFullURLs) {
+			return this.fullUrlStringOfRequest(req);
+		}
+		// just return the path
+		const exReq = req as express.Request;
+		if(exReq.path) {
+			return exReq.path;
+		}
+		const reqUrlString = this.fullUrlStringOfRequest(req);
+		const queryIndex = reqUrlString.indexOf('?');
+		if(queryIndex != -1) {
+			return reqUrlString.substring(0, queryIndex);
+		}
+		return reqUrlString;
+	};
+
 	urlString(urlString: string) {
 		if(this.options.logFullURLs) {
 			return urlString;
@@ -315,7 +342,8 @@ export class Logger {
 		if(!(this.options.logUserRequests || this.options.logWebsocketConnections)) {
 			return false;
 		}
-		console.log(`\n\x1b[104mupgrade ${req.headers['upgrade'] ?? ''} ${req.method ?? ''} ${req.url}\x1b[0m`);
+		const reqUrlString = this.fullUrlStringOfRequest(req);
+		console.log(`\n\x1b[104mupgrade ${req.headers['upgrade'] ?? ''} ${req.method ?? ''} ${reqUrlString}\x1b[0m`);
 		if(this.options.logUserRequestHeaders) {
 			const reqHeaderList = req.rawHeaders;
 			for(let i=0; i<reqHeaderList.length; i++) {
@@ -337,7 +365,8 @@ export class Logger {
 		if(!(this.options.logUserRequests || this.options.logWebsocketConnections)) {
 			return false;
 		}
-		console.log(`\nclosed socket ${req.url}`);
+		const reqUrlString = this.fullUrlStringOfRequest(req);
+		console.log(`\nclosed socket ${reqUrlString}`);
 		return true;
 	}
 

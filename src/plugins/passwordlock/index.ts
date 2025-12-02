@@ -1,3 +1,4 @@
+import qs from 'querystring';
 import http from 'http';
 import crypto from 'crypto';
 import express from 'express';
@@ -25,10 +26,13 @@ import {
 	UpgradeResponse,
 	createUpgradeRouter,
 	endpointForPseuplexSectionsSource,
-	parseMetadataID,
-	parseMetadataIdFromPathParam,
-	parseMetadataIdsFromPathParam,
-	stringifyPartialMetadataID,
+	parsePseuplexMetadataID,
+	stringifyPartialPseuplexMetadataID,
+	parsePseuplexMetadataKeyAndID,
+	parsePseuplexMetadataKey,
+	parsePseuplexMetadataIDsFromPathParam,
+	parsePseuplexMetadataIDFromPathParam,
+	stringifyPseuplexMetadataKeyFromIDString
 } from '../../pseuplex';
 import { PasswordLockMetadataID, PasswordLockMetadataProvider } from './metadata';
 import { PasswordLockPluginConfig } from './config';
@@ -40,7 +44,6 @@ import { httpError, HttpResponseError } from '../../utils/error';
 import { getModuleRootPath } from '../../utils/compat';
 import { parseIntQueryParam } from '../../utils/queryparams';
 import { parseURLPath, stringifyURLPath } from '../../utils/url';
-import { parseMetadataIDFromKey } from '../../plex/metadataidentifier';
 import { delay } from '../../utils/timing';
 import { arrayFromArrayOrSingle, firstOrSingle, pushToArray } from '../../utils/misc';
 import { IPv4NormalizeMode, normalizeIPAddress } from '../../utils/ip';
@@ -146,12 +149,13 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 		
 		this.metadata = new PasswordLockMetadataProvider({
 			lockInstructionsThumbEndpoint: `${this.basePath}/images/thumb/instructions`,
-			loginSuccessEndpoint: `${this.basePath}/${PasswordLockMetadataID.LoginSuccess}`,
-			lockInstructionsItemTitle: this.config.passwordLock?.instructionsItemTitle,
-			lockInstructionsItemSummary: this.config.passwordLock?.instructionsItemSummary,
+			lockInstructionsItemUUID: this.config.passwordLock?.instructionsItemUUID ?? crypto.randomUUID(),
+			lockInstructionsTitle: this.config.passwordLock?.instructionsItemTitle,
+			lockInstructionsSummary: this.config.passwordLock?.instructionsItemSummary,
 			getLockInstructionsItemMedia: async (context) => {
 				return await this.getInstructionsItemMedia(context);
 			},
+			loginSuccessEndpoint: `${this.basePath}/${PasswordLockMetadataID.LoginSuccess}`,
 			loginSuccessItemUUID: this.config.passwordLock?.loginSuccessItemUUID ?? crypto.randomUUID(),
 		});
 
@@ -365,7 +369,7 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 				const context = this.app.contextForRequest(req);
 				const reqParams: plexTypes.PlexMetadataPageParams = req.plex.requestParams;
 				// get metadata ids
-				const metadataIds = parseMetadataIdsFromPathParam(req.params.metadataId);
+				const metadataIds = parsePseuplexMetadataIDsFromPathParam(req.params.metadataId);
 				for(const metadataIdParts of metadataIds) {
 					// ensure metadata is a "passwordlock" metadata
 					if(metadataIdParts.source != this.metadata.sourceSlug) {
@@ -379,10 +383,13 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 					}
 				}
 				// fetch metadatas
-				const partialMetadataIds = metadataIds.map((idParts) => stringifyPartialMetadataID(idParts));
+				const partialMetadataIds = metadataIds.map((idParts) => stringifyPartialPseuplexMetadataID(idParts));
 				return await this.metadata.get(partialMetadataIds, {
 					context,
-					includeMetadataUnavailability: true,
+					metadataTransformOptions: {
+						...this.app.metadataTransformOptions(),
+						includeMetadataUnavailability: true,
+					},
 					plexParams: reqParams,
 					includeUnmatched: true,
 				});
@@ -395,13 +402,13 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 					const context = this.app.contextForRequest(req);
 					const reqParams = plexTypes.parsePlexHubListPageParams(req);
 					// get metadata id
-					const metadataIdParts = parseMetadataIdFromPathParam(req.params.metadataId);
+					const metadataIdParts = parsePseuplexMetadataIDFromPathParam(req.params.metadataId);
 					// ensure that only "passwordlock" metadata can be fetched
 					if(metadataIdParts.source != this.metadata.sourceSlug) {
 						throw httpError(403, `Metadata is locked`);
 					}
 					// get related hubs for metadata id
-					const partialMetadataId = stringifyPartialMetadataID(metadataIdParts);
+					const partialMetadataId = stringifyPartialPseuplexMetadataID(metadataIdParts);
 					return await this.metadata.getRelatedHubs(partialMetadataId, {
 						context,
 						plexParams: reqParams,
@@ -426,7 +433,10 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 					const unlockMetadata = firstOrSingle((await this.metadata.get([PasswordLockMetadataID.Instructions], {
 						context,
 						includeUnmatched: true,
-						includeMetadataUnavailability: true,
+						metadataTransformOptions: {
+							...this.app.metadataTransformOptions(),
+							includeMetadataUnavailability: true,
+						}
 					})).MediaContainer.Metadata);
 					if(unlockMetadata) {
 						// add extra fields to metadata
@@ -537,10 +547,9 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 					const plexServerIdentifier = await this.app.plexServerProperties.getMachineIdentifier();
 					if(metadataItemURIParts.path && (metadataItemURIParts.machineIdentifier == plexServerIdentifier || metadataItemURIParts.machineIdentifier == "x")) {
 						// get the key of the item
-						const metadataKeyParts = parseMetadataIDFromKey(metadataItemURIParts.path, '/library/metadata');
+						const metadataKeyParts = parsePseuplexMetadataKeyAndID(metadataItemURIParts.path);
 						if(metadataKeyParts) {
-							// split the item key into parts
-							const metadataIdParts = parseMetadataID(metadataKeyParts.id);
+							const metadataIdParts = metadataKeyParts.idParts;
 							if(metadataIdParts.source == this.metadata.sourceSlug) {
 								// check the type of item
 								if(!metadataIdParts.directory && metadataIdParts.id == PasswordLockMetadataID.Instructions) {
@@ -554,7 +563,10 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 									const successItem = firstOrSingle((await this.metadata.get([PasswordLockMetadataID.LoginSuccess], {
 										context,
 										includeUnmatched: true,
-										includeMetadataUnavailability: true,
+										metadataTransformOptions: {
+											...this.app.metadataTransformOptions(),
+											includeMetadataUnavailability: true,
+										}
 									})).MediaContainer.Metadata);
 									return {
 										MediaContainer: {
@@ -590,14 +602,14 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 						next();
 						return;
 					}
-					const pathParts = parseMetadataIDFromKey(uriParts.path, '/library/metadata');
-					if(!pathParts) {
+					const metadataKeyParts = parsePseuplexMetadataKeyAndID(uriParts.path);
+					if(!metadataKeyParts) {
 						next();
 						return;
 					}
+					const metadataId = metadataKeyParts.idParts;
 					// check if any of the video ids match
 					let matchedVideoId = false;
-					const metadataId = parseMetadataID(pathParts.id);
 					if(!metadataId.source) {
 						if(this.isMetadataIdWhitelisted(metadataId.id, context)) {
 							matchedVideoId = true;
@@ -607,7 +619,7 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 						if(newMetadataId) {
 							// replace id with the video ID
 							matchedVideoId = true;
-							uriParts.path = `/library/metadata/${newMetadataId}`;
+							uriParts.path = stringifyPseuplexMetadataKeyFromIDString(newMetadataId);
 							urlParts.queryItems!['uri'] = plexTypes.stringifyPlexServerItemURI(uriParts);
 							if(urlParts.queryItems!['key']) {
 								urlParts.queryItems!['key'] = uriParts.path;
@@ -671,12 +683,12 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 					let path = req.query['path'];
 					if(typeof path === 'string' && path) {
 						// rewrite metadata key if needed
-						const pathParts = parseMetadataIDFromKey(path, '/library/metadata');
-						if(pathParts) {
-							const metadataIdParts = parseMetadataID(pathParts.id);
+						const metadataKeyParts = parsePseuplexMetadataKeyAndID(path);
+						if(metadataKeyParts) {
+							const metadataIdParts = metadataKeyParts.idParts;
 							const newMetadataId = this.rewriteAliasedMetadataId(metadataIdParts, context);
 							if(newMetadataId) {
-								path = `/library/metadata/${newMetadataId}${pathParts.relativePath ?? ''}`;
+								path = stringifyPseuplexMetadataKeyFromIDString(newMetadataId, metadataKeyParts.relativePath);
 								const reqPathParts = parseURLPath(req.url);
 								reqPathParts.queryItems!['path'] = path;
 								req.url = stringifyURLPath(reqPathParts);
@@ -721,17 +733,17 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 				// rewrite metadata id if needed
 				if(ratingKey && typeof ratingKey === 'string') {
 					// rewrite metadata id
-					const newMetadataId = this.rewriteAliasedMetadataId(parseMetadataID(ratingKey), context);
+					const newMetadataId = this.rewriteAliasedMetadataId(parsePseuplexMetadataID(ratingKey), context);
 					if(newMetadataId) {
 						ratingKey = newMetadataId.toString();
 						urlPathParts.queryItems!['ratingKey'] = ratingKey;
 					}
 				}
 				if(key && typeof key === 'string') {
-					const pathParts = parseMetadataIDFromKey(key, '/library/metadata');
-					if(pathParts) {
+					const metadataKeyParts = parsePseuplexMetadataKeyAndID(key);
+					if(metadataKeyParts) {
 						// rewrite metadata id
-						const newMetadataId = this.rewriteAliasedMetadataId(parseMetadataID(pathParts.id), context);
+						const newMetadataId = this.rewriteAliasedMetadataId(metadataKeyParts.idParts, context);
 						if(newMetadataId) {
 							ratingKey = newMetadataId.toString();
 							key = `/library/`
@@ -853,7 +865,8 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 					// check if instructions video thumb
 					const instructionsVideoId = this.getInstructionsItemVideoId(context);
 					if(instructionsVideoId) {
-						if(photoUrlParts.path.startsWith(`/library/metadata/${instructionsVideoId}/`)) {
+						const photoKeyParts = parsePseuplexMetadataKey(photoUrlParts.path);
+						if(photoKeyParts && photoKeyParts.id == instructionsVideoId) {
 							// proxy to plex
 							plexProxyMiddleware(req,res,next);
 							return true;
@@ -1024,7 +1037,7 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 		if(!key) {
 			return false;
 		}
-		const metadataKeyParts = parseMetadataIDFromKey(key, '/library/metadata');
+		const metadataKeyParts = parsePseuplexMetadataKey(key);
 		if(!metadataKeyParts) {
 			return false;
 		}

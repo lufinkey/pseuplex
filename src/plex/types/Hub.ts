@@ -58,7 +58,11 @@ export type PlexHubPageParams = {
 	excludeFields?: string[]; // "summary"
 };
 
-export const parsePlexHubPageParams = (req: express.Request, options: {fromListPage: boolean}): PlexHubPageParams => {
+export type ParsePlexHubPageParamsOptions = {
+	fromListPage: boolean
+};
+
+export const parsePlexHubPageParams = (req: express.Request, options: ParsePlexHubPageParamsOptions): PlexHubPageParams => {
 	if(options.fromListPage) {
 		const hubListParams = parsePlexHubListPageParams(req);
 		return plexHubPageParamsFromHubListParams(hubListParams);

@@ -89,6 +89,16 @@ export const expressErrorHandler = (error: Error, req: express.Request, res: exp
 	}
 };
 
+export const urlFromServerRequest = (req: http.IncomingMessage | express.Request): string => {
+	console.assert(req.url != null, "incoming http message must have a url");
+	const exReq = req as express.Request;
+	if(exReq.baseUrl) {
+		return exReq.baseUrl + req.url!;
+	} else {
+		return req.url!;
+	}
+};
+
 export function remoteAddressOfRequest(req: http.IncomingMessage | express.Request): string {
 	let remoteAddress = req.connection?.remoteAddress || req.socket?.remoteAddress;
 	if(!remoteAddress) {

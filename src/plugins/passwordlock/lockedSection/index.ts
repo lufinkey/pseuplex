@@ -34,8 +34,6 @@ export class PasswordLockSection extends PseuplexSectionBase {
 		this.plugin = plugin;
 
 		this.metadataTransformOptions = {
-			metadataBasePath: '/library/metadata',
-			qualifiedMetadataIds: true,
 			includeMetadataUnavailability: true,
 		};
 
@@ -82,9 +80,9 @@ export class PasswordLockSection extends PseuplexSectionBase {
 		const items = arrayFromArrayOrSingle((await this.plugin.metadata.get([
 			PasswordLockMetadataID.Instructions
 		], {
-			...this.metadataTransformOptions,
 			context,
 			includeUnmatched: true,
+			metadataTransformOptions: this.metadataTransformOptions,
 		})).MediaContainer.Metadata);
 		return {
 			items,

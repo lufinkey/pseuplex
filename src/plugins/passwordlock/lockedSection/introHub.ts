@@ -47,9 +47,9 @@ export class PasswordLockedSectionIntroHub extends PseuplexHub {
 			items: arrayFromArrayOrSingle((await this.metadataProvider.get([
 				PasswordLockMetadataID.Instructions
 			], {
-				...this.metadataTransformOptions,
 				context,
 				includeUnmatched: true,
+				metadataTransformOptions: this.metadataTransformOptions,
 			})).MediaContainer.Metadata),
 			offset: 0,
 			more: false,

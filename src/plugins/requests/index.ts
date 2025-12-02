@@ -1,26 +1,18 @@
 
 import express from 'express';
 import * as plexTypes from '../../plex/types';
-import * as plexServerAPI from '../../plex/api';
 import { parsePlexMetadataGuid } from '../../plex/metadataidentifier';
 import {
-	IncomingPlexAPIRequest,
-} from '../../plex/requesthandling';
-import { PlexServerAccountInfo } from '../../plex/accounts';
-import {
 	PseuplexApp,
-	PseuplexConfigBase,
-	PseuplexMetadataChildrenPage,
 	PseuplexMetadataProvider,
 	PseuplexMetadataSource,
 	PseuplexPlugin,
 	PseuplexPluginClass,
 	PseuplexReadOnlyResponseFilters,
 	PseuplexRequestContext,
-	PseuplexResponseFilterContext,
-	PseuplexRouterApp
+	PseuplexRouterApp,
+	stringifyPseuplexMetadataKeyFromIDString
 } from '../../pseuplex';
-import * as extPlexTransform from '../../pseuplex/externalplex/transform';
 import {
 	parseStringQueryParam,
 	parseIntQueryParam,
@@ -33,10 +25,6 @@ import {
 	firstOrSingle,
 	transformArrayOrSingle
 } from '../../utils/misc';
-import {
-	RequestsProvider,
-	RequestsProviders,
-} from './provider';
 import OverseerrRequestsProvider from './providers/overseerr';
 import { PlexRequestsHandler } from './handler';
 import * as reqsTransform from './transform';
@@ -170,20 +158,19 @@ export default (class RequestsPlugin implements RequestsPluginDef, PseuplexPlugi
 				) {
 					// add requestable seasons if needed
 					if(showRequestableSeasons) {
-						const fullIdString = reqsTransform.createRequestFullMetadataId({
+						const fullIdString = reqsTransform.createRequestMetadataId({
 							mediaType: plexGuidParts.type as plexTypes.PlexMediaItemType,
 							plexId: plexGuidParts.id,
 							requestProviderSlug: requestsProvider.slug,
 						});
+						const parentMetadataKey = stringifyPseuplexMetadataKeyFromIDString(fullIdString);
 						await this.requestsHandler.addRequestableSeasons(resData, {
 							plexId: plexGuidParts.id,
 							plexType: plexGuidParts.type,
 							plexParams,
 							transformMatchKeys: false,
-							metadataBasePath: '/library/metadata',
-							qualifiedMetadataIds: true,
 							requestsProvider,
-							parentKey: `/library/metadata/${fullIdString}`,
+							parentKey: parentMetadataKey,
 							parentRatingKey: fullIdString,
 							partiallyAvailableOverlay: partiallyAvailableOverlay,
 							overlayedImageEndpoint: this.app.overlayedImageEndpoint,
@@ -219,66 +206,7 @@ export default (class RequestsPlugin implements RequestsPluginDef, PseuplexPlugi
 	}
 
 	defineRoutes(router: PseuplexRouterApp) {
-		// handle different paths for a plex request
-		for(const endpoint of [
-			`${this.requestsHandler.basePath}/:providerSlug/:mediaType/:plexId`,
-			`${this.requestsHandler.basePath}/:providerSlug/:mediaType/:plexId/children`,
-			`${this.requestsHandler.basePath}/:providerSlug/:mediaType/:plexId/season/:season`,
-			`${this.requestsHandler.basePath}/:providerSlug/:mediaType/:plexId/season/:season/children`
-		]) {
-			const children = endpoint.endsWith(reqsTransform.ChildrenRelativePath);
-
-			// get metadata for requested item
-			router.get(endpoint, [
-				this.app.middlewares.plexAuthentication(),
-				this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res) => {
-					// get request properties
-					const { providerSlug, mediaType, plexId } = req.params;
-					const season = parseIntQueryParam(req.params.season);
-					const plexParams: plexTypes.PlexMetadataPageParams = req.plex.requestParams;
-					const context = this.app.contextForRequest(req);
-					// handle request
-					const resData = await this.requestsHandler.handlePlexRequest({
-						requestProviderSlug: providerSlug,
-						mediaType: mediaType as plexTypes.PlexMediaItemType,
-						plexId,
-						season
-					}, {
-						children,
-						plexParams,
-						context,
-						throw404OnNoMatches: true,
-						transformMatchKeys: !children,
-					});
-					// cache metadata access if needed
-					if(this.app.pluginMetadataAccessCache) {
-						const metadataId = reqsTransform.createRequestPartialMetadataId({
-							requestProviderSlug: providerSlug,
-							mediaType: mediaType as plexTypes.PlexMediaItemType,
-							plexId,
-							season,
-						});
-						let metadataKey = req.path;
-						if(children) {
-							if(metadataKey.endsWith('/')) {
-								metadataKey = metadataKey.slice(0, metadataKey.length-1);
-							}
-							if(metadataKey.endsWith(reqsTransform.ChildrenRelativePath)) {
-								metadataKey = metadataKey.slice(0, metadataKey.length - reqsTransform.ChildrenRelativePath.length);
-							}
-						}
-						this.app.pluginMetadataAccessCache.cachePluginMetadataAccessIfNeeded(this.requestsHandler, metadataId, metadataKey, resData.MediaContainer.Metadata, context);
-					}
-					// send unavailable notification(s) if needed
-					this.app.sendMetadataUnavailableNotificationsIfNeeded(resData, plexParams, context);
-					return resData;
-				})
-			]);
-
-			if(!children) {
-				// TODO handle /related routes
-			}
-		}
+		//
 	}
 
 

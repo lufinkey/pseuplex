@@ -6,14 +6,15 @@ import {
 	PseuplexMetadataTransformOptions,
 	PseuplexPartialMetadataIDString,
 	PseuplexRequestContext,
-	stringifyMetadataID,
-	stringifyPartialMetadataID
+	stringifyPseuplexMetadataID,
+	stringifyPartialPseuplexMetadataID,
+	stringifyPseuplexMetadataKeyFromIDString
 } from '../../pseuplex';
 import { combinePathSegments } from '../../utils/misc';
 
 export const partialMetadataIdFromTemplateItem = (item: any): PseuplexPartialMetadataIDString => {
 	// TODO create a partial metadata ID from an item from your source
-	return stringifyPartialMetadataID({
+	return stringifyPartialPseuplexMetadataID({
 		directory: item.type,
 		id: item.id,
 	});
@@ -21,7 +22,7 @@ export const partialMetadataIdFromTemplateItem = (item: any): PseuplexPartialMet
 
 export const fullMetadataIdFromTemplateItem = (item: any, opts?: {asUrl?: boolean}): PseuplexMetadataIDString => {
 	// TODO create a full metadata ID from an item from your source
-	return stringifyMetadataID({
+	return stringifyPseuplexMetadataID({
 		isURL: opts?.asUrl,
 		source: 'template', //PseuplexMetadataSource.Template,
 		directory: item.type,
@@ -35,7 +36,7 @@ export const templateItemToPlexMetadata = (item: any, context: PseuplexRequestCo
 	const fullMetadataId = fullMetadataIdFromTemplateItem(item, {asUrl:false});
 	return {
 		// guid: fullMetadataIdFromTemplateItem(item, {asUrl:true}),
-		key: combinePathSegments(options.metadataBasePath, options.qualifiedMetadataIds ? fullMetadataId : partialMetadataId),
+		key: stringifyPseuplexMetadataKeyFromIDString(fullMetadataId),
 		ratingKey: fullMetadataId,
 		type: plexTypes.PlexMediaItemType.Movie,
 		//slug: item.slug,

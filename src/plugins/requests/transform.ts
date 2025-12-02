@@ -3,9 +3,11 @@ import { parsePlexMetadataGuid } from '../../plex/metadataidentifier';
 import {
 	PseuplexMetadataSource,
 	PseuplexPartialMetadataIDString,
-	stringifyMetadataID,
-	stringifyPartialMetadataID,
-	parsePartialMetadataID
+	stringifyPseuplexMetadataID,
+	stringifyPartialPseuplexMetadataID,
+	parsePartialPseuplexMetadataID,
+	parsePseuplexMetadataKey,
+	stringifyPseuplexMetadataKeyFromIDString
 } from '../../pseuplex';
 
 export const ChildrenRelativePath = '/children';
@@ -64,8 +66,8 @@ const parseRequestMetadataItemIdComponent = (idString: string): RequestMetadataI
 	};
 };
 
-export const createRequestFullMetadataId = (idParts: RequestPartialMetadataIDParts) => {
-	return stringifyMetadataID({
+export const createRequestMetadataId = (idParts: RequestPartialMetadataIDParts) => {
+	return stringifyPseuplexMetadataID({
 		source: PseuplexMetadataSource.Request,
 		directory: idParts.requestProviderSlug,
 		id: createRequestMetadataItemIdComponent(idParts),
@@ -73,31 +75,11 @@ export const createRequestFullMetadataId = (idParts: RequestPartialMetadataIDPar
 };
 
 export const createRequestPartialMetadataId = (idParts: RequestPartialMetadataIDParts) => {
-	return stringifyPartialMetadataID({
+	return stringifyPartialPseuplexMetadataID({
 		directory: idParts.requestProviderSlug,
 		id: createRequestMetadataItemIdComponent(idParts)
 	});
 };
-
-export const createRequestItemMetadataKey = (options: {
-	metadataBasePath: string,
-	qualifiedMetadataId: boolean,
-	requestProviderSlug: string,
-	mediaType: plexTypes.PlexMediaItemType,
-	plexId: string,
-	season?: number,
-	children?: boolean,
-}): string => {
-	if(options.qualifiedMetadataId) {
-		const metadataId = createRequestFullMetadataId(options);
-		return `${options.metadataBasePath}/${metadataId}`
-			+ (options.children ? ChildrenRelativePath : '');
-	} else {
-		return `${options.metadataBasePath}/${options.requestProviderSlug}/${options.mediaType}/${options.plexId}`
-			+ (options.season != null ? `${SeasonRelativePath}${options.season}` : '')
-			+ (options.children ? ChildrenRelativePath : '');
-	}
-}
 
 export const parseUnqualifiedRequestItemMetadataKey = (metadataKey: string, basePath: string, warnOnFailure: boolean = true): RequestMetadataKeyParts | null => {
 	if(!metadataKey) {
@@ -188,7 +170,7 @@ export const parseUnqualifiedRequestItemMetadataKey = (metadataKey: string, base
 };
 
 export const parsePartialRequestMetadataId = (metadataId: PseuplexPartialMetadataIDString): RequestPartialMetadataIDParts => {
-	const metadataIdParts = parsePartialMetadataID(metadataId);
+	const metadataIdParts = parsePartialPseuplexMetadataID(metadataId);
 	if(!metadataIdParts.directory) {
 		throw new Error(`Missing request provider slug on metadata id ${metadataId}`);
 	}
@@ -200,12 +182,10 @@ export const parsePartialRequestMetadataId = (metadataId: PseuplexPartialMetadat
 };
 
 export type TransformRequestMetadataOptions = {
-	metadataBasePath: string,
 	parentKey?: string,
 	parentRatingKey?: string,
 	requestProviderSlug: string,
 	children?: boolean,
-	qualifiedMetadataIds: boolean;
 	transformRatingKey: boolean;
 };
 
@@ -221,23 +201,24 @@ export const setMetadataItemKeyToRequestKey = (metadataItem: plexTypes.PlexMetad
 		console.error("Unable to set metadata item key to request key");
 		return;
 	}
-	const children = opts?.children ?? metadataItem.key.endsWith(ChildrenRelativePath);
-	metadataItem.key = createRequestItemMetadataKey({
-		metadataBasePath: opts.metadataBasePath,
-		qualifiedMetadataId: opts.qualifiedMetadataIds,
+	const metadataItemKey = parsePseuplexMetadataKey(metadataItem.key);
+	let relativePath = metadataItemKey?.relativePath;
+	if(opts?.children != null) {
+		if(opts.children) {
+			relativePath = '/children';
+		} else if(relativePath == '/children') {
+			relativePath = undefined;
+		}
+	}
+	const metadataId = createRequestMetadataId({
 		requestProviderSlug: opts.requestProviderSlug,
 		mediaType: guidParts.type as plexTypes.PlexMediaItemType,
 		plexId: guidParts.id,
 		season,
-		children
 	});
+	metadataItem.key = stringifyPseuplexMetadataKeyFromIDString(metadataId, relativePath);
 	if(opts.transformRatingKey) {
-		metadataItem.ratingKey = createRequestFullMetadataId({
-			requestProviderSlug: opts.requestProviderSlug,
-			mediaType: guidParts.type as plexTypes.PlexMediaItemType,
-			plexId: guidParts.id,
-			season,
-		});
+		metadataItem.ratingKey = metadataId;
 	}
 	if(opts.parentKey) {
 		metadataItem.parentKey = opts.parentKey;

@@ -20,6 +20,7 @@ import {
 	PseuplexRequestContext
 } from './types';
 import {
+	HubStartTokenQueryParam,
 	PseuplexHub,
 	PseuplexHubPage,
 	PseuplexHubPageParams,
@@ -87,13 +88,13 @@ export abstract class PseuplexFeedHub<
 		const loadAheadCount = opts.loadAheadCount ?? DEFAULT_LOAD_AHEAD_COUNT;
 		let chunk: LoadableListChunk<TItem,TItemToken>;
 		let start: number;
-		let { listStartToken } = plexParams;
+		let { hubStartToken } = plexParams;
 		let listStartItemToken: TItemToken | null | undefined = undefined;
 		const startParam = plexParams['X-Plex-Container-Start'];
 		const countParam = plexParams['X-Plex-Container-Size'];
-		if(listStartToken != null || (startParam != null && startParam > 0)) {
-			if(listStartToken != null) {
-				listStartItemToken = this.parseItemTokenParam(listStartToken);
+		if(hubStartToken != null || (startParam != null && startParam > 0)) {
+			if(hubStartToken != null) {
+				listStartItemToken = this.parseItemTokenParam(hubStartToken);
 			}
 			start = startParam ?? 0;
 			const itemCount = countParam ?? opts.defaultItemCount;
@@ -112,7 +113,7 @@ export abstract class PseuplexFeedHub<
 		}
 		let key = opts.hubPath;
 		if(listStartItemToken != null) {
-			key = addQueryArgumentToURLPath(opts.hubPath, `listStartToken=${listStartItemToken}`);
+			key = addQueryArgumentToURLPath(opts.hubPath, `${HubStartTokenQueryParam}=${listStartItemToken}`);
 		}
 		// transform items
 		let items = await Promise.all(chunk.items.map(async (itemNode) => {

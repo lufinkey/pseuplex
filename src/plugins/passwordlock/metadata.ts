@@ -1,19 +1,18 @@
 import * as plexTypes from '../../plex/types';
-import { parseMetadataIDFromKey } from '../../plex/metadataidentifier';
 import {
-	parsePartialMetadataID,
+	parsePartialPseuplexMetadataID,
 	PseuplexMetadataChildrenPage,
 	PseuplexMetadataChildrenProviderParams,
 	PseuplexMetadataItem,
 	PseuplexMetadataPage,
 	PseuplexMetadataProvider,
 	PseuplexMetadataProviderParams,
-	PseuplexPartialMetadataIDsFromKey,
 	PseuplexRelatedHubsParams,
-	qualifyPartialMetadataID,
-	stringifyPartialMetadataID,
-	parseMetadataIdsFromPathParam,
+	qualifyPartialPseuplexMetadataID,
 	PseuplexRequestContext,
+	parsePseuplexMetadataKeyAndIDs,
+	PseuplexPartialMetadataIDString,
+	stringifyPseuplexMetadataKeyFromIDString,
 } from '../../pseuplex';
 import { httpError } from '../../utils/error';
 
@@ -32,8 +31,9 @@ NOTE: Adding things to a playlist isn't possible on the new mobile app, so you m
 export type PasswordLockMetadataProviderOptions = {
 	lockInstructionsThumbEndpoint: string,
 	loginSuccessEndpoint: string,
-	lockInstructionsItemTitle?: string,
-	lockInstructionsItemSummary?: string,
+	lockInstructionsItemUUID: string,
+	lockInstructionsTitle?: string,
+	lockInstructionsSummary?: string,
 	getLockInstructionsItemMedia?: (context: PseuplexRequestContext) => (plexTypes.PlexMedia[] | Promise<plexTypes.PlexMedia[] | undefined> | undefined);
 	loginSuccessItemUUID: string,
 	loginSuccessTitle?: string,
@@ -49,29 +49,25 @@ export class PasswordLockMetadataProvider implements PseuplexMetadataProvider {
 		this.options = options;
 	}
 
-	async get(ids: string[], options: PseuplexMetadataProviderParams): Promise<PseuplexMetadataPage> {
-		const metadataBasePath = options.metadataBasePath || '/library/metadata';
-		const qualifiedMetadataIds = options.qualifiedMetadataIds ?? true;
+	async get(ids: PseuplexPartialMetadataIDString[], options: PseuplexMetadataProviderParams): Promise<PseuplexMetadataPage> {
 		const metadatas = await Promise.all(ids.map(async (idString): Promise<PseuplexMetadataItem> => {
-			const idParts = parsePartialMetadataID(idString);
+			const idParts = parsePartialPseuplexMetadataID(idString);
 			if(idParts.directory) {
 				throw httpError(400, "Invalid metadata");
 			}
 			switch(idParts.id) {
 				case PasswordLockMetadataID.Instructions: {
 					// return password instructions metadata
-					const fullMetadataId = qualifyPartialMetadataID(idString, this.sourceSlug);
+					const fullMetadataId = qualifyPartialPseuplexMetadataID(idString, this.sourceSlug);
+					const metadataKey = stringifyPseuplexMetadataKeyFromIDString(fullMetadataId);
 					const metadataItem = ({
 						type: plexTypes.PlexMediaItemType.Movie,
-						key: `${metadataBasePath}/${
-							qualifiedMetadataIds
-								? fullMetadataId
-								: stringifyPartialMetadataID(idParts)
-						}`,
+						key: metadataKey,
+						guid: `com.plexapp.agents.none://${this.options.lockInstructionsItemUUID}`,
 						ratingKey: fullMetadataId,
-						title: this.options.lockInstructionsItemTitle ?? LockInstructionsItemTitle,
+						title: this.options.lockInstructionsTitle ?? LockInstructionsItemTitle,
 						thumb: this.options.lockInstructionsThumbEndpoint,
-						summary: this.options.lockInstructionsItemSummary ?? LockInstructionsItemSummary,
+						summary: this.options.lockInstructionsSummary ?? LockInstructionsItemSummary,
 						userState: false,
 						Pseuplex: {
 							isOnServer: false,
@@ -92,7 +88,7 @@ export class PasswordLockMetadataProvider implements PseuplexMetadataProvider {
 				}
 
 				case PasswordLockMetadataID.LoginSuccess: {
-					const fullMetadataId = qualifyPartialMetadataID(idString, this.sourceSlug);
+					const fullMetadataId = qualifyPartialPseuplexMetadataID(idString, this.sourceSlug);
 					const playlist = ({
 						ratingKey: fullMetadataId,
 						key: this.options.loginSuccessEndpoint,
@@ -130,11 +126,11 @@ export class PasswordLockMetadataProvider implements PseuplexMetadataProvider {
 		};
 	}
 	
-	async getChildren(id: string, options: PseuplexMetadataChildrenProviderParams): Promise<PseuplexMetadataChildrenPage> {
+	async getChildren(id: PseuplexPartialMetadataIDString, options: PseuplexMetadataChildrenProviderParams): Promise<PseuplexMetadataChildrenPage> {
 		throw httpError(500, "No children can be fetched from this provider");
 	}
 	
-	async getRelatedHubs(id: string, options: PseuplexRelatedHubsParams): Promise<plexTypes.PlexHubsPage> {
+	async getRelatedHubs(id: PseuplexPartialMetadataIDString, options: PseuplexRelatedHubsParams): Promise<plexTypes.PlexHubsPage> {
 		return {
 			MediaContainer: {
 				offset: 0,
@@ -143,26 +139,6 @@ export class PasswordLockMetadataProvider implements PseuplexMetadataProvider {
 				identifier: plexTypes.PlexPluginIdentifier.PlexAppLibrary,
 				Hub: []
 			}
-		};
-	}
-
-	metadataIdsFromKey(metadataKey: string): PseuplexPartialMetadataIDsFromKey | null {
-		const metadataKeyParts = parseMetadataIDFromKey(metadataKey, '/library/metadata', false);
-		if(!metadataKeyParts) {
-			return null;
-		}
-		const ids = parseMetadataIdsFromPathParam(metadataKeyParts.id).filter((id) => {
-			return id.source == this.sourceSlug;
-		});
-		if(ids.length == 0) {
-			return null;
-		}
-		const idStrings = ids.map((id) => {
-			return stringifyPartialMetadataID(id);
-		});
-		return {
-			ids: idStrings,
-			relativePath: metadataKeyParts.relativePath
 		};
 	}
 }
