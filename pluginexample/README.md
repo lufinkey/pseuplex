@@ -14,7 +14,7 @@ git clone https://github.com/lufinkey/pseuplex --branch v0.2.2
 # enter the proxy repo folder
 cd pseuplex
 # install dependencies
-npm install
+npm install && npm run build
 ```
 
 Then you'll need to link your plugin repo to the proxy repo:
@@ -22,7 +22,7 @@ Then you'll need to link your plugin repo to the proxy repo:
 ```shell
 # enter your plugin repo
 cd ../pseuplex-plugin-helloworld
-# link the proxy's package to your plugin
+# link the proxy's package to your plugin (this is only for development purposes)
 npm link pseuplex@file:../pseuplex
 ```
 

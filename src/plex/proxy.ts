@@ -17,10 +17,15 @@ import {
 } from '../utils/ip';
 import {
 	getPortFromRequest,
-	requestIsEncrypted
+	expressRequestDebugString,
+	remoteAddressOfRequest,
+	requestIsEncrypted,
+	urlFromServerRequest,
 } from '../utils/requesthandling';
+import { httpError } from '../utils/error';
 
 export type PlexProxyOptions = {
+	trustProxy: boolean;
 	logger?: Logger;
 	ipv4Mode?: (IPv4NormalizeMode | (() => IPv4NormalizeMode));
 };
@@ -37,6 +42,65 @@ type ProxyingUserResponse = express.Response & {
 	___proxyReq: http.ClientRequest;
 }
 
+type XForwardedHeaders = {
+	'X-Forwarded-For': string,
+	'X-Forwarded-Port': string,
+	'X-Forwarded-Proto': string,
+	'X-Forwarded-Host': string | undefined,
+	'X-Real-IP': string | undefined,
+	'Forwarded': undefined,
+};
+
+const xForwardedHeaders = (req: http.IncomingMessage, options: {ipv4Mode: IPv4NormalizeMode, trustProxy: boolean}): XForwardedHeaders => {
+	const headers: Partial<XForwardedHeaders> = {};
+	const encrypted = requestIsEncrypted(req);
+	const remoteAddress = remoteAddressOfRequest(req);
+	const fwdHeaders = {
+		For: remoteAddress ? normalizeIPAddress(remoteAddress, options.ipv4Mode) : remoteAddress,
+		Port: getPortFromRequest(req),
+		Proto: encrypted ? 'https' : 'http',
+	};
+	for(const headerSuffix of Object.keys(fwdHeaders)) {
+		const headerName = `X-Forwarded-${headerSuffix}`;
+		const lowercaseHeaderName = headerName.toLowerCase();
+		let prevHeaderItems = req.headers[headerName] || req.headers[lowercaseHeaderName];
+		prevHeaderItems = (prevHeaderItems instanceof Array) ? prevHeaderItems.flat(Infinity)[0] : prevHeaderItems;
+		const newHeaderItem = fwdHeaders[headerSuffix];
+		let headerValue: string | undefined;
+		if(newHeaderItem) {
+			// if the proxy is trusted, we can append the value. otherwise just set it.
+			if(options.trustProxy) {
+				headerValue = (prevHeaderItems ? `${prevHeaderItems}, ` : '') + newHeaderItem;
+			} else {
+				headerValue = newHeaderItem;
+			}
+		} else {
+			let missingThing = headerSuffix.toLowerCase();
+			if(missingThing == 'for') {
+				missingThing = 'remote address';
+			}
+			throw httpError(400, `Missing ${missingThing} in request`);
+		}
+		headers[headerName] = headerValue;
+	}
+	// overwrite x-forwarded-host header
+	let fwdHost;
+	if(options.trustProxy) {
+		fwdHost = (req.headers['x-forwarded-host'] || req.headers['host']);
+	} else {
+		fwdHost = req.headers['host'];
+	}
+	fwdHost = (fwdHost instanceof Array) ? fwdHost.flat(Infinity)[0] : fwdHost;
+	headers['X-Forwarded-Host'] = fwdHost || undefined;
+	// set x-real-ip header
+	const incomingRealIPHeader = req.headers['x-real-ip'];
+	let realIP = (options.trustProxy && incomingRealIPHeader) ? incomingRealIPHeader : fwdHeaders.For;
+	realIP = (realIP instanceof Array) ? realIP.flat(Infinity)[0] : realIP;
+	headers['X-Real-IP'] = realIP || undefined;
+	headers['Forwarded'] = undefined; // just delete this header always for now
+	return headers as XForwardedHeaders;
+};
+
 type HostOrHostGetter = (string | ((req: express.Request) => string));
 
 export const plexThinProxy = (host: HostOrHostGetter, options: PlexProxyOptions, proxyFilters: expressHttpProxy.ProxyOptions = {}) => {
@@ -51,37 +115,19 @@ export const plexThinProxy = (host: HostOrHostGetter, options: PlexProxyOptions,
 			?? IPv4NormalizeMode.DontChange;
 		reqOpts.headers ??= {};
 		// add x-forwarded headers
-		const encrypted = requestIsEncrypted(userReq);
-		const remoteAddress = userReq.connection?.remoteAddress || userReq.socket?.remoteAddress;
-		const fwdHeaders = {
-			For: remoteAddress ? normalizeIPAddress(remoteAddress, ipv4Mode) : remoteAddress,
-			Port: getPortFromRequest(userReq),
-			Proto: encrypted ? 'https' : 'http',
-		};
-		for(const headerSuffix in fwdHeaders) {
-			if(headerSuffix == null) {
-				continue;
-			}
-			const headerName = 'X-Forwarded-' + headerSuffix;
-			const lowercaseHeaderName = headerName.toLowerCase();
-			const prevHeaderVal = userReq.headers[headerName] || userReq.headers[lowercaseHeaderName];
-			const newHeaderVal = fwdHeaders[headerSuffix];
-			if(newHeaderVal) {
-				const headerVal = (prevHeaderVal ? `${prevHeaderVal},` : '') + newHeaderVal;
-				delete reqOpts.headers[lowercaseHeaderName];
+		const xFwdHeaders = xForwardedHeaders(userReq, {
+			ipv4Mode,
+			trustProxy:options.trustProxy
+		});
+		for(const headerName of Object.keys(xFwdHeaders)) {
+			delete reqOpts.headers[headerName];
+			delete reqOpts.headers[headerName.toLowerCase()];
+			const headerVal = xFwdHeaders[headerName];
+			if(headerVal) {
 				reqOpts.headers[headerName] = headerVal;
 			}
 		}
-		const fwdHost = userReq.headers['x-forwarded-host'] || userReq.headers['host'];
-		if(fwdHost) {
-			delete reqOpts.headers['x-forwarded-host'];
-			reqOpts.headers['X-Forwarded-Host'] = fwdHost;
-		}
-		const realIP = userReq.headers['x-real-ip'] || fwdHeaders.For;
-		if(realIP) {
-			delete reqOpts.headers['x-real-ip'];
-			reqOpts.headers['X-Real-IP'] = realIP;
-		}
+		// call passed-in modifier
 		if(innerProxyReqOptDecorator) {
 			reqOpts = await innerProxyReqOptDecorator(reqOpts, userReq);
 		}
@@ -94,7 +140,7 @@ export const plexThinProxy = (host: HostOrHostGetter, options: PlexProxyOptions,
 		if(innerProxyReqPathResolver) {
 			url = await innerProxyReqPathResolver(userReq);
 		} else {
-			url = userReq.url;
+			url = urlFromServerRequest(userReq);
 		}
 		// log proxy request
 		const proxyReqOpts = (userReq as ProxiedUserReq).___proxyReqOpts;
@@ -125,6 +171,13 @@ export type PlexAPIProxyFilters = {
 	requestOptionsModifier?: (proxyReqOpts: http.RequestOptions, userReq: express.Request) => http.RequestOptions,
 	requestPathModifier?: (req: express.Request) => string | Promise<string>,
 	requestBodyModifier?: (bodyContent: string, userReq: express.Request) => string | Promise<string>,
+	responseHeadersModifier?: (
+		headers: http.OutgoingHttpHeaders,
+		userReq: express.Request,
+		userRes: express.Response,
+		proxyReq: http.ClientRequest,
+		proxyRes: http.IncomingMessage
+	) => http.OutgoingHttpHeaders;
 	responseModifier?: (proxyRes: http.IncomingMessage, proxyResData: any, userReq: express.Request, userRes: express.Response) => any,
 };
 
@@ -151,8 +204,8 @@ export const plexApiProxy = (host: HostOrHostGetter, options: PlexProxyOptions, 
 					proxyReqOpts.headers['accept'] = 'application/json';
 				}
 				isApiRequest = true;
-			} else {
-				console.warn(`Unknown content type for Accept header: ${userReq.headers['accept']}`);
+			} else if(userReq.headers['accept'] != '*/*') {
+				console.warn(`Unknown content type for Accept header: ${userReq.headers['accept']}\n${expressRequestDebugString(userReq)}`);
 			}
 			// modify request destination
 			/*if(userReq.protocol) {
@@ -172,7 +225,10 @@ export const plexApiProxy = (host: HostOrHostGetter, options: PlexProxyOptions, 
 		},
 		proxyReqPathResolver: proxyFilters.requestPathModifier,
 		proxyReqBodyDecorator: proxyFilters.requestBodyModifier,
-		userResHeaderDecorator: (headers, userReq, userRes, proxyReq, proxyRes) => {
+		userResHeaderDecorator: (headers: http.OutgoingHttpHeaders, userReq, userRes, proxyReq, proxyRes) => {
+			if(proxyFilters.responseHeadersModifier) {
+				headers = proxyFilters.responseHeadersModifier(headers, userReq, userRes, proxyReq, proxyRes);
+			}
 			if(proxyFilters.responseModifier) {
 				// set the accepted content type if we're going to change back from json to xml
 				const acceptTypes = parseHttpContentTypeFromHeader(userReq, 'accept').contentTypes;
@@ -235,6 +291,7 @@ export const plexApiProxy = (host: HostOrHostGetter, options: PlexProxyOptions, 
 			if(userRes.headersSent) {
 				console.error("Too late to remove headers");
 			} else {
+				userRes.removeHeader('content-encoding');
 				userRes.removeHeader('x-plex-content-original-length');
 				userRes.removeHeader('x-plex-content-compressed-length');
 				userRes.removeHeader('content-length');
@@ -248,7 +305,9 @@ export const plexApiProxy = (host: HostOrHostGetter, options: PlexProxyOptions, 
 			let resData;
 			if(isXml) {
 				// parse xml
-				console.warn(`Expected json response, but got xml`);
+				if(proxyReq.getHeader('accept') == 'application/json') {
+					console.warn(`Expected json response, but got xml`);
+				}
 				resData = await plexXMLToJS(proxyResString);
 			} else {
 				// parse json
@@ -262,18 +321,17 @@ export const plexApiProxy = (host: HostOrHostGetter, options: PlexProxyOptions, 
 				}
 			}
 			// serialize response
-			const resDataString = (await serializeResponseContent(userReq, userRes, resData)).data;
-			let encodedResData: (Buffer | string) = resDataString;
+			const serializedRes = await serializeResponseContent(userReq, userRes, resData);
+			let encodedResData = serializedRes.data;
 			// encode user response
 			if(proxyRes.headers['content-encoding']) {
 				const encoding = proxyRes.headers['content-encoding'];
 				// need to do this so this proxy library doesn't encode the content later
 				delete proxyRes.headers['content-encoding'];
-				userRes.removeHeader('content-encoding');
 				// encode
 				if(encoding == 'gzip') {
 					encodedResData = await new Promise((resolve, reject) => {
-						zlib.gzip(resDataString, (error, result) => {
+						zlib.gzip(serializedRes.data, (error, result) => {
 							if(error) {
 								reject(error);
 							} else {
@@ -282,13 +340,13 @@ export const plexApiProxy = (host: HostOrHostGetter, options: PlexProxyOptions, 
 						});
 					});
 					userRes.setHeader('Content-Encoding', encoding);
-					userRes.setHeader('X-Plex-Content-Original-Length', resDataString.length);
+					userRes.setHeader('X-Plex-Content-Original-Length', serializedRes.data.length);
 					userRes.setHeader('X-Plex-Content-Compressed-Length', encodedResData.length);
-					userRes.setHeader('Content-Length', encodedResData.length);
 				}
 			}
+			userRes.setHeader('Content-Length', encodedResData.length);
 			// log user response if needed
-			options.logger?.logIncomingUserRequestResponse(userReq, userRes, resDataString);
+			options.logger?.logIncomingUserRequestResponse(userReq, userRes, serializedRes.dataString);
 			return encodedResData;
 		} : undefined
 	});
@@ -304,32 +362,27 @@ export const plexHttpProxy = (serverURL: string, options: PlexProxyOptions, even
 	const plexGeneralProxy = httpProxy.createProxyServer({
 		target: serverURL,
 		ws: true,
-		xfwd: true,
+		xfwd: false, // we'll set this later
 		preserveHeaderKeyCase: true,
 		//changeOrigin: false,
 		//autoRewrite: true,
 	});
 	const shouldHandleProxyResponse = (events?.onProxyResponse || options.logger?.options.logProxyResponses || options.logger?.options.logUserResponses || options.logger?.options.logProxyErrorResponseBody);
+	// handle proxy request
 	plexGeneralProxy.on('proxyReq', (proxyReq, userReq: express.Request, userRes: express.Response) => {
 		const ipv4Mode = ((options.ipv4Mode instanceof Function) ? options.ipv4Mode() : options.ipv4Mode)
 			?? IPv4NormalizeMode.DontChange;
-		// add x-real-ip to proxy headers
-		if (!userReq.headers['x-real-ip']) {
-			const realIP = userReq.connection?.remoteAddress || userReq.socket?.remoteAddress;
-			const normalizedIP = realIP ? normalizeIPAddress(realIP, ipv4Mode) : realIP;
-			if(normalizedIP) {
-				proxyReq.setHeader('X-Real-IP', normalizedIP);
-			}
-			// fix forwarded header if needed
-			if(normalizedIP != realIP) {
-				const forwardedFor = proxyReq.getHeader('X-Forwarded-For');
-				if(forwardedFor && typeof forwardedFor === 'string') {
-					const newForwardedFor = forwardedFor.split(',').map((part) => {
-						const trimmedPart = part.trim();
-						return normalizeIPAddress(trimmedPart, ipv4Mode);
-					}).join(',');
-					proxyReq.setHeader('X-Forwarded-For', newForwardedFor);
-				}
+		// add x-forwarded headers
+		const xFwdHeaders = xForwardedHeaders(userReq, {
+			ipv4Mode,
+			trustProxy:options.trustProxy
+		});
+		for(const headerName of Object.keys(xFwdHeaders)) {
+			proxyReq.removeHeader(headerName);
+			proxyReq.removeHeader(headerName.toLowerCase());
+			const headerVal = xFwdHeaders[headerName];
+			if(headerVal) {
+				proxyReq.setHeader(headerName, headerVal);
 			}
 		}
 		// log proxy request if needed
@@ -338,6 +391,26 @@ export const plexHttpProxy = (serverURL: string, options: PlexProxyOptions, even
 			(userRes as ProxyingUserResponse).___proxyReq = proxyReq;
 		}
 	});
+	// handle websocket proxy request
+	plexGeneralProxy.on('proxyReqWs', (proxyReq, userReq, socket, reqOpts, head) => {
+		const ipv4Mode = ((options.ipv4Mode instanceof Function) ? options.ipv4Mode() : options.ipv4Mode)
+			?? IPv4NormalizeMode.DontChange;
+		// add x-forwarded headers
+		const xFwdHeaders = xForwardedHeaders(userReq, {
+			ipv4Mode,
+			trustProxy:options.trustProxy
+		});
+		for(const headerName of Object.keys(xFwdHeaders)) {
+			proxyReq.removeHeader(headerName);
+			proxyReq.removeHeader(headerName.toLowerCase());
+			const headerVal = xFwdHeaders[headerName];
+			if(headerVal) {
+				proxyReq.setHeader(headerName, headerVal);
+			}
+		}
+		// TODO log proxied websocket request if needed?
+	});
+	// handle proxy response if needed
 	if(shouldHandleProxyResponse) {
 		plexGeneralProxy.on('proxyRes', (proxyRes, userReq: express.Request, userRes: express.Response) => {
 			const encoding = proxyRes.headers['content-encoding'];

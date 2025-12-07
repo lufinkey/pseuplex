@@ -10,7 +10,8 @@ import {
 	PseuplexMetadataIDParts,
 	PseuplexPartialMetadataIDString
 } from './metadataidentifier';
-import { PseuplexSection } from './section';
+import { PseuplexAllSectionsSource, PseuplexSection } from './section';
+import { PseuplexRouterApp } from './router';
 
 
 export type PseuplexResponseFilterContext = {
@@ -18,6 +19,10 @@ export type PseuplexResponseFilterContext = {
 	userRes: express.Response;
 	proxyRes?: http.IncomingMessage;
 	previousFilterPromises?: Promise<void>[];
+};
+
+export type PseuplexSectionsFilterContext = PseuplexResponseFilterContext & {
+	from: PseuplexAllSectionsSource;
 };
 
 export type PseuplexMetadataResponseFilterContext = PseuplexResponseFilterContext & {
@@ -51,6 +56,7 @@ export type PseuplexSectionHubsResponseFilterContext = PseuplexResponseFilterCon
 export type PseuplexResponseFilter<TResponseData, TContext extends PseuplexResponseFilterContext = PseuplexResponseFilterContext> = (resData: TResponseData, context: TContext) => void | Promise<void>;
 export type PseuplexResponseFilters = {
 	mediaProviders?: PseuplexResponseFilter<plexTypes.PlexServerMediaProvidersPage>;
+	sections?: PseuplexResponseFilter<plexTypes.PlexLibrarySectionsPage, PseuplexSectionsFilterContext>;
 	hubs?: PseuplexResponseFilter<plexTypes.PlexLibraryHubsPage>;
 	promotedHubs?: PseuplexResponseFilter<plexTypes.PlexLibraryHubsPage>;
 	sectionHubs?: PseuplexResponseFilter<plexTypes.PlexSectionHubsPage, PseuplexSectionHubsResponseFilterContext>;
@@ -58,9 +64,6 @@ export type PseuplexResponseFilters = {
 	metadataChildren?: PseuplexResponseFilter<PseuplexMetadataChildrenPage, PseuplexMetadataChildrenResponseFilterContext>;
 	metadataRelatedHubs?: PseuplexResponseFilter<plexTypes.PlexHubsPage, PseuplexMetadataRelatedHubsResponseFilterContext>;
 	findGuidInLibrary?: PseuplexResponseFilter<plexTypes.PlexMetadataPage, PseuplexResponseFilterContext>;
-
-	metadataFromProvider?: PseuplexResponseFilter<PseuplexMetadataPage, PseuplexMetadataFromProviderResponseFilterContext>;
-	metadataRelatedHubsFromProvider?: PseuplexResponseFilter<plexTypes.PlexHubsPage, PseuplexMetadataRelatedHubsFromProviderResponseFilterContext>;
 };
 export type PseuplexResponseFilterName = keyof PseuplexResponseFilters;
 export type PseuplexReadOnlyResponseFilters = {
@@ -73,8 +76,8 @@ export interface PseuplexPlugin {
 	readonly hubs?: { readonly [hubName: string]: PseuplexHubProvider };
 	readonly responseFilters?: PseuplexReadOnlyResponseFilters;
 
-	defineRoutes?: (router: express.Express) => void;
-	defineFallbackRoutes?: (router: express.Express) => void;
+	defineRoutes?: (router: PseuplexRouterApp) => void;
+	defineFallbackRoutes?: (router: PseuplexRouterApp) => void;
 	hasSections?: (context: PseuplexRequestContext) => Promise<boolean>;
 	getSections?: (context: PseuplexRequestContext) => Promise<PseuplexSection[]>;
 	shouldListenToPlexServerNotifications?: () => boolean;

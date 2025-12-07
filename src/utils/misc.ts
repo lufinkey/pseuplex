@@ -28,46 +28,44 @@ export const combinePathSegments = (part1: string, part2: string) => {
 	return `${part1}/${part2}`;
 };
 
-export const forArrayOrSingle = <T>(item: T | T[] | undefined, callback: (item: T) => void) => {
+export const forArrayOrSingle = <T>(item: T | T[] | undefined, callback: (item: T, index: number) => void) => {
 	if(item) {
 		if(item instanceof Array) {
-			for(const element of item) {
-				callback(element);
-			}
+			item.forEach(callback);
 		} else {
-			callback(item);
+			callback(item, 0);
 		}
 	}
 };
 
-export const transformArrayOrSingle = <T,U>(item: T | T[] | undefined, callback: (item: T) => U): (U | U[]) => {
+export const transformArrayOrSingle = <T,U>(item: T | T[] | undefined, callback: (item: T, index: number) => U): (U | U[]) => {
 	if(item) {
 		if(item instanceof Array) {
 			return item.map(callback);
 		} else {
-			return callback(item);
+			return callback(item, 0);
 		}
 	} else {
 		return item as any;
 	}
 };
 
-export const forArrayOrSingleAsyncParallel = async <T>(item: T | T[], callback: (item: T) => Promise<void>): Promise<void> => {
+export const forArrayOrSingleAsyncParallel = async <T>(item: T | T[], callback: (item: T, index: number) => Promise<void>): Promise<void> => {
 	if(item) {
 		if(item instanceof Array) {
 			await Promise.all(item.map(callback));
 		} else {
-			await callback(item);
+			await callback(item, 0);
 		}
 	}
 };
 
-export const transformArrayOrSingleAsyncParallel = async <T,U>(item: T | T[] | undefined, callback: (item: T) => Promise<U>): Promise<U | U[] | undefined> => {
+export const transformArrayOrSingleAsyncParallel = async <T,U>(item: T | T[] | undefined, callback: (item: T, index: number) => Promise<U>): Promise<U | U[] | undefined> => {
 	if(item) {
 		if(item instanceof Array) {
 			return await Promise.all(item.map(callback));
 		} else {
-			return await callback(item);
+			return await callback(item, 0);
 		}
 	} else {
 		return item as any;
@@ -103,6 +101,15 @@ export const firstOrSingle = <T>(arrayOrSingle: (T | T[] | undefined)): T | unde
 		return arrayOrSingle;
 	}
 	return undefined;
+};
+
+export const arrayFromArrayOrSingle = <T>(arrayOrSingle: (T | T[] | undefined)): T[] => {
+	if(arrayOrSingle instanceof Array) {
+		return arrayOrSingle;
+	} else if(arrayOrSingle) {
+		return [arrayOrSingle];
+	}
+	return [];
 };
 
 export const isArrayNullOrEmpty = (obj: any) => {

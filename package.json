@@ -13,34 +13,51 @@
 		"url": "https://github.com/lufinkey/pseuplex.git"
 	},
 	"scripts": {
-		"build": "tsc && npm link pseuplex@file:./",
-		"clean": "rm -rf dist node_modules plugindeps pluginexample/node_modules pluginexample/dist pluginexample/package-lock.json",
-		"prepare": "tsc",
-		"start": "tsc && node --enable-source-maps dist/main.js",
-		"start_test": "tsc && node --enable-source-maps --trace-deprecation dist/main.js --config=config/config.json --verbose --verbose-traffic",
-		"debug": "tsc && node --enable-source-maps --inspect dist/main.js --config=config/config.json --verbose"
+		"build": "tsc && npm run linkself:windows && npm run linkself:notwindows",
+		"linkself:notwindows": "npm run if:windows || npm link pseuplex@file:./",
+		"linkself:windows": "npm run if:notwindows || npm link --prefix %cd% pseuplex@file:./",
+		"prepublishOnly": "tsc",
+		"clean": "npm run clean:notwindows && npm run clean:windows",
+		"clean:notwindows": "npm run if:windows || rm -rf dist node_modules plugindeps pluginexample/node_modules pluginexample/dist pluginexample/package-lock.json",
+		"clean:windows": "npm run if:notwindows || rmdir /s /q dist node_modules plugindeps pluginexample\\node_modules pluginexample\\dist pluginexample\\package-lock.json || echo \"fuck you windows i hate you\"",
+		"start": "npm run node:start --",
+		"node:start": "node --enable-source-maps dist/main.js",
+		"node:start_test": "tsc && node --enable-source-maps --trace-deprecation dist/main.js --config=config/config.json --verbose --verbose-traffic",
+		"debug": "tsc && node --enable-source-maps --inspect dist/main.js --config=config/config.json --verbose",
+		"bun:start": "bun run ./src/main.ts",
+		"if:windows": "node -e \"if (process.platform !== 'win32') process.exit(1)\"",
+		"if:notwindows": "node -e \"if (process.platform === 'win32') process.exit(1)\""
 	},
 	"author": "Luis Finke (luisfinke@gmail.com)",
 	"license": "Zlib",
 	"dependencies": {
+		"@httptoolkit/httpolyglot": "^3.0.0",
 		"express": "^5.1.0",
-		"express-http-proxy": "https://github.com/lufinkey/express-http-proxy.git",
-		"http-proxy": "https://github.com/Jimbly/http-proxy-node16.git",
-		"httpolyglot": "^0.1.2",
-		"letterboxd-retriever": "https://github.com/lufinkey/letterboxd-retriever.git",
-		"node-forge": "^1.3.1",
+		"express-http-proxy": "git+https://github.com/lufinkey/express-http-proxy.git",
+		"http-proxy": "git+https://github.com/Jimbly/http-proxy-node16.git",
+		"ip-cidr": "^4.0.2",
+		"letterboxd-retriever": "git+https://github.com/lufinkey/letterboxd-retriever.git",
+		"node-forge": "^1.3.3",
 		"sharp": "^0.34.3",
 		"winreg": "^1.2.5",
+		"ws": "^8.18.3",
 		"xml2js": "^0.6.2"
 	},
 	"devDependencies": {
+		"@types/bun": "^1.2.20",
 		"@types/express": "^5.0.3",
 		"@types/express-http-proxy": "1.6.6",
 		"@types/http-proxy": "^1.17.15",
 		"@types/node": "^22.16.5",
-		"@types/node-forge": "^1.3.11",
+		"@types/node-forge": "^1.3.14",
 		"@types/winreg": "^1.2.36",
+		"@types/ws": "^8.18.1",
 		"@types/xml2js": "^0.4.14",
 		"typescript": "^5.5.3"
-	}
+	},
+	"trustedDependencies": [
+		"express-http-proxy",
+		"http-proxy",
+		"letterboxd-retriever"
+	]
 }

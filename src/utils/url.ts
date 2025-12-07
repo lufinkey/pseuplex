@@ -56,3 +56,12 @@ export const stringifyURLPath = (urlPathObj: URLPath): string => {
 	}
 	return urlPath;
 };
+
+export const parseURLQueryItems = (urlPath: string): (qs.ParsedUrlQuery | undefined) => {
+	const queryIndex = urlPath.indexOf('?');
+	if(queryIndex == -1) {
+		return undefined;
+	}
+	const query = urlPath.substring(queryIndex+1);
+	return qs.parse(query);
+};

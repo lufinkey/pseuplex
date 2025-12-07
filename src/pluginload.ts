@@ -39,18 +39,24 @@ export const installPlugins = async (cfg: Config) => {
 };
 
 export const importPlugins = async (cfg: Config): Promise<PseuplexPluginClass[]> => {
+	if(!cfg?.plugins) {
+		return [];
+	}
+	const pluginMapKeys = Object.keys(cfg.plugins);
+	if(pluginMapKeys.length == 0) {
+		return [];
+	}
 	// ensure the plugins search path exists
 	if(!prependedPluginsPath) {
 		module.paths.splice(0, 0, installedPluginsPath);
 		prependedPluginsPath = true;
 	}
-	if(!cfg?.plugins) {
-		return [];
-	}
-	const pluginIds = Object.keys(cfg.plugins).map((id) => getPluginModuleName(id));
+	// get list of modules to import
+	const pluginIds = pluginMapKeys.map((id) => getPluginModuleName(id));
 	if(pluginIds.length == 0) {
 		return [];
 	}
+	// import the modules
 	return await Promise.all(pluginIds.map(async (pluginId) => {
 		return (await import(pluginId)).default;
 	}));

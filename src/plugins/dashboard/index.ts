@@ -1,5 +1,4 @@
-
-import express from 'express';
+import crypto from 'crypto';
 import * as plexTypes from '../../plex/types';
 import { IncomingPlexAPIRequest } from '../../plex/requesthandling';
 import {
@@ -8,6 +7,7 @@ import {
 	PseuplexPluginClass,
 	PseuplexReadOnlyResponseFilters,
 	PseuplexRequestContext,
+	PseuplexRouterApp,
 	PseuplexSection
 } from '../../pseuplex';
 import { DashboardHubConfig, DashboardPluginConfig } from './config';
@@ -23,8 +23,8 @@ export default (class DashboardPlugin implements DashboardPluginDef, PseuplexPlu
 	constructor(app: PseuplexApp) {
 		this.app = app;
 		this.section = new DashboardSection(this, {
-			id: 'dashboard',
-			uuid: this.config.dashboard?.uuid ?? '81596aaa-14b1-4b74-8433-ff564d3020ff',
+			id: this.config.dashboard?.id ?? -23,
+			uuid: this.config.dashboard?.uuid ?? crypto.randomUUID(),
 			type: plexTypes.PlexMediaItemType.Mixed,
 			title: "Dashboard",
 			path: `${this.basePath}`,
@@ -44,9 +44,9 @@ export default (class DashboardPlugin implements DashboardPluginDef, PseuplexPlu
 		//
 	}
 
-	defineRoutes(router: express.Express) {
+	defineRoutes(router: PseuplexRouterApp) {
 		router.get(this.section.path, [
-			this.app.middlewares.plexAuthentication,
+			this.app.middlewares.plexAuthentication(),
 			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res) => {
 				const context = this.app.contextForRequest(req);
 				return await this.section.getSectionPage(context);
@@ -54,10 +54,10 @@ export default (class DashboardPlugin implements DashboardPluginDef, PseuplexPlu
 		]);
 
 		router.get(this.section.hubsPath, [
-			this.app.middlewares.plexAuthentication,
+			this.app.middlewares.plexAuthentication(),
 			this.app.middlewares.plexAPIRequestHandler(async (req: IncomingPlexAPIRequest, res) => {
 				const context = this.app.contextForRequest(req);
-				const reqParams = req.plex.requestParams;
+				const reqParams = plexTypes.parsePlexHubListPageParams(req);
 				return await this.section.getHubsPage(reqParams,context);
 			}),
 		]);

@@ -1,6 +1,5 @@
 import qs from 'querystring';
 import * as plexTypes from '../../plex/types';
-import { parseMetadataIDFromKey } from '../../plex/metadataidentifier';
 import {
 	PseuplexMetadataItem,
 	PseuplexMetadataSource,
@@ -9,8 +8,10 @@ import {
 import { PseuplexMetadataTransformOptions } from '../metadata';
 import {
 	PseuplexPartialMetadataIDParts,
-	stringifyMetadataID,
-	stringifyPartialMetadataID
+	stringifyPseuplexMetadataID,
+	stringifyPartialPseuplexMetadataID,
+	parsePseuplexMetadataIDStringFromItem,
+	stringifyPseuplexMetadataKeyFromIDString
 } from '../metadataidentifier';
 import { nonexistantMediaItems } from '../media';
 
@@ -22,11 +23,11 @@ export const createPartialExternalPlexMetadataIdParts = (opts: {serverURL: strin
 };
 
 export const createPartialExternalPlexMetadataId = (opts: {serverURL: string, metadataId: string}): string => {
-	return stringifyPartialMetadataID(createPartialExternalPlexMetadataIdParts(opts));
+	return stringifyPartialPseuplexMetadataID(createPartialExternalPlexMetadataIdParts(opts));
 };
 
 export const createFullExternalPlexMetadataId = (opts:{serverURL: string, metadataId: string, asUrl: boolean}): string => {
-	return stringifyMetadataID({
+	return stringifyPseuplexMetadataID({
 		isURL: opts.asUrl,
 		source: PseuplexMetadataSource.PlexServer,
 		directory: opts.serverURL,
@@ -42,13 +43,6 @@ export const transformExternalPlexMetadata = (metadataItem: plexTypes.PlexMetada
 	delete pseuMetadataItem.primaryExtraKey;
 	delete pseuMetadataItem.availabilityId;
 	delete pseuMetadataItem.streamingMediaId;
-	let metadataId = pseuMetadataItem.ratingKey;
-	if(!metadataId) {
-		metadataId = parseMetadataIDFromKey(pseuMetadataItem.key, '/library/metadata/')?.id;
-		if(metadataId) {
-			metadataId = qs.unescape(metadataId);
-		}
-	}
 	for(const person of [
 		...(pseuMetadataItem.Writer ?? []),
 		...(pseuMetadataItem.Role ?? []),
@@ -61,24 +55,21 @@ export const transformExternalPlexMetadata = (metadataItem: plexTypes.PlexMetada
 			}
 		}
 	}
-	if(metadataId) {
-		const partialMetadataId = createPartialExternalPlexMetadataId({
-			serverURL,
-			metadataId,
-		});
+	const extMetadataId = parsePseuplexMetadataIDStringFromItem(pseuMetadataItem);
+	if(extMetadataId) {
 		const fullMetadataId = createFullExternalPlexMetadataId({
 			serverURL,
-			metadataId,
+			metadataId: extMetadataId,
 			asUrl: false
 		});
 		pseuMetadataItem.ratingKey = fullMetadataId;
-		pseuMetadataItem.key = `${transformOpts.metadataBasePath}/${transformOpts.qualifiedMetadataIds ? fullMetadataId : partialMetadataId}`;
+		pseuMetadataItem.key = stringifyPseuplexMetadataKeyFromIDString(fullMetadataId);
 		pseuMetadataItem.Pseuplex = {
 			isOnServer: false,
 			unavailable: true,
 			metadataIds: {},
 			externalPlexMetadataIds: {
-				[serverURL]: metadataId
+				[serverURL]: extMetadataId
 			},
 		};
 	} else {

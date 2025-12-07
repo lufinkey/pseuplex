@@ -1,14 +1,12 @@
-
+import qs from 'querystring';
 import * as letterboxd from 'letterboxd-retriever';
 import * as plexTypes from '../../plex/types';
 import {
 	PseuplexMetadataTransformOptions,
 	PseuplexPartialMetadataIDString,
-	qualifyPartialMetadataID,
 	PseuplexHubSectionInfo,
-	PseuplexMetadataPathTransformOptions,
-	PseuplexHubMetadataTransformOptions,
-	getMetadataTransformOptionsForHub,
+	qualifyPartialPseuplexMetadataID,
+	stringifyPseuplexMetadataKeyFromIDString,
 } from '../../pseuplex';
 import { ListFetchInterval } from '../../fetching/LoadableList';
 import { RequestExecutor } from '../../fetching/RequestExecutor';
@@ -20,19 +18,19 @@ import { LetterboxdFilmListHub } from './filmlisthub';
 import { Logger } from '../../logging';
 
 
-export const createUserFollowingFeedHub = (letterboxdUsername: string, options: (PseuplexHubMetadataTransformOptions & {
+export const createUserFollowingFeedHub = (letterboxdUsername: string, options: {
 	hubPath: string,
 	style: plexTypes.PlexHubStyle,
 	promoted?: boolean,
 	uniqueItemsOnly: boolean,
 	letterboxdMetadataProvider: LetterboxdMetadataProvider,
+	metadataTransformOptions: PseuplexMetadataTransformOptions,
 	section?: PseuplexHubSectionInfo,
 	matchToPlexServerMetadata?: boolean,
 	logger?: Logger,
 	requestExecutor?: RequestExecutor,
-})): LetterboxdActivityFeedHub => {
+}): LetterboxdActivityFeedHub => {
 	const { requestExecutor } = options;
-	const metadataTransformOptions = getMetadataTransformOptionsForHub(options.letterboxdMetadataProvider.basePath, options);
 	return new LetterboxdActivityFeedHub({
 		hubPath: options.hubPath,
 		title: `Friends Activity on Letterboxd (${letterboxdUsername})`,
@@ -43,7 +41,7 @@ export const createUserFollowingFeedHub = (letterboxdUsername: string, options: 
 		style: options.style,
 		promoted: options.promoted,
 		uniqueItemsOnly: options.uniqueItemsOnly,
-		metadataTransformOptions,
+		metadataTransformOptions: options.metadataTransformOptions,
 		letterboxdMetadataProvider: options.letterboxdMetadataProvider,
 		section: options.section,
 		matchToPlexServerMetadata: options.matchToPlexServerMetadata,
@@ -65,27 +63,23 @@ export const createUserFollowingFeedHub = (letterboxdUsername: string, options: 
 };
 
 
-export const createSimilarItemsHub = async (metadataId: PseuplexPartialMetadataIDString, options: (PseuplexHubMetadataTransformOptions & {
-	relativePath: string,
+export const createSimilarItemsHub = async (metadataId: PseuplexPartialMetadataIDString, options: {
+	hubPath: string,
 	title: string,
 	style: plexTypes.PlexHubStyle,
 	promoted?: boolean,
 	letterboxdMetadataProvider: LetterboxdMetadataProvider,
+	metadataTransformOptions: PseuplexMetadataTransformOptions,
 	defaultCount?: number,
 	section?: PseuplexHubSectionInfo,
 	matchToPlexServerMetadata?: boolean,
 	logger?: Logger,
 	requestExecutor?: RequestExecutor,
-})) => {
+}) => {
 	const { requestExecutor } = options;
-	const metadataTransformOptions = getMetadataTransformOptionsForHub(options.letterboxdMetadataProvider.basePath, options);
 	const filmOpts = lbtransform.getFilmOptsFromPartialMetadataId(metadataId);
-	const metadataIdInPath = metadataTransformOptions.qualifiedMetadataIds
-		? qualifyPartialMetadataID(metadataId, options.letterboxdMetadataProvider.sourceSlug)
-		: metadataId;
-	const hubPath = `${metadataTransformOptions.metadataBasePath}/${metadataIdInPath}/${options.relativePath}`;
 	return new LetterboxdFilmsHub({
-		hubPath: hubPath,
+		hubPath: options.hubPath,
 		title: options.title,
 		type: plexTypes.PlexMediaItemType.Movie,
 		style: options.style,
@@ -96,7 +90,7 @@ export const createSimilarItemsHub = async (metadataId: PseuplexPartialMetadataI
 		uniqueItemsOnly: true,
 		listStartFetchInterval: 'never',
 		letterboxdMetadataProvider: options.letterboxdMetadataProvider,
-		metadataTransformOptions,
+		metadataTransformOptions: options.metadataTransformOptions,
 		section: options.section,
 		matchToPlexServerMetadata: options.matchToPlexServerMetadata,
 		logger: options.logger,
@@ -119,23 +113,23 @@ export const createSimilarItemsHub = async (metadataId: PseuplexPartialMetadataI
 };
 
 
-export const createListHub = async (listId: lbtransform.PseuplexLetterboxdListID, options: (PseuplexHubMetadataTransformOptions & {
-	path: string,
+export const createListHub = async (listId: lbtransform.PseuplexLetterboxdListID, options: {
+	hubPath: string,
 	style: plexTypes.PlexHubStyle,
 	promoted?: boolean,
 	letterboxdMetadataProvider: LetterboxdMetadataProvider,
+	metadataTransformOptions: PseuplexMetadataTransformOptions,
 	defaultCount?: number,
 	listStartFetchInterval?: ListFetchInterval,
 	section?: PseuplexHubSectionInfo,
 	matchToPlexServerMetadata?: boolean,
 	logger?: Logger,
 	requestExecutor?: RequestExecutor,
-})) => {
+}) => {
 	const { requestExecutor } = options;
-	const metadataTransformOptions = getMetadataTransformOptionsForHub(options.letterboxdMetadataProvider.basePath, options);
 	const listOpts = lbtransform.getFilmListOptsFromPartialListId(listId);
 	return new LetterboxdFilmListHub({
-		hubPath: options.path,
+		hubPath: options.hubPath,
 		title: `${listOpts.userSlug}'s ${listOpts.listSlug} list`,
 		type: plexTypes.PlexMediaItemType.Movie,
 		style: options.style,
@@ -146,7 +140,7 @@ export const createListHub = async (listId: lbtransform.PseuplexLetterboxdListID
 		uniqueItemsOnly: false,
 		listStartFetchInterval: options.listStartFetchInterval,
 		letterboxdMetadataProvider: options.letterboxdMetadataProvider,
-		metadataTransformOptions,
+		metadataTransformOptions: options.metadataTransformOptions,
 		section: options.section,
 		matchToPlexServerMetadata: options.matchToPlexServerMetadata,
 		logger: options.logger,

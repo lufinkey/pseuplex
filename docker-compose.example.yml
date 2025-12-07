@@ -1,0 +1,47 @@
+services:
+  pseuplex:
+    image: ghcr.io/lufinkey/pseuplex:latest
+    restart: unless-stopped
+    ports:
+      # Setting the external port to 32400 will override the traffic that would normally auto resolve to plex
+      # NOTE: You must also redirect your plex container to a non-32400 external port
+      - "32400:32397"
+    volumes:
+      # Mount your config.json file here.
+      # You should create a 'config' directory in the same directory as this docker-compose.yml
+      # and place your config.json inside it.
+      - ./config:/config:rw
+
+      # When using `ssl.autoP12Password`, mount your plex config folder here
+      # NOTE: Update `plex.appDataPath` in the `config/config.json` file to reflect the mount path within this app's container (ie: "/plex-config")
+      - ./plex-config:/plex-config:ro
+
+      # If you're using the built-in plex p12 certificate, mount your plex cache folder here
+      # NOTE: Update `plex.appCachePath` in the `config/config.json` file to reflect mount path within this app's container (ie: "/plex-cache")
+      - ./plex-cache:/plex-cache:ro
+
+      # (Optional: when not using `ssl.autoP12Path`) Mount ssl certs directory for manual configuration
+      # NOTE: Update ssl options in the `config/config.json` file to correspond to the mounted `/ssl` path within the docker container
+      # - ./ssl:/ssl:ro
+
+  # NOTE: Below is a simplified example of a plex container setup
+  # Please refer to the pms-docker docs: https://github.com/plexinc/pms-docker
+  plex:
+    image: plexinc/pms-docker
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      - TZ=America/New_York
+      # The hosts that the plex server should advertise
+      - ADVERTISE_IP=https://mydomain.com:32400,http://mydomain.com:32400,http://192.168.1.123:32400/
+    ports:
+      # Send the traffic to a port other than 32400, so that requests to your plex server dont bypass the proxy
+      - 32421:32400
+    hostname: mydomain.com
+    volumes:
+      # Plex configuration directory ( on linux without docker, this is sometimes /var/lib/plexmediaserver )
+      - ./plex-config:/config
+      # Plex caches directory ( on linux without docker, this is sometimes (no joke) /var/lib/plexmediaserver/Library/Application Support/Plex Media Server/Cache )
+      - ./plex-cache:/transcode
+      # Your data directory (with movies, shows, etc)
+      - /srv/media:/data:ro

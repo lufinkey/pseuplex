@@ -1,4 +1,5 @@
 
+// Include the stack trace of the console.error call when logging error messages
 let includedTracesForWarnAndError = false;
 export const includeTracesForConsoleWarnAndError = () => {
 	if(includedTracesForWarnAndError) {
@@ -32,15 +33,80 @@ export const includeTracesForConsoleWarnAndError = () => {
 
 	const innerError = console.error;
 	console.error = function(...args) {
-		innerError.call(this, ...args, traceDividerString, errorTraceString(2));
+		return innerError.call(this, ...args, traceDividerString, errorTraceString(2));
 	};
 
 	const innerWarn = console.warn;
 	console.warn = function(...args) {
-		innerWarn.call(this, ...args, traceDividerString, errorTraceString(2));
+		return innerWarn.call(this, ...args, traceDividerString, errorTraceString(2));
 	};
 };
 
+// Include the log level before every log
+let includedLogLevel = false;
+export const includeLogLevelForAllLogs = () => {
+	if(includedLogLevel) {
+		console.warn("Already including pipe names for console. Skipping...");
+		return;
+	}
+	includedLogLevel = true;
+
+	function prependArg(args: any[], arg: string) {
+		args.splice(0, 0, arg);
+	}
+
+	const innerError = console.error;
+	console.error = function(...args) {
+		prependArg(args, '[ERR]');
+		return innerError.apply(this, args);
+	};
+
+	const innerWarn = console.warn;
+	console.warn = function(...args) {
+		prependArg(args, '[WARN]');
+		return innerWarn.apply(this, args);
+	};
+
+	const innerLog = console.log;
+	console.log = function(...args) {
+		prependArg(args, '[LOG]');
+		return innerLog.apply(this, args);
+	};
+};
+
+// Include the current timestamp before every log
+let includedTimestamps = false;
+export const includeTimestampsForAllLogs = () => {
+	if(includedTimestamps) {
+		console.warn("Already including timestamps for console. Skipping...");
+		return;
+	}
+	includedTimestamps = true;
+
+	function insertTimestampArg(args: any[]) {
+		args.splice(0, 0, `[${(new Date()).toLocaleString()}]`);
+	}
+
+	const innerError = console.error;
+	console.error = function(...args) {
+		insertTimestampArg(args);
+		return innerError.apply(this, args);
+	};
+
+	const innerWarn = console.warn;
+	console.warn = function(...args) {
+		insertTimestampArg(args);
+		return innerWarn.apply(this, args);
+	};
+
+	const innerLog = console.log;
+	console.log = function(...args) {
+		insertTimestampArg(args);
+		return innerLog.apply(this, args);
+	};
+};
+
+// Modify the colors of warnings and errors
 let moddedColors = false;
 export const modConsoleColors = () => {
 	if(moddedColors) {
@@ -52,14 +118,16 @@ export const modConsoleColors = () => {
 	const innerConsoleError = console.error;
 	console.error = function (...args) {
 		process.stderr.write('\x1b[31m');
-		innerConsoleError.call(this, ...args);
+		let retVal = innerConsoleError.apply(this, args);
 		process.stderr.write('\x1b[0m');
+		return retVal
 	};
 	
 	const innerConsoleWarn = console.warn;
 	console.warn = function (...args) {
 		process.stderr.write('\x1b[33m');
-		innerConsoleWarn.call(this, ...args);
+		let retVal = innerConsoleWarn.apply(this, args);
 		process.stderr.write('\x1b[0m');
+		return retVal;
 	};
 };

@@ -62,3 +62,53 @@ export const applyOverlayToImage = async (imageBuffer: Buffer | ArrayBuffer, ove
 	}
 	return outputBuffer;
 };
+
+
+export const getResizedImageFromFile = async (filepath: string, options: {
+	width?: number,
+	height?: number,
+	keepAspectRatio?: boolean,
+	resizeOptions?: sharp.ResizeOptions,
+}): Promise<{image: sharp.Sharp, meta: sharp.Metadata}> => {
+	// load image and get dimensions
+	const image = sharp(filepath);
+	const meta = await image.metadata();
+	let size: {width: number, height: number} | undefined;
+	if(options.width) {
+		if(options.height) {
+			size = {
+				width: options.width,
+				height: options.height,
+			};
+			if(options.keepAspectRatio) {
+				const ratio = meta.width / meta.height;
+				if(!Number.isNaN(ratio) && Number.isFinite(ratio)) {
+					size.width = Math.round(ratio * size.height);
+				}
+			}
+		} else {
+			const ratio = meta.height / meta.width;
+			if(!Number.isNaN(ratio) && Number.isFinite(ratio)) {
+				size = {
+					width: options.width,
+					height: Math.round(ratio * options.width),
+				};
+			}
+		}
+	} else if(options.height) {
+		const ratio = meta.width / meta.height;
+		if(!Number.isNaN(ratio) && Number.isFinite(ratio)) {
+			size = {
+				width: Math.round(ratio * options.height),
+				height: options.height,
+			};
+		}
+	}
+	if(!size) {
+		return {image, meta};
+	}
+	return {
+		image: image.resize(size.width, size.height),
+		meta,
+	};
+};

@@ -1,15 +1,14 @@
 import fs from 'fs';
-import { SSLConfig } from './utils/ssl';
-import { IPv4NormalizeModeKey } from './utils/ip';
-import {
-	PseuplexConfigBase,
-	PseuplexServerProtocol,
-} from './pseuplex';
-import { LetterboxdPluginConfig } from './plugins/letterboxd/config';
-import { RequestsPluginConfig } from './plugins/requests/config';
-import { DashboardPluginConfig } from './plugins/dashboard/config';
-import { OverseerrRequestsPluginConfig } from './plugins/requests/providers/overseerr/config';
-import { LoggingOptions } from './logging';
+import type { SSLConfig } from './utils/ssl';
+import type { IPv4NormalizeModeKey } from './utils/ip';
+import type { PseuplexConfigBase } from './pseuplex/configbase';
+import type { PseuplexServerProtocol } from './pseuplex/types/server';
+import type { PasswordLockPluginConfig } from './plugins/passwordlock/config';
+import type { LetterboxdPluginConfig } from './plugins/letterboxd/config';
+import type { RequestsPluginConfig } from './plugins/requests/config';
+import type { DashboardPluginConfig } from './plugins/dashboard/config';
+import type { OverseerrRequestsPluginConfig } from './plugins/requests/providers/overseerr/config';
+import type { LoggingOptions } from './logging';
 
 export type Config = {
 	protocol?: PseuplexServerProtocol,
@@ -18,6 +17,7 @@ export type Config = {
 	httpPort?: number;
 	httpsPort?: number;
 	ipv4ForwardingMode?: IPv4NormalizeModeKey;
+	trustProxy?: boolean;
 	sendMetadataUnavailability?: boolean;
 	forwardMetadataRefreshToPluginMetadata?: boolean;
 	redirectPlexStreams?: boolean;
@@ -34,6 +34,7 @@ export type Config = {
 		token: string;
 		processedMachineIdentifier?: string;
 		appDataPath?: string;
+		appCachePath?: string;
 		metadataHost?: string;
 		notificationSocketRetryInterval?: number;
 		overwritePrivatePort?: number | boolean;
@@ -48,7 +49,8 @@ export type Config = {
 	plugins?: {
 		[id: string]: string
 	}
-} & PseuplexConfigBase<{}>
+} & PseuplexConfigBase<{[key: string]: any}>
+	& PasswordLockPluginConfig
 	& LetterboxdPluginConfig
 	& RequestsPluginConfig
 	& DashboardPluginConfig

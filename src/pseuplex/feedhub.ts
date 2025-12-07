@@ -20,6 +20,7 @@ import {
 	PseuplexRequestContext
 } from './types';
 import {
+	HubStartTokenQueryParam,
 	PseuplexHub,
 	PseuplexHubPage,
 	PseuplexHubPageParams,
@@ -82,26 +83,28 @@ export abstract class PseuplexFeedHub<
 	abstract compareItemTokens(itemToken1: TItemToken, itemToken2: TItemToken): number;
 	abstract transformItem(item: TItem, context: PseuplexRequestContext): (plexTypes.PlexMetadataItem | Promise<plexTypes.PlexMetadataItem>);
 	
-	override async get(params: PseuplexHubPageParams, context: PseuplexRequestContext): Promise<PseuplexHubPage> {
+	override async get(plexParams: PseuplexHubPageParams, context: PseuplexRequestContext): Promise<PseuplexHubPage> {
 		const opts = this._options;
 		const loadAheadCount = opts.loadAheadCount ?? DEFAULT_LOAD_AHEAD_COUNT;
 		let chunk: LoadableListChunk<TItem,TItemToken>;
 		let start: number;
-		let { listStartToken } = params;
+		let { hubStartToken } = plexParams;
 		let listStartItemToken: TItemToken | null | undefined = undefined;
-		if(listStartToken != null || (params.start != null && params.start > 0)) {
-			if(listStartToken != null) {
-				listStartItemToken = this.parseItemTokenParam(listStartToken);
+		const startParam = plexParams['X-Plex-Container-Start'];
+		const countParam = plexParams['X-Plex-Container-Size'];
+		if(hubStartToken != null || (startParam != null && startParam > 0)) {
+			if(hubStartToken != null) {
+				listStartItemToken = this.parseItemTokenParam(hubStartToken);
 			}
-			start = params.start ?? 0;
-			const itemCount = params.count ?? opts.defaultItemCount;
+			start = startParam ?? 0;
+			const itemCount = countParam ?? opts.defaultItemCount;
 			chunk = await this._itemList.getOrFetchItems(listStartItemToken ?? null, start, itemCount, {
 				unique: opts.uniqueItemsOnly,
 				loadAheadCount
 			});
 		} else {
 			start = 0;
-			const itemCount = params.count ?? opts.defaultItemCount;
+			const itemCount = countParam ?? opts.defaultItemCount;
 			chunk = await this._itemList.getOrFetchStartItems(itemCount, {
 				unique: opts.uniqueItemsOnly,
 				loadAheadCount
@@ -110,7 +113,7 @@ export abstract class PseuplexFeedHub<
 		}
 		let key = opts.hubPath;
 		if(listStartItemToken != null) {
-			key = addQueryArgumentToURLPath(opts.hubPath, `listStartToken=${listStartItemToken}`);
+			key = addQueryArgumentToURLPath(opts.hubPath, `${HubStartTokenQueryParam}=${listStartItemToken}`);
 		}
 		// transform items
 		let items = await Promise.all(chunk.items.map(async (itemNode) => {
@@ -183,7 +186,7 @@ export abstract class PseuplexFeedHub<
 				key: key,
 				title: opts.title,
 				type: opts.type,
-				hubIdentifier: `${opts.hubIdentifier}${(params.contentDirectoryID != null && !(params.contentDirectoryID instanceof Array)) ? `.${params.contentDirectoryID}` : ''}`,
+				hubIdentifier: `${opts.hubIdentifier}${(plexParams.contentDirectoryID != null && plexParams.contentDirectoryID.length == 1) ? `.${plexParams.contentDirectoryID[0]}` : ''}`,
 				context: opts.context,
 				style: opts.style,
 				promoted: opts.promoted

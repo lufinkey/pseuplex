@@ -5,11 +5,18 @@ export type CommandArguments = {
 	verbose?: boolean,
 	verboseHttpTraffic?: boolean,
 	verboseWsTraffic?: boolean,
+	noInstallPlugins?: boolean,
+	installPluginsAndExit?: boolean,
 } & LoggingOptions;
 
 enum CmdFlag {
 	configPath = '--config',
+	installPluginsAndExit = '--install-plugins-and-exit',
+	noInstallPlugins = '--no-install-plugins',
+	logTimestamps = '--log-timestamps',
+	logLogLevel = '--log-loglevel',
 	logPlexTokenInfo = '--log-plex-tokens',
+	logWatchedPaths = '--log-watched-paths',
 	logOutgoingRequests = '--log-outgoing-requests',
 	logUserRequests = '--log-user-requests',
 	logUserRequestHeaders = '--log-user-request-headers',
@@ -73,8 +80,28 @@ export const parseCmdArgs = (args: string[]): CommandArguments => {
 					parsedArgs.configPath = flagVal;
 					break;
 
+				case CmdFlag.noInstallPlugins:
+					parsedArgs.noInstallPlugins = true;
+					break;
+
+				case CmdFlag.installPluginsAndExit:
+					parsedArgs.installPluginsAndExit = true;
+					break;
+
+				case CmdFlag.logTimestamps:
+					parsedArgs.logTimestamps = true;
+					break;
+
+				case CmdFlag.logLogLevel:
+					parsedArgs.logLogLevel = true;
+					break;
+
 				case CmdFlag.logPlexTokenInfo:
 					parsedArgs.logPlexTokenInfo = true;
+					break;
+
+				case CmdFlag.logWatchedPaths:
+					parsedArgs.logWatchedPaths = true;
 					break;
 				
 				case CmdFlag.logOutgoingRequests:

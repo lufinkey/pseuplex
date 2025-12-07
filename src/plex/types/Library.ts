@@ -1,3 +1,4 @@
+import express from 'express';
 import {
 	PlexLanguage,
 	PlexLibraryAgent,
@@ -5,9 +6,20 @@ import {
 	PlexMediaItemType,
 	PlexMediaItemTypeNumeric,
 	PlexPluginIdentifier,
+	PlexSortParam,
 } from './common';
 import { PlexMediaContainer } from './MediaContainer';
-import { BooleanQueryParam } from '../../utils/queryparams';
+import { PlexSetting } from './Prefs';
+import {
+	BooleanQueryParam,
+	parseBooleanQueryParam,
+	parseIntArrayQueryParam,
+	parseIntQueryParam,
+	parseStringQueryParam
+} from '../../utils/queryparams';
+
+
+
 
 export type PlexGetLibraryMatchesParams = {
 	guid?: string,
@@ -23,7 +35,7 @@ export type PlexGetLibraryMatchesParams = {
 
 export type PlexLibrarySectionsPageParams = {
 	includePreferences?: BooleanQueryParam;
-}
+};
 
 export type PlexLibrarySection = {
 	allowSync: boolean;
@@ -48,32 +60,19 @@ export type PlexLibrarySection = {
 	hidden?: number;
 	Location?: PlexSectionLocation[];
 	Preferences?: PlexSectionPreferences;
-}
+};
 
-export interface PlexSectionLocation {
+export type PlexSectionLocation = {
 	id: number;
 	path: string;
-}
+};
 
-export interface PlexSectionPreferences {
-	Setting: PlexSectionSetting[];
-}
+export type PlexSectionPreferences = {
+	Setting: PlexSetting[];
+};
 
-export interface PlexSectionSetting {
-	id: string;
-	label: string;
-	summary: string;
-	type: 'bool' | 'int' | 'text';
-	default: string;
-	value: string;
-	hidden: boolean;
-	advanced: boolean;
-	group: string;
-	enumValues?: string; // "0:Disabled|1:For recorded items|2:For all items"
-}
-
-export type PlexLibrarySectionsPage = PlexMediaContainer & {
-	MediaContainer: {
+export type PlexLibrarySectionsPage = {
+	MediaContainer: PlexMediaContainer & {
 		size: number;
 		title1: string;
 		Directory: PlexLibrarySection[];
@@ -115,4 +114,61 @@ export type PlexLibrarySectionPage = {
 		viewGroup: PlexLibrarySectionViewGroup;
 		Directory?: PlexLibrarySectionDirectory[];
 	}
+};
+
+export type PlexSectionAllItemsParams = {
+	'X-Plex-Container-Start'?: number;
+	'X-Plex-Container-Size'?: number;
+	type?: PlexMediaItemTypeNumeric,
+};
+
+export const parsePlexSectionAllItemsPageParams = (req: express.Request): PlexSectionAllItemsParams => {
+	const query = req.query ?? {};
+	// TODO some of these may be arrays sometimes
+	return {
+		'X-Plex-Container-Start': parseIntQueryParam(query['X-Plex-Container-Start'] ?? req.header('x-plex-container-start')),
+		'X-Plex-Container-Size': parseIntQueryParam(query['X-Plex-Container-Size'] ?? req.header('x-plex-container-size')),
+		type: parseIntQueryParam(query['type']),
+	};
+};
+
+
+
+export enum PlexLibrarySortField {
+	Random = 'random',
+	// TODO add other fields
+};
+
+export type PlexLibrarySortParam = PlexSortParam<PlexLibrarySortField>;
+
+export type PlexLibraryAllItemsParams = {
+	'X-Plex-Container-Start'?: number;
+	'X-Plex-Container-Size'?: number;
+	type?: PlexMediaItemTypeNumeric;
+	guid?: string;
+	'show.guid'?: string;
+	season?: number;
+	sort?: PlexLibrarySortParam | string;
+	includeCollections?: boolean;
+	includeExternalMedia?: boolean;
+	includeAdvanced?: boolean;
+	includeMeta?: boolean;
+};
+
+export const parsePlexLibraryAllItemsPageParams = (req: express.Request): PlexLibraryAllItemsParams => {
+	const query = req.query ?? {};
+	// TODO some of these may be arrays sometimes
+	return {
+		'X-Plex-Container-Start': parseIntQueryParam(query['X-Plex-Container-Start'] ?? req.header('x-plex-container-start')),
+		'X-Plex-Container-Size': parseIntQueryParam(query['X-Plex-Container-Size'] ?? req.header('x-plex-container-size')),
+		type: parseIntQueryParam(query['type']),
+		guid: parseStringQueryParam(query['guid']),
+		'show.guid': parseStringQueryParam(query['guid']),
+		season: parseIntQueryParam(query['season']),
+		sort: parseStringQueryParam(query['sort']),
+		includeCollections: parseBooleanQueryParam(query['includeCollections']),
+		includeExternalMedia: parseBooleanQueryParam(query['includeExternalMedia']),
+		includeAdvanced: parseBooleanQueryParam(query['includeAdvanced']),
+		includeMeta: parseBooleanQueryParam(query['includeMeta']),
+	};
 };

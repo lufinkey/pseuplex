@@ -133,7 +133,12 @@ dist
 .DS_Store
 
 # private data
-/plex_docker/docker-compose.yml
+docker-compose.yml
+/plex-config
+/plex-cache
+/plugindeps
+/external
 /keys
 /config/config.json
 /config/csr.conf
+/config/authCache.json

@@ -31,6 +31,8 @@ export type PlexIdCachedInfo = {
 	parentRatingKey?: string;
 	grandparentSlug?: string;
 	grandparentRatingKey?: string;
+	thumb?: string;
+	year?: number;
 	Guid?: plexTypes.PlexGuid[];
 };
 
@@ -39,8 +41,10 @@ export class PlexIdToInfoCache extends CachedFetcher<PlexIdCachedInfo | null> {
 	static fields: (keyof PlexIdCachedInfo)[] = [
 		'index',
 		'slug',
+		'thumb',
+		'year',
 		'parentIndex','parentSlug','parentRatingKey',
-		'grandparentSlug','grandparentRatingKey'
+		'grandparentSlug','grandparentRatingKey',
 	];
 	static elements: (keyof PlexIdCachedInfo)[] = ['Guid'];
 	plexMetadataClient: PlexClient;
@@ -68,6 +72,8 @@ export class PlexIdToInfoCache extends CachedFetcher<PlexIdCachedInfo | null> {
 		return {
 			index: metadataItem.index,
 			slug: metadataItem.slug,
+			year: metadataItem.year,
+			thumb: metadataItem.thumb,
 			parentIndex: metadataItem.parentIndex,
 			parentSlug: metadataItem.parentSlug,
 			parentRatingKey: metadataItem.parentRatingKey,

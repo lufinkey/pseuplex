@@ -4,7 +4,7 @@ A middleware proxy for the plex server API. This sits in between the plex client
 
 Inspired by [Replex](https://github.com/lostb1t/replex)
 
-This project is still very much a WIP. While I've tried to do my due diligence in terms of security ([middleware](src/plex/requesthandling.ts#L73) prevents unauthorized requests from tokens not listed in the shared account list), I'm really the only contributor right now. Use at your own risk.
+This project is still very much a WIP. While I've tried to do my due diligence in terms of security ([middleware](src/plex/requesthandling.ts#L124) prevents unauthorized requests from tokens not listed in the shared account list), I'm really the only contributor right now. Use at your own risk.
 
 This is an unofficial project that is **NOT** endorsed by or associated with Plexinc.
 
@@ -42,6 +42,12 @@ This is an unofficial project that is **NOT** endorsed by or associated with Ple
 
 	![Letterboxd Friends Reviews](docs/images/letterboxd_friends_reviews.png)
 
+- ### Password Locking
+
+	Password-protect your server to easily whitelist IPs per user! To log into your server, add the instructions item to a new playlist, and input the password as the playlist title. If successful, then once you refresh the page (or restart the app), you will be "logged in" for the IP you're connecting from.
+
+	![Password Locking](docs/images/passwordlock.png)
+
 ## Contributing
 
 This app is structured to have different ["plugins"](src/plugins) to provide different functionality. The [example plugin](pluginexample) and the [plugin template](src/plugins/template) are provided to give a starting point for anyone implementing a new plugin. If you would like to add your own set of functionality unrelated to letterboxd or any existing functionality, you should create your own plugin.
@@ -54,7 +60,7 @@ Feel free to ask me if you're unsure of where or how to implement something!
 
 You will need to use your own SSL certificate for your plex server in order for this proxy to modify requests over HTTPS. Otherwise, it will only work over HTTP, or it will fallback to the plex server's true address instead of the proxy address.
 
-The configuration option `autoP12Password` is provided to automatically decrypt and use the built-in plex direct SSL certificate, so that you don't need to set up your own SSL certificate. If you're running any service in front of this proxy (ie, another reverse proxy or anything using its own custom domain name) then it is recommended to **not** use the built-in plex certificate, and instead use your own certificate for your custom domain.
+The configuration option `autoP12Password` is provided to automatically decrypt and use the built-in plex direct SSL certificate, so that you don't need to set up your own SSL certificate.
 
 ### Configuration
 
@@ -64,8 +70,8 @@ Create a `config.json` file with the following structure, and fill in the config
 {
 	"port": 32397,
 	"plex": {
-		"host": "http://127.0.0.1:32400",
-		"token": "<PLEX API TOKEN>"
+		"host": "http://192.168.1.123:32400",
+		"token": "<PLEX SERVER OWNER TOKEN>"
 	},
 	"ssl": {
 		"keyPath": "/etc/pseudo_plex_proxy/ssl_cert.key",
@@ -73,6 +79,7 @@ Create a `config.json` file with the following structure, and fill in the config
 	},
 	"dashboard": {
 		"enabled": true,
+		"uuid": "<YOUR RANDOMLY GENERATED UUID>"
 	},
 	"perUser": {
 		"yourplexuseremail@example.com": {
@@ -98,12 +105,14 @@ Create a `config.json` file with the following structure, and fill in the config
 - **httpPort**: Manually specify the port that the http proxy will run on, if you want http and https traffic on separate ports.
 - **httpsPort**: Manually specify the port that the https proxy will run on, if you want http and https traffic on separate ports.
 - **redirectPlexStreams**: Optionally redirect video streams to go directly to plex, rather than through the proxy. The `plex.redirectHost` option must be set in order for streams to be redirected.
+- **sendMetadataUnavailability**: By default, the proxy will send the "unavailable" status for any "pseudo" metadata item (ie from letterboxd) that doesn't match up to an item in your library. If you for whatever reason don't want this behaviour, you can optionally set this to `false` to disable it.
+- **trustProxy**: Set this to `true` only if you have another proxy in front of this proxy
 - **plex**
-	- **host**: The url of your plex server.
+	- **host**: The url of your plex server. You probably don't want to set this to use `http://localhost:32400` or `http://127.0.0.1:32400`, even if you're on the same machine. It will work, but plex will also classify the traffic as localhost and it won't show up in bandwidth statistics. Instead, use the local ip (for example `http://192.168.1.123:32400`)
 	- **secureHost**: The "secure" url of your plex server, if you want https traffic to use a different url.
 	- **redirectHost**: The external url of your plex server, to use when redirecting streams.
 	- **secureRedirectHost**: The "secure" external url of your plex server, to use when redirecting streams for https traffic.
-	- **token**: The plex API token of the server owner.
+	- **token**: The plex API token of the server owner. This *must* be the token used by the actual server itself. All other tokens will expire. See [here](https://www.plexopedia.com/plex-media-server/general/plex-token/#plexservertoken) for how to get the server token.
 	- **appDataPath**: (*optional*) Manually specify the path of your plex server's appdata folder if it's in an unconventional place. On Linux, this is typically `/var/lib/plexmediaserver/Library/Application Support/Plex Media Server` unless you're running via docker. This will be used to determine the path of the SSL certificate if `ssl.autoP12Path` is `true`. This will also be used to determine the path of `Preferences.xml` if `ssl.autoP12Password` is `true`.
 	- **assumedTopSectionId**: (*optional*) Because of a bug in Plex for Mobile, it isn't possible to determine which section is the first "pinned" section. To fix this, you can manually specify the top pinned section ID here.
 - **ssl**
@@ -122,12 +131,20 @@ Create a `config.json` file with the following structure, and fill in the config
 	- **friendsReviewsEnabled**: Display letterboxd friends reviews for all users with a letterboxd username configured
 - **dashboard**:
 	- **enabled**: Controls whether to show a pseudo "Dashboard" section for all users, which will show custom hubs
+	- **id**: The section id for the dashboard section. This must be a number not already in use by another section or metadata.
 	- **uuid**: The unique uuid for the dashboard section. If enabling the dashboard, you should specify your own [randomly generated uuid](https://www.uuidgenerator.net), to ensure it's unique to your server.
 	- **title**: The title to display for the section
 	- **hubs**: An array of hubs to show on the dashboard section for all users. For a list of built-in hubs that can be configured, see [here](docs/Dashboard.md#hubs).
 		- **plugin**: The name of the plugin that this hub comes from (for example, `letterboxd` for letterboxd hubs)
 		- **hub**: The name of the hub within the plugin (for example, `userFollowingActivity` the activity feed of users that a given user is following)
 		- **arg**: The argument to pass to the hub provider for this hub. (for `letterboxd`.`userFollowingActivity` hub, this would be a letterboxd username slug, for example `crew`)
+- **passwordLock**:
+	- **enabled**: Controls whether to password protect this server.
+	- **sectionID**: The section id for the initial section when the library is locked. This must be a number not already in use by another section or metadata.
+	- **sectionUUID**: A unique uuid for the initial section when the library is locked. You should specify your own [randomly generated uuid](https://www.uuidgenerator.net), to ensure it's unique to your server.
+	- **password**: The custom password of your server.
+	- **authCachePath**: The file path to store the auth cache json file. This stores the mapping of tokens to their whitelisted IPs.
+	- **autoWhitelistNetmask**: The ip netmask to whitelist automatically. Typically this would be a local netmask, like `"192.168.0.0/16"`.
 - **perUser**: A map of settings to configure for each user on your server. The map keys are the plex email for each user.
 	- **letterboxd**:
 		- **username**: The letterboxd username for this user
@@ -141,6 +158,10 @@ Create a `config.json` file with the following structure, and fill in the config
 			- **plugin**: The name of the plugin that this hub comes from (for example, `letterboxd` for letterboxd hubs)
 			- **hub**: The name of the hub within the plugin
 			- **arg**: The argument to pass to the hub provider
+	- **passwordLock**:
+		- **password**: The custom password to require from this specific user.
+		- **autoWhitelistNetmask**: The ip netmask to whitelist automatically for this user.
+		- **overrideAutoWhitelistNetmask**: Set to `true` if the `autoWhitelistNetmask` for this user should override the global `autoWhitelistNetmask` config.
 
 ### Network Settings
 

@@ -1,6 +1,7 @@
 
 export * from './common';
 export * from './auth';
+export * from './Collection';
 export * from './HubContext';
 export * from './Hub';
 export * from './Library';
@@ -13,7 +14,9 @@ export * from './MyPlex';
 export * from './Notifications';
 export * from './Playlist';
 export * from './PlayQueue';
+export * from './Prefs';
 export * from './preferences';
 export * from './Search';
 export * from './SearchProvider';
 export * from './Server';
+export * from './Update';

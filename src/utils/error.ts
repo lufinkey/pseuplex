@@ -3,6 +3,12 @@ export type HttpError = Error & {
 	statusCode: number;
 };
 
+export type SilentErrorMixin = {
+	silent: boolean;
+};
+
+export type PossiblySilentError = Error & Partial<SilentErrorMixin>;
+
 export const httpError = (status: number, message: string, props?: {[key: string]: any}): HttpError => {
 	const error = new Error(message) as HttpError;
 	error.statusCode = status;

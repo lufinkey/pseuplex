@@ -49,7 +49,7 @@ while [[ $# -gt 0 ]]; do
 				exit 1
 			fi
 			break
-		;;
+			;;
 	esac
 done
 if [ -z "$subcmd" ]; then
@@ -207,6 +207,7 @@ function get_ssl_cert_p12_path {
 			return $result
 		fi
 	fi
+	# pms_cert_filename="cert-v2.p12"
 	case "$platform" in
 		Linux)
 			if [ -z "$pms_cache_path" ]; then
@@ -221,6 +222,7 @@ function get_ssl_cert_p12_path {
 			fi
 			;;
 		Windows)
+			# pms_cert_filename="certificate.p12"
 			if [ -z "$pms_cache_path" ]; then
 				pms_cache_path=$(pms_cache_windows)
 				result=$?
@@ -234,7 +236,7 @@ function get_ssl_cert_p12_path {
 	if [ $result -ne 0 ]; then
 		return $result
 	fi
-	echo "$pms_cache_path/cert-v2.p12"
+	echo "$pms_cache_path/$pms_cert_filename"
 }
 
 function get_ssl_cert_p12_password {
@@ -247,12 +249,12 @@ function get_ssl_cert_p12_password {
 }
 
 function output_ssl_cert {
-	local cert_pass=$(get_ssl_cert_p12_password)
+	local p12_pass=$(get_ssl_cert_p12_password)
 	local result=$?
 	if [ $result -ne 0 ]; then
 		return $result
 	fi
-	local cert_path=$(get_ssl_cert_p12_path)
+	local p12_path=$(get_ssl_cert_p12_path)
 	result=$?
 	if [ $result -ne 0 ]; then
 		return $result
@@ -262,16 +264,35 @@ function output_ssl_cert {
 		>&2 echo "No output path given"
 		return 1
 	fi
-	openssl pkcs12 -in "$cert_path" -out "$cert_out_path" -clcerts -nokeys -passin "pass:$cert_pass" || return $?
+	openssl pkcs12 -in "$p12_path" -out "$cert_out_path" -clcerts -nokeys -passin "pass:$p12_pass" || return $?
 }
 
-function output_ssl_privatekey {
-	local cert_pass=$(get_ssl_cert_p12_password)
+function output_ssl_certchain {
+	local p12_pass=$(get_ssl_cert_p12_password)
 	local result=$?
 	if [ $result -ne 0 ]; then
 		return $result
 	fi
-	local cert_path=$(get_ssl_cert_p12_path)
+	local p12_path=$(get_ssl_cert_p12_path)
+	result=$?
+	if [ $result -ne 0 ]; then
+		return $result
+	fi
+	local cert_out_path="$1"
+	if [ -z "$cert_out_path" ]; then
+		>&2 echo "No output path given"
+		return 1
+	fi
+	openssl pkcs12 -in "$p12_path" -out "$cert_out_path" -nokeys -passin "pass:$p12_pass" || return $?
+}
+
+function output_ssl_privatekey {
+	local p12_pass=$(get_ssl_cert_p12_password)
+	local result=$?
+	if [ $result -ne 0 ]; then
+		return $result
+	fi
+	local p12_path=$(get_ssl_cert_p12_path)
 	result=$?
 	if [ $result -ne 0 ]; then
 		return $result
@@ -281,7 +302,7 @@ function output_ssl_privatekey {
 		>&2 echo "No output path given"
 		return 1
 	fi
-	openssl pkcs12 -in "$cert_path" -out "$key_out_path" -nocerts -nodes -passin "pass:$cert_pass" || return $?
+	openssl pkcs12 -in "$p12_path" -out "$key_out_path" -nocerts -nodes -passin "pass:$p12_pass" || return $?
 }
 
 
@@ -347,7 +368,7 @@ case "$subcmd" in
 				exit 0
 				;;
 			ssl-cert-p12)
-				get_ssl_cert_12_path "$@" || exit $?
+				get_ssl_cert_p12_path "$@" || exit $?
 				exit 0
 				;;
 			*)
@@ -370,6 +391,10 @@ case "$subcmd" in
 				;;
 			output-cert)
 				output_ssl_cert "$@" || exit $?
+				exit 0
+				;;
+			output-certchain)
+				output_ssl_certchain "$@" || exit $?
 				exit 0
 				;;
 			output-privatekey)

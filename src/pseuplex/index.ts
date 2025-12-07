@@ -10,4 +10,6 @@ export * from './matching';
 export * from './media';
 export * from './notifications';
 export * from './plugin';
+export * from './requesthandling';
+export * from './router';
 export * from './section';

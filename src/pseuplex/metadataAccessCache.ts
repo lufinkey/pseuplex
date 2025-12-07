@@ -1,5 +1,5 @@
 import { PseuplexMetadataProvider } from './metadata';
-import { qualifyPartialMetadataID } from './metadataidentifier';
+import { qualifyPartialPseuplexMetadataID } from './metadataidentifier';
 import { PseuplexMetadataItem, PseuplexRequestContext } from './types';
 
 export type PseuplexMetadataAccessCacheOptions = {
@@ -57,7 +57,7 @@ export class PseuplexMetadataAccessCache {
 		if(!plexGuid) {
 			return;
 		}
-		const fullMetadataId = qualifyPartialMetadataID(metadataId, metadataProvider.sourceSlug);
+		const fullMetadataId = qualifyPartialPseuplexMetadataID(metadataId, metadataProvider.sourceSlug);
 		this.addMetadataAccessEntry(plexGuid, fullMetadataId, metadataKey, context);
 	}
 	

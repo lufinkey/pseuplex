@@ -45,3 +45,22 @@ export type PlexTVSharedServersPage = {
 		SharedServer?: PlexTVSharedServer[];
 	}
 };
+
+export type PlexTVAccessTokensPage = PlexTVAccessTokenInfo[];
+
+export type PlexTVAccessTokenInfo = {
+	type: PlexTVAccessTokenType;
+	token: string;
+	owned: boolean
+	device?: string;
+	title?: string;
+	createdAt: string; // "2025-11-01T19:48:28Z"
+	// invited: PlexTVAccessTokenInvite
+	// settings: PlexTVAccessTokenSettings
+	// sections: PlexTVAccessTokenSection[]
+};
+
+export enum PlexTVAccessTokenType {
+	Device = 'device',
+	Server = 'server'
+}

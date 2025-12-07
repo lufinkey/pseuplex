@@ -1,8 +1,8 @@
 {
 	"port": 32397,
 	"plex": {
-		"host": "http://127.0.0.1:32400",
-		"token": "bxViLIUTBlbdow-iuBVT",
+		"host": "http://192.168.1.123:32400",
+		"token": "<PLEX SERVER ADMIN TOKEN>",
 		"appDataPath": "/var/lib/plexmediaserver/Library/Application Support/Plex Media Server"
 	},
 	"ssl": {

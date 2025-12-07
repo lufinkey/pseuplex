@@ -1,6 +1,8 @@
-import { parseMetadataIDFromKey } from '../plex/metadataidentifier';
 import { PseuplexMetadataSource } from './types';
-import { parseMetadataID } from './metadataidentifier';
+import {
+	parsePseuplexMetadataID,
+	parsePseuplexMetadataKey,
+} from './metadataidentifier';
 
 export type PseuplexPrivateToPublicIDsMap = {
 	[privateId: string]: (number | string)
@@ -50,16 +52,13 @@ export class PseuplexIDRemappings {
 
 	getPublicSanitizedMetadataKey(metadataKey: string, metadataRatingKey: (string | undefined), privateToPublicIds?: PseuplexPrivateToPublicIDsMap | undefined): string {
 		// check if ID needs to be mapped
-		let metadataKeyParts = parseMetadataIDFromKey(metadataKey, '/library/metadata/');
-		let metadataIdString = metadataKeyParts?.id;
+		let metadataKeyParts = parsePseuplexMetadataKey(metadataKey);
+		const metadataIdString = metadataKeyParts?.id || metadataRatingKey;
 		if(!metadataIdString) {
-			metadataIdString = metadataRatingKey;
-			if(!metadataIdString) {
-				// failed to find the ID of the item
-				return metadataKey;
-			}
+			// failed to find the ID of the item
+			return metadataKey;
 		}
-		const metadataId = parseMetadataID(metadataIdString);
+		const metadataId = parsePseuplexMetadataID(metadataIdString);
 		if(!metadataId.source || metadataId.source == PseuplexMetadataSource.Plex) {
 			// don't map plex IDs
 			return metadataKey;
@@ -71,7 +70,7 @@ export class PseuplexIDRemappings {
 	}
 
 	getPublicSanitizedMetadataRatingKey(metadataRatingKey: string, privateToPublicIds?: PseuplexPrivateToPublicIDsMap | undefined) : string {
-		const metadataId = parseMetadataID(metadataRatingKey);
+		const metadataId = parsePseuplexMetadataID(metadataRatingKey);
 		if(!metadataId.source || metadataId.source == PseuplexMetadataSource.Plex) {
 			// don't map plex IDs
 			return metadataRatingKey;

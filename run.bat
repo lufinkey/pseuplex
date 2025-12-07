@@ -1,7 +1,14 @@
 @echo off
-cd %~dp0% || exit /b
-call npm install || exit /b
-call npm run build || exit /b
-set NODE_ENV=production
-call npm start -- --config=config/config.json
+setlocal
+(
+	cd "%~dp0" || goto :exit
+	call npm install || goto :exit
+	call npm run build || goto :exit
+	set NODE_ENV=production
+	call npm start -- --config=config/config.json --log-timestamps --log-loglevel --log-watched-paths || goto :exit
+)
+endlocal
+
+:exit
 pause
+exit /b

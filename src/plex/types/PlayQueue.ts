@@ -1,12 +1,40 @@
+import {
+	PlexMetadataItem,
+	PlexMetadataPage,
+} from './Metadata';
 
-export type PlexPlayQueueURIParts = {
+export type PlayQueueItem = PlexMetadataItem & {
+	playQueueItemID: number;
+};
+export type PlayQueueItemsPage = PlexMetadataPage<PlayQueueItem> & {
+	MediaContainer: {
+		// The ID of the queue
+		playQueueID: number;
+		// The ID of the current item in the queue
+        playQueueSelectedItemID: number;
+		// the offset of the current item in the queue
+        playQueueSelectedItemOffset: number;
+		// the metadata id of the current item in the queue
+        playQueueSelectedMetadataItemID: number,
+		// whether the queue is shuffled
+        playQueueShuffled: boolean,
+		// the plex server uri of the metadata item
+        playQueueSourceURI: `${string}://${string}/${string}/${string}`, // "library://x/item/%2Flibrary%2Fmetadata%2F63272"
+		// the total number of items in the queue
+        playQueueTotalCount: number,
+		// the playqueue version
+        playQueueVersion: number, // 1
+	}
+};
+
+export type PlexServerItemURIParts = {
 	protocol?: string | undefined; // "server",
 	machineIdentifier?: string | undefined;
 	sourceIdentifier?: string | undefined; // "com.plexapp.plugins.library"
 	path?: string | undefined;
 };
 
-export const parsePlayQueueURI = (uri: string): PlexPlayQueueURIParts => {
+export const parsePlexServerItemURI = (uri: string): PlexServerItemURIParts => {
 	// parse protocol
 	const protocolIndex = uri.indexOf('://');
 	let protocol: string | undefined;
@@ -51,7 +79,7 @@ export const parsePlayQueueURI = (uri: string): PlexPlayQueueURIParts => {
 	};
 };
 
-export const stringifyPlayQueueURIParts = (uriParts: PlexPlayQueueURIParts): string => {
+export const stringifyPlexServerItemURI = (uriParts: PlexServerItemURIParts): string => {
 	let uri: string;
 	if(uriParts.protocol != null) {
 		uri = uriParts.protocol + '://';

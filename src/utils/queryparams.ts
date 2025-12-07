@@ -1,5 +1,7 @@
+import http from 'http';
 import express from 'express';
 import { httpError } from './error';
+import { parseURLPath } from './url';
 
 export const parseStringQueryParam = (value: any): string | undefined => {
 	if(typeof value === 'string') {
@@ -69,11 +71,17 @@ export const parseBooleanQueryParam = (value: any): boolean | undefined => {
 	throw httpError(400, `${value} is not a boolean`);
 };
 
-export const parseQueryParams = (req: express.Request, includeParam: (key:string) => boolean): {[key:string]: any} => {
+export const parseQueryParams = (req: http.IncomingMessage | express.Request, includeParam: (key:string) => boolean): {[key:string]: any} => {
 	const params: {[key:string]: any} = {};
-	for(const key in req.query) {
-		if(includeParam(key)) {
-			params[key] = req.query[key];
+	let query: {[key: string]: any} | undefined = (req as express.Request).query;
+	if(!query) {
+		query = parseURLPath(req.url!).queryItems;
+	}
+	if(query) {
+		for(const key of Object.keys(query)) {
+			if(includeParam(key)) {
+				params[key] = query[key];
+			}
 		}
 	}
 	return params;

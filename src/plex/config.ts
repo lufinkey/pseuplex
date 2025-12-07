@@ -31,8 +31,9 @@ export const readPlexPreferences = async (opts?: {appDataPath?: string, prefFile
 		case 'darwin':
 			return await readPrefsFromMacOSDefaults();
 
-		case 'linux':
 		default:
+			console.warn(`Unknown platform ${process.platform}. Linux will be assumed`);
+		case 'linux':
 			return await readPrefsFromXML(`${opts?.appDataPath ?? PlexAppDataDir_Linux}/Preferences.xml`);
 	}
 };
@@ -84,16 +85,49 @@ export const calculatePlexP12Password = (prefs: {ProcessedMachineIdentifier}): s
 	return crypto.createHash('sha512').update(`plex${prefs.ProcessedMachineIdentifier}`).digest('hex');
 };
 
-export const getPlexP12Path = (opts: {appDataPath?: string}) => {
+export const getPlexP12BasePath = (opts: {appDataPath?: string, appCachePath?: string}) => {
 	switch(process.platform) {
 		case 'win32':
-			return `${opts?.appDataPath || `${os.homedir()}/AppData/Local/Plex Media Server`}/Cache/cert-v2.p12`;
+			return `${opts?.appCachePath || `${opts?.appDataPath || `${os.homedir()}/AppData/Local/Plex Media Server`}/Cache`}`;
 
 		case 'darwin':
-			return `${os.homedir()}/Library/Caches/PlexMediaServer/cert-v2.p12`;
+			return `${opts?.appCachePath || `${os.homedir()}/Library/Caches/PlexMediaServer`}`;
 
-		case 'linux':
 		default:
-			return `${opts?.appDataPath || PlexAppDataDir_Linux}/Cache/cert-v2.p12`;
+			console.warn(`Unknown platform ${process.platform}. Linux will be assumed`);
+		case 'linux':
+			return `${opts?.appCachePath || `${opts?.appDataPath || PlexAppDataDir_Linux}/Cache`}`;
 	}
+};
+
+export const PossiblePlexP12FileNames = ['cert-v2.p12', 'certificate.p12'];
+
+export const findPlexP12Path = async (opts: {appDataPath?: string, appCachePath?: string}): Promise<string> => {
+	const p12BasePath = getPlexP12BasePath(opts);
+	// attempt to access all the possible p12 paths
+	for(const fileName of PossiblePlexP12FileNames) {
+		const fullP12Path = `${p12BasePath}/${fileName}`;
+		try {
+			await fs.promises.access(fullP12Path, fs.constants.R_OK);
+			return fullP12Path;
+		} catch(error) {
+			console.error(`Error while accessing plex p12 file at ${fullP12Path}`);
+			console.error(error);
+		}
+	}
+	// look for any file with the p12 extension
+	const filesInPath = await fs.promises.readdir(p12BasePath, {
+		encoding: 'utf8'
+	});
+	for(const fileName of filesInPath.filter((p) => (p.endsWith('.p12') || p.endsWith('.P12')))) {
+		const fullP12Path = `${p12BasePath}/${fileName}`;
+		try {
+			await fs.promises.access(fullP12Path, fs.constants.R_OK);
+			return fullP12Path;
+		} catch(error) {
+			console.error(`Error while accessing plex p12 file at ${fullP12Path}`);
+			console.error(error);
+		}
+	}
+	return `${p12BasePath}/cert-v2.p12`;
 };

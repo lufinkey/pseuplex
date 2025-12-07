@@ -18,6 +18,7 @@ type DashboardPerUserPluginConfig = {
 } & DashboardFlags;
 export type DashboardPluginConfig = (PseuplexConfigBase<DashboardPerUserPluginConfig> & DashboardFlags & {
 	dashboard?: {
+		id?: number;
 		uuid?: string;
 	}
 });

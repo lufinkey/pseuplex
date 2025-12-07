@@ -72,6 +72,14 @@ export class LetterboxdMetadataProvider extends PseuplexMetadataProviderBase<Let
 		const plexGuid = metadataItem.guid;
 		const plexGuidParts = plexGuid ? parsePlexMetadataGuid(plexGuid) : null;
 		if(plexGuidParts) {
+			// make sure guid is for a plex movie or show
+			// letterboxd only has movies and a few miniseries shows
+			if(plexGuidParts.protocol != plexTypes.PlexMetadataGuidProtocol.Plex
+				|| (plexGuidParts.type != plexTypes.PlexMediaItemType.Movie
+					&& plexGuidParts.type != plexTypes.PlexMediaItemType.TVShow)
+			) {
+				return null;
+			}
 			// get the slug from the guid if it exists in the cache
 			const id = await this.plexGuidToIDCache.get(plexGuid!);
 			if(id) {

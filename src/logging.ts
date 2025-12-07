@@ -1,15 +1,23 @@
 import http from 'http';
+import stream from 'stream';
 import express from 'express';
 import type { PlexServerAccountInfo } from './plex/accounts';
 import { PlexNotificationSender, PlexNotificationSenderTypeToName } from './plex/notifications';
+import type { PossiblySilentError } from './utils/error';
 import { urlFromClientRequest } from './utils/requests';
-import { requestIsEncrypted } from './utils/requesthandling';
+import {
+	expressRequestDebugString,
+	requestIsEncrypted
+} from './utils/requesthandling';
 import type { WebSocketEventMap } from './utils/websocket';
-import * as overseerrTypes from './plugins/requests/providers/overseerr/apitypes';
+import type * as overseerrTypes from './plugins/requests/providers/overseerr/apitypes';
 
 export type GeneralLoggingOptions = {
+	logTimestamps?: boolean;
+	logLogLevel?: boolean;
 	logDebug?: boolean;
 	logFullURLs?: boolean;
+	logWatchedPaths?: boolean;
 };
 
 export type PlexLoggingOptions = {
@@ -56,7 +64,11 @@ export type OverseerrLoggingOptions = {
 	logOverseerrUsers?: boolean;
 	logOverseerrUserMatches?: boolean;
 	logOverseerrUserMatchFailures?: boolean;
-}
+};
+
+export type PasswordLockLoggingOptions = {
+	logLibraryIsLocked?: boolean;
+};
 
 export type LoggingOptions =
 	GeneralLoggingOptions
@@ -66,7 +78,8 @@ export type LoggingOptions =
 	& ProxyRequestsLoggingOptions
 	& WebsocketLoggingOptions
 	& NotificationLoggingOptions
-	& OverseerrLoggingOptions;
+	& OverseerrLoggingOptions
+	& PasswordLockLoggingOptions;
 
 export class Logger {
 	options: LoggingOptions;
@@ -83,6 +96,33 @@ export class Logger {
 		return true;
 	}
 
+	fullUrlStringOfRequest(req: express.Request | http.IncomingMessage) {
+		const exReq = req as express.Request;
+		if(exReq.baseUrl) {
+			return exReq.baseUrl + req.url!;
+		} else {
+			return req.url!;
+		}
+	}
+
+	urlStringOfRequest(req: express.Request | http.IncomingMessage) {
+		// return full url if enabled
+		if(this.options.logFullURLs) {
+			return this.fullUrlStringOfRequest(req);
+		}
+		// just return the path
+		const exReq = req as express.Request;
+		if(exReq.path) {
+			return exReq.path;
+		}
+		const reqUrlString = this.fullUrlStringOfRequest(req);
+		const queryIndex = reqUrlString.indexOf('?');
+		if(queryIndex != -1) {
+			return reqUrlString.substring(0, queryIndex);
+		}
+		return reqUrlString;
+	};
+
 	urlString(urlString: string) {
 		if(this.options.logFullURLs) {
 			return urlString;
@@ -93,6 +133,48 @@ export class Logger {
 		}
 		return urlString;
 	};
+
+	logWatchingDirectory(directoryPath) {
+		if(!this.options.logWatchedPaths) {
+			return;
+		}
+		console.log(`Watching directory ${directoryPath}`);
+	}
+
+	logStoppedWatchingDirectory(directoryPath) {
+		if(!this.options.logWatchedPaths) {
+			return;
+		}
+		console.log(`Stopped watching directory ${directoryPath}`);
+	}
+
+	logWatchingFile(filePath) {
+		if(!this.options.logWatchedPaths) {
+			return;
+		}
+		console.log(`Watching file ${filePath}`);
+	}
+
+	logStoppedWatchingFile(filePath) {
+		if(!this.options.logWatchedPaths) {
+			return;
+		}
+		console.log(`Stopped watching file ${filePath}`);
+	}
+
+	logWatchedFileChanged(eventType, filePath, filename) {
+		if(!this.options.logWatchedPaths) {
+			return;
+		}
+		console.log(`\nFile ${eventType} ${filename} detected: ${filePath}`);
+	}
+
+	logWatchedDirectoryFileChanged(eventType, directoryPath, filename) {
+		if(!this.options.logWatchedPaths) {
+			return;
+		}
+		console.log(`\nDirectory file ${eventType} detected: ${directoryPath}/${filename}`);
+	}
 
 	logOutgoingRequest(url: string, options: RequestInit) {
 		if(!this.options.logOutgoingRequests) {
@@ -227,7 +309,7 @@ export class Logger {
 		return true;
 	}
 
-	logProxyAndUserResponse(userReq: express.Request, userRes: express.Response, proxyRes: http.IncomingMessage, headers: http.IncomingHttpHeaders | undefined, resDataString: string | undefined): boolean {
+	logProxyAndUserResponse(userReq: express.Request, userRes: express.Response, proxyRes: http.IncomingMessage, headers: http.IncomingHttpHeaders | http.OutgoingHttpHeaders | undefined, resDataString: string | undefined): boolean {
 		const isErrorResponse = !proxyRes.statusCode || proxyRes.statusCode < 200 || proxyRes.statusCode >= 300;
 		if(!(this.options.logUserResponses || this.options.logProxyResponses
 			|| (this.options.logProxyErrorResponseBody && isErrorResponse))
@@ -256,19 +338,25 @@ export class Logger {
 		return true;
 	}
 
-	logIncomingUserUpgradeRequest(userReq: http.IncomingMessage): boolean {
+	logIncomingUserUpgradeRequest(req: http.IncomingMessage, socket: stream, head: Buffer): boolean {
 		if(!(this.options.logUserRequests || this.options.logWebsocketConnections)) {
 			return false;
 		}
-		console.log(`\n\x1b[104mupgrade ws ${userReq.url}\x1b[0m`);
+		const reqUrlString = this.fullUrlStringOfRequest(req);
+		console.log(`\n\x1b[104mupgrade ${req.headers['upgrade'] ?? ''} ${req.method ?? ''} ${reqUrlString}\x1b[0m`);
 		if(this.options.logUserRequestHeaders) {
-			const reqHeaderList = userReq.rawHeaders;
+			const reqHeaderList = req.rawHeaders;
 			for(let i=0; i<reqHeaderList.length; i++) {
 				const headerKey = reqHeaderList[i];
 				i++;
 				const headerVal = reqHeaderList[i];
 				console.log(`\t${headerKey}: ${headerVal}`);
 			}
+		}
+		if(req.headers['upgrade']?.toLowerCase().trim() == 'websocket') {
+			socket.once('close', () => {
+				this.logIncomingWebsocketClosed(req);
+			})
 		}
 		return true;
 	}
@@ -277,7 +365,8 @@ export class Logger {
 		if(!(this.options.logUserRequests || this.options.logWebsocketConnections)) {
 			return false;
 		}
-		console.log(`\nclosed socket ${req.url}`);
+		const reqUrlString = this.fullUrlStringOfRequest(req);
+		console.log(`\nclosed socket ${reqUrlString}`);
 		return true;
 	}
 
@@ -317,8 +406,10 @@ export class Logger {
 	}
 
 	logPlexRequestHandlerFailed(userReq: express.Request, userRes: express.Response, error: Error): boolean {
-		const logsAnyUrls = this.options.logUserRequests || this.options.logProxyRequests || this.options.logProxyResponses;
-		console.error(`Plex request handler failed${!logsAnyUrls ? ` for ${userReq.originalUrl} :` : ':'}`);
+		if((error as PossiblySilentError).silent && !this.options.logDebug && !this.options.logUserResponses) {
+			return false;
+		}
+		console.error(`Plex request handler failed\n${expressRequestDebugString(userReq)}`);
 		console.error(error);
 		return true;
 	}
