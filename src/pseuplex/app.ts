@@ -2465,7 +2465,7 @@ export class PseuplexApp {
 				for(const guid of guids) {
 					const guidParts = parsePlexMetadataGuid(guid);
 					if(!guidParts || guidParts.protocol != plexTypes.PlexMetadataGuidProtocol.Plex) {
-						// skipping
+						// skipping non-plex guid
 						continue;
 					} else if(!guidParts.type) {
 						console.warn(`Missing type on plex guid ${guid}`);

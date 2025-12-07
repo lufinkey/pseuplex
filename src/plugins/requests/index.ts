@@ -104,7 +104,7 @@ export default (class RequestsPlugin implements RequestsPluginDef, PseuplexPlugi
 				if(guidParts?.protocol == plexTypes.PlexMetadataGuidProtocol.Plex && guidParts.type) {
 					mediaType = plexTypes.PlexMediaItemTypeToNumeric[guidParts.type];
 				} else {
-					console.error(`No media type specified in request`);
+					console.error(`Invalid plex guid ${guid}`);
 					return;
 				}
 			}
@@ -152,9 +152,9 @@ export default (class RequestsPlugin implements RequestsPluginDef, PseuplexPlugi
 				// get guid for id
 				const plexGuid = await this.app.plexServerIdToGuidCache.getOrFetch(filterContext.metadataId.id);
 				const plexGuidParts = plexGuid ? parsePlexMetadataGuid(plexGuid) : null;
-				if(plexGuidParts?.id
+				if(plexGuidParts?.protocol == plexTypes.PlexMetadataGuidProtocol.Plex
 					&& plexGuidParts.type == plexTypes.PlexMediaItemType.TVShow
-					&& plexGuidParts.protocol == plexTypes.PlexMetadataGuidProtocol.Plex
+					&& plexGuidParts.id
 				) {
 					// add requestable seasons if needed
 					if(showRequestableSeasons) {

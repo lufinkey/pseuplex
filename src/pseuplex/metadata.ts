@@ -422,7 +422,16 @@ export abstract class PseuplexMetadataProviderBase<TMetadataItem> implements Pse
 			// get any remaining guids from plex discover
 			const remainingGuids = guidsToFetch.filter((guid) => !plexMetadataMap[guid]);
 			if(remainingGuids.length > 0) {
-				const plexIdsToFetch: string[] = remainingGuids.map((guid) => parsePlexMetadataGuid(guid)?.id).filter((id) => id) as string[];
+				const plexIdsToFetch: string[] = remainingGuids
+					/*.map((guid) => parsePlexMetadataGuid(guid))
+					.filter((guidParts) =>
+						guidParts?.protocol == plexTypes.PlexMetadataGuidProtocol.Plex
+						&& guidParts.type
+						&& guidParts.id)
+					.map((guidParts) => guidParts!.id);*/
+					// i think we can safely assume these are all plex guids, since we got them from plex
+					.map((guid) => parsePlexMetadataGuid(guid)?.id)
+					.filter((id) => id) as string[];
 				const discoverTask = this.plexMetadataClient.getMetadata(plexIdsToFetch, plextvMetadataParams);
 				// cache result if needed
 				if(this.plexIdToInfoCache) {
@@ -531,13 +540,21 @@ export abstract class PseuplexMetadataProviderBase<TMetadataItem> implements Pse
 				// get the guid for the given id
 				const guid = await this.getPlexGUIDForID(id, context);
 				if(guid) {
-					// fetch the children from plex discover
+					// fetch the children from plex discover if guid is a plex guid
 					const plexGuidParts = parsePlexMetadataGuidOrThrow(guid);
-					const mappedMetadataPage: PseuplexMetadataPage = await this.plexMetadataClient.getMetadataChildren(plexGuidParts.id, plexParams) as PseuplexMetadataPage;
-					mappedMetadataPage.MediaContainer.Metadata = (await transformArrayOrSingleAsyncParallel(mappedMetadataPage.MediaContainer.Metadata, async (metadataItem) => {
-						return extPlexTransform.transformExternalPlexMetadata(metadataItem, this.plexMetadataClient.serverURL, context, transformOpts);
-					}))!;
-					return mappedMetadataPage;
+					if(plexGuidParts.protocol == plexTypes.PlexMetadataGuidProtocol.Plex
+						&& plexGuidParts.type
+						&& plexGuidParts.id
+					) {
+						// fetch from plex discover and remap
+						const mappedMetadataPage: PseuplexMetadataPage = await this.plexMetadataClient.getMetadataChildren(plexGuidParts.id, plexParams) as PseuplexMetadataPage;
+						mappedMetadataPage.MediaContainer.Metadata = (await transformArrayOrSingleAsyncParallel(mappedMetadataPage.MediaContainer.Metadata, async (metadataItem) => {
+							return extPlexTransform.transformExternalPlexMetadata(metadataItem, this.plexMetadataClient.serverURL, context, transformOpts);
+						}))!;
+						return mappedMetadataPage;
+					} else {
+						console.error(`Invalid plex guid ${guid}. Cannot fetch metadata children.`);
+					}
 				}
 			}
 			return {

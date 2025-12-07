@@ -89,44 +89,62 @@ export const parsePlexPluralMetadataKey = (metadataKey: string, warnOnFailure: b
 export type PlexMetadataGuidParts = {
 	protocol: plexTypes.PlexMetadataGuidProtocol | string;
 	type?: plexTypes.PlexMediaItemType | string;
-	id: string
+	id: string;
+	relativePath?: string;
 };
 
 export const parsePlexMetadataGuidOrThrow = (guid: string): PlexMetadataGuidParts => {
 	if(!guid) {
 		throw httpError(400, "Invalid empty guid");
 	}
-	// trim trailing slash
-	if(guid.endsWith('/')) {
-		guid = guid.substring(0, guid.length-1);
-	}
 	// parse protocol
 	const protocolEndIndex = guid.indexOf('://');
 	if(protocolEndIndex == -1) {
-		throw httpError(400, `Invalid guid ${guid}`);
+		throw httpError(400, `Invalid guid ${guid} has no protocol`);
 	}
 	const protocol = guid.slice(0, protocolEndIndex);
-	// split remaining path
-	const remainingPath = guid.slice(protocolEndIndex+3);
-	if(!remainingPath) {
-		throw httpError(400, `Invalid guid ${guid}`);
+	const pathStartIndex = protocolEndIndex+3;
+	// try to find a slash that divides the type and ID
+	const typeEndIndex = guid.indexOf('/', pathStartIndex);
+	if(typeEndIndex == -1) {
+		// there is no slash, so remaining path is just the ID
+		// protocol://id
+		return {
+			protocol,
+			id: guid.slice(protocolEndIndex)
+		};
 	}
-	const pathParts = remainingPath.split('/');
-	if(pathParts.length > 2) {
-		throw httpError(400, `Invalid guid ${guid}`);
+	else if(typeEndIndex == guid.length-1) {
+		// ends in a slash, so just set a relative path and no "type"
+		// protocol://id/
+		return {
+			protocol,
+			id: guid.slice(pathStartIndex, typeEndIndex),
+			relativePath: guid.slice(typeEndIndex),
+		};
 	}
-	// parse ID portion
-	const id = pathParts[pathParts.length-1];
-	if(!id) {
-		throw httpError(400, `Invalid guid ${guid}`);
+	// got type
+	const type = guid.slice(pathStartIndex, typeEndIndex);
+	// find any other slashes in the remaining path
+	const idStartIndex = typeEndIndex+1;
+	const idEndIndex = guid.indexOf('/', idStartIndex);
+	if(idEndIndex == -1) {
+		// protocol://type/id
+		return {
+			protocol,
+			type,
+			id: guid.slice(idStartIndex)
+		};
 	}
-	// parse type portion
-	const type = pathParts.length > 1 ? pathParts[0] : undefined;
-	// parse protocol
+	// split relative path
+	const id = guid.slice(idStartIndex, idEndIndex);
+	const relativePath = guid.slice(idEndIndex);
+	// protocol://type/id/relativepath
 	return {
 		protocol,
 		type,
-		id
+		id,
+		relativePath
 	};
 };
 
