@@ -54,7 +54,7 @@ export type PseuplexRouterGetHubOptions = {
 export type PseuplexRouterApp = express.Express & {
 	get upgradeRouter(): UpgradeRequestRouter;
 
-	provideHubs(route: string, hubProvider: PseuplexHubProvider, options?: PseuplexRouterGetHubOptions);
+	provideHub(route: string, hubProvider: PseuplexHubProvider, options?: PseuplexRouterGetHubOptions);
 
 	/*get pluginLibraryMetadataRouters(): PseuplexPluginMetadataRouters;
 	pluginLibraryMetadataRouter(sourceSlug: string): Router;
@@ -78,7 +78,7 @@ export const pseuplexRouterApp = (appRouter: express.Express, app: PseuplexApp):
 		return upgradeRouter;
 	}
 
-	function provideHubs(this: PseuplexRouterApp, route: string, hubProvider: PseuplexHubProvider, options?: PseuplexRouterGetHubOptions) {
+	function provideHub(this: PseuplexRouterApp, route: string, hubProvider: PseuplexHubProvider, options?: PseuplexRouterGetHubOptions) {
 		const hubArgParam = options?.hubArgParam ?? 'hubArg';
 		return this.get(route, [
 			...((options?.auth ?? true) ? [app.middlewares.plexAuthentication()] : []),
@@ -137,11 +137,11 @@ export const pseuplexRouterApp = (appRouter: express.Express, app: PseuplexApp):
 			enumerable: true,
 			get: getUpgradeRouter,
 		},
-		provideHubs: {
+		provideHub: {
 			configurable: true,
 			enumerable: true,
 			get: function() {
-				return provideHubs;
+				return provideHub;
 			}
 		},
 		/*pluginLibraryMetadataRouter: {

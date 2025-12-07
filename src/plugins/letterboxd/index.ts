@@ -236,19 +236,19 @@ export default (class LetterboxdPlugin implements LetterboxdPluginDef, PseuplexP
 
 	defineRoutes(router: PseuplexRouterApp) {
 		// get similar films on letterboxd as a hub
-		router.provideHubs(`${this.hubs.similar.basePath}/:filmId`, this.hubs.similar, {
+		router.provideHub(`${this.hubs.similar.basePath}/:filmId`, this.hubs.similar, {
 			auth: true,
 			hubArgParam: 'filmId',
 		});
 		
 		// get letterboxd friend activity as a hub
-		router.provideHubs(`${this.hubs.userFollowingActivity.basePath}/:letterboxdUsername`, this.hubs.userFollowingActivity, {
+		router.provideHub(`${this.hubs.userFollowingActivity.basePath}/:letterboxdUsername`, this.hubs.userFollowingActivity, {
 			auth: true,
 			hubArgParam: 'letterboxdUsername',
 		});
 		
 		// get letterboxd list as a hub
-		router.provideHubs(`${this.hubs.list.basePath}/:listId`, this.hubs.list, {
+		router.provideHub(`${this.hubs.list.basePath}/:listId`, this.hubs.list, {
 			auth: true,
 			hubArgParam: 'listId', 
 		});
