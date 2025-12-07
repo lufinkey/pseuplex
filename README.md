@@ -60,7 +60,7 @@ Feel free to ask me if you're unsure of where or how to implement something!
 
 You will need to use your own SSL certificate for your plex server in order for this proxy to modify requests over HTTPS. Otherwise, it will only work over HTTP, or it will fallback to the plex server's true address instead of the proxy address.
 
-The configuration option `autoP12Password` is provided to automatically decrypt and use the built-in plex direct SSL certificate, so that you don't need to set up your own SSL certificate. If you're running any service in front of this proxy (ie, another reverse proxy or anything using its own custom domain name) then it is recommended to **not** use the built-in plex certificate, and instead use your own certificate for your custom domain.
+The configuration option `autoP12Password` is provided to automatically decrypt and use the built-in plex direct SSL certificate, so that you don't need to set up your own SSL certificate.
 
 ### Configuration
 
