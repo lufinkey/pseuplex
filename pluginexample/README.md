@@ -10,7 +10,7 @@ To develop on this plugin, you'll first need to clone and build the proxy repo f
 # enter the folder where you store your projects
 cd ~/Code
 # clone the proxy repo on the version you want to develop for
-git clone https://github.com/lufinkey/pseuplex --branch v0.2.2
+git clone https://github.com/lufinkey/pseuplex --branch v0.3
 # enter the proxy repo folder
 cd pseuplex
 # install dependencies
