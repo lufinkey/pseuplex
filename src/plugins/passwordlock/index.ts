@@ -32,7 +32,8 @@ import {
 	parsePseuplexMetadataKey,
 	parsePseuplexMetadataIDsFromPathParam,
 	parsePseuplexMetadataIDFromPathParam,
-	stringifyPseuplexMetadataKeyFromIDString
+	stringifyPseuplexMetadataKeyFromIDString,
+	PseuplexMetadataIDString
 } from '../../pseuplex';
 import { PasswordLockMetadataID, PasswordLockMetadataProvider } from './metadata';
 import { PasswordLockPluginConfig } from './config';
@@ -1073,7 +1074,7 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 		return false;
 	}
 
-	rewriteAliasedMetadataId(metadataId: PseuplexMetadataIDParts, context: PseuplexRequestContext): string | number | null {
+	rewriteAliasedMetadataId(metadataId: PseuplexMetadataIDParts, context: PseuplexRequestContext): PseuplexMetadataIDString | number | null {
 		if(metadataId.source == this.metadata.sourceSlug && !metadataId.directory) {
 			if(metadataId.id == PasswordLockMetadataID.Instructions) {
 				const instructionsVideoId = this.getInstructionsItemVideoId(context);
@@ -1085,7 +1086,7 @@ export default (class PasswordLockPlugin implements PasswordLockPluginDef, Pseup
 		return null;
 	}
 
-	getInstructionsItemVideoId(context: PseuplexRequestContext): string | number | undefined {
+	getInstructionsItemVideoId(context: PseuplexRequestContext): PseuplexMetadataIDString | number | undefined {
 		// TODO get per user
 		return this.config.passwordLock?.instructionsItemVideoId;
 	}

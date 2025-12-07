@@ -2,7 +2,7 @@ import http from 'http';
 import express from 'express';
 import { urlFromServerRequest } from '../../utils/requesthandling';
 import { parseStringQueryParam } from '../../utils/queryparams';
-import { parseURLPath } from '../../utils/url';
+import { parseURLPath, parseURLQueryItems } from '../../utils/url';
 
 export type PlexAuthContext = {
 	'X-Plex-Product'?: string;
@@ -47,8 +47,7 @@ export const parseAuthContextFromRequest = (req: express.Request | http.Incoming
 	} else {
 		// parse query items
 		const reqUrl = urlFromServerRequest(req);
-		const urlParts = parseURLPath(reqUrl);
-		query = urlParts.queryItems ?? {};
+		query = parseURLQueryItems(reqUrl) ?? {};
 	}
 	// parse each key
 	const authContext: PlexAuthContext = {};
@@ -84,8 +83,7 @@ export const parseAuthContextFromRequest = (req: express.Request | http.Incoming
 export const parsePlexTokenFromRequest = (req: (http.IncomingMessage | express.Request)): string | undefined => {
 	let query: {[key: string]: any} = (req as express.Request).query;
 	if(!query) {
-		const urlParts = parseURLPath(req.url!);
-		query = urlParts.queryItems ?? {};
+		query = parseURLQueryItems(req.url!) ?? {};
 	}
 	let plexToken = query ? parseStringQueryParam(query['X-Plex-Token']) : undefined;
 	if(!plexToken) {

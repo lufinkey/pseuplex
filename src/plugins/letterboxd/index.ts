@@ -227,6 +227,7 @@ export default (class LetterboxdPlugin implements LetterboxdPluginDef, PseuplexP
 		},
 
 		metadataRelatedHubs: async (resData, context) => {
+			// similar items hub will already be included with the metadata provider
 			if(context.metadataId.source != this.metadata.sourceSlug) {
 				await this._addSimilarItemsHubIfNeeded(resData, context);
 			}
@@ -235,19 +236,19 @@ export default (class LetterboxdPlugin implements LetterboxdPluginDef, PseuplexP
 
 	defineRoutes(router: PseuplexRouterApp) {
 		// get similar films on letterboxd as a hub
-		router.getHub(`${this.hubs.similar.basePath}/:filmId`, this.hubs.similar, {
+		router.provideHubs(`${this.hubs.similar.basePath}/:filmId`, this.hubs.similar, {
 			auth: true,
 			hubArgParam: 'filmId',
 		});
 		
 		// get letterboxd friend activity as a hub
-		router.getHub(`${this.hubs.userFollowingActivity.basePath}/:letterboxdUsername`, this.hubs.userFollowingActivity, {
+		router.provideHubs(`${this.hubs.userFollowingActivity.basePath}/:letterboxdUsername`, this.hubs.userFollowingActivity, {
 			auth: true,
 			hubArgParam: 'letterboxdUsername',
 		});
 		
 		// get letterboxd list as a hub
-		router.getHub(`${this.hubs.list.basePath}/:listId`, this.hubs.list, {
+		router.provideHubs(`${this.hubs.list.basePath}/:listId`, this.hubs.list, {
 			auth: true,
 			hubArgParam: 'listId', 
 		});
