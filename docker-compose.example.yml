@@ -34,7 +34,7 @@ services:
       # The hosts that the plex server should advertise
       - ADVERTISE_IP=https://mydomain.com:32400,http://mydomain.com:32400,http://192.168.1.123:32400/
     ports:
-      # Send the traffic to a port other than 32400, so that plex requests dont bypass the proxy
+      # Send the traffic to a port other than 32400, so that requests to your plex server dont bypass the proxy
       - 32421:32400
     hostname: mydomain.com
     volumes:
