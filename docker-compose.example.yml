@@ -13,11 +13,11 @@ services:
 
       # When using `ssl.autoP12Password`, mount your plex config folder here
       # NOTE: Update `plex.appDataPath` in the `config/config.json` file to reflect the mount path within this app's container
-      - ./dockerdata/plex-config:/plex-config:ro
+      - ./plex-config:/plex-config:ro
 
       # If you're using the built-in plex p12 certificate, mount your plex cache folder here
       # NOTE: Update `plex.appCachePath` in the `config/config.json` file to reflect mount path within this app's container
-      - ./dockerdata/plex-cache:/plex-cache:ro
+      - ./plex-cache:/plex-cache:ro
 
       # (Optional: when not using `ssl.autoP12Path`) Mount ssl certs directory for manual configuration
       # NOTE: Update ssl options in the `config/config.json` file to correspond to the mounted `/ssl` path within the docker container
@@ -39,8 +39,8 @@ services:
     hostname: mydomain.com
     volumes:
       # Plex configuration directory ( on linux without docker, this is sometimes /var/lib/plexmediaserver )
-      - ./dockerdata/plex-config:/config
+      - ./plex-config:/config
       # Plex caches directory ( on linux without docker, this is sometimes (no joke) /var/lib/plexmediaserver/Library/Application Support/Plex Media Server/Cache )
-      - ./dockerdata/plex-cache:/transcode
+      - ./plex-cache:/transcode
       # Your data directory (with movies, shows, etc)
       - /srv/media:/data:ro

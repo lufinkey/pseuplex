@@ -134,7 +134,8 @@ dist
 
 # private data
 docker-compose.yml
-/dockerdata
+/plex-config
+/plex-cache
 /plugindeps
 /external
 /keys
