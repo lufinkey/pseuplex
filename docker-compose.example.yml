@@ -3,7 +3,8 @@ services:
     image: ghcr.io/lufinkey/pseuplex:latest
     restart: unless-stopped
     ports:
-      # Setting the external port to 32400 will override the traffic that would normally auto resolve to plex (NOTE: You must also redirect your plex container to a non-32400 external port)
+      # Setting the external port to 32400 will override the traffic that would normally auto resolve to plex
+      # NOTE: You must also redirect your plex container to a non-32400 external port
       - "32400:32397"
     volumes:
       # Mount your config.json file here.
@@ -12,11 +13,11 @@ services:
       - ./config:/config:rw
 
       # When using `ssl.autoP12Password`, mount your plex config folder here
-      # NOTE: Update `plex.appDataPath` in the `config/config.json` file to reflect the mount path within this app's container
+      # NOTE: Update `plex.appDataPath` in the `config/config.json` file to reflect the mount path within this app's container (ie: "/plex-config")
       - ./plex-config:/plex-config:ro
 
       # If you're using the built-in plex p12 certificate, mount your plex cache folder here
-      # NOTE: Update `plex.appCachePath` in the `config/config.json` file to reflect mount path within this app's container
+      # NOTE: Update `plex.appCachePath` in the `config/config.json` file to reflect mount path within this app's container (ie: "/plex-cache")
       - ./plex-cache:/plex-cache:ro
 
       # (Optional: when not using `ssl.autoP12Path`) Mount ssl certs directory for manual configuration

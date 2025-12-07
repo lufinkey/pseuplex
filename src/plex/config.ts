@@ -31,8 +31,9 @@ export const readPlexPreferences = async (opts?: {appDataPath?: string, prefFile
 		case 'darwin':
 			return await readPrefsFromMacOSDefaults();
 
-		case 'linux':
 		default:
+			console.warn(`Unknown platform ${process.platform}. Linux will be assumed`);
+		case 'linux':
 			return await readPrefsFromXML(`${opts?.appDataPath ?? PlexAppDataDir_Linux}/Preferences.xml`);
 	}
 };
@@ -92,8 +93,9 @@ export const getPlexP12BasePath = (opts: {appDataPath?: string, appCachePath?: s
 		case 'darwin':
 			return `${opts?.appCachePath || `${os.homedir()}/Library/Caches/PlexMediaServer`}`;
 
-		case 'linux':
 		default:
+			console.warn(`Unknown platform ${process.platform}. Linux will be assumed`);
+		case 'linux':
 			return `${opts?.appCachePath || `${opts?.appDataPath || PlexAppDataDir_Linux}/Cache`}`;
 	}
 };

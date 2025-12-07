@@ -108,7 +108,9 @@ let args: CommandArguments;
 	// define function to read plex prefs
 	const readPlexPrefsIfNeeded = async () => {
 		if(!plexPrefs) {
-			plexPrefs = await readPlexPreferences({appDataPath:cfg.plex?.appDataPath});
+			plexPrefs = await readPlexPreferences({
+				appDataPath: cfg.plex?.appDataPath
+			});
 		}
 	};
 
