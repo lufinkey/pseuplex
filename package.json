@@ -1,7 +1,7 @@
 {
 	"private": true,
 	"name": "pseuplex",
-	"version": "0.3",
+	"version": "0.3.0",
 	"description": "A middleware for the plex server API",
 	"bin": {
 		"pseuplex": "dist/main.js"
