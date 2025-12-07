@@ -111,7 +111,7 @@ export const parsePlexMetadataGuidOrThrow = (guid: string): PlexMetadataGuidPart
 		// protocol://id
 		return {
 			protocol,
-			id: guid.slice(protocolEndIndex)
+			id: guid.slice(pathStartIndex)
 		};
 	}
 	else if(typeEndIndex == guid.length-1) {
