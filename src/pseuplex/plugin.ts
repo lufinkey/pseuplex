@@ -78,7 +78,6 @@ export interface PseuplexPlugin {
 
 	defineRoutes?: (router: PseuplexRouterApp) => void;
 	defineFallbackRoutes?: (router: PseuplexRouterApp) => void;
-	hasSections?: (context: PseuplexRequestContext) => Promise<boolean>;
 	getSections?: (context: PseuplexRequestContext) => Promise<PseuplexSection[]>;
 	shouldListenToPlexServerNotifications?: () => boolean;
 	onPlexServerNotification?: (notification: plexTypes.PlexNotificationMessage) => void;

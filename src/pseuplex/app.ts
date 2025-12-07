@@ -617,15 +617,18 @@ export class PseuplexApp {
 			this.middlewares.plexAPIProxy({
 				filter: async (req: IncomingPlexAPIRequest, res) => {
 					const context = this.contextForRequest(req);
-					return ((await this.hasPluginSections(context)) || (this.responseFilters?.mediaProviders?.length ?? 0) > 0);
+					// get all available plugin sections
+					const pluginSections = await this.getPluginSections(context);
+					(req as any).__pseuplex_plugin_sections = pluginSections;
+					return (pluginSections.length > 0 || (this.responseFilters?.mediaProviders?.length ?? 0) > 0);
 				},
 				responseModifier: async (proxyRes, resData: plexTypes.PlexServerMediaProvidersPage, userReq: IncomingPlexAPIRequest, userRes) => {
+					const pluginSections: PseuplexSection[] = (userReq as any).__pseuplex_plugin_sections;
 					const context = this.contextForRequest(userReq);
 					// add sections
-					const allSections = await this.getPluginSections(context);
 					const sectionsFeature = resData.MediaContainer.MediaProvider[0].Feature.find((f) => f.type == plexTypes.PlexFeatureType.Content) as plexTypes.PlexContentFeature;
 					if(sectionsFeature) {
-						sectionsFeature.Directory.push(...await Promise.all(Array.from(allSections).map(async (section) => {
+						sectionsFeature.Directory.push(...await Promise.all(pluginSections.map(async (section) => {
 							return await section.getMediaProviderDirectory(context);
 						})));
 					}
@@ -642,23 +645,26 @@ export class PseuplexApp {
 				this.middlewares.plexAPIProxy({
 					filter: async (req: IncomingPlexAPIRequest, res) => {
 						const context = this.contextForRequest(req);
-						return await this.hasPluginSections(context);
+						// get all available plugin sections
+						const pluginSections = await this.getPluginSections(context);
+						(req as any).__pseuplex_plugin_sections = pluginSections;
+						return (pluginSections.length > 0);
 					},
 					responseModifier: async (proxyRes, resData: plexTypes.PlexLibrarySectionsPage, userReq: IncomingPlexAPIRequest, userRes) => {
+						const pluginSections: PseuplexSection[] = (userReq as any).__pseuplex_plugin_sections;
 						const context = {
 							...this.contextForRequest(userReq),
 							from: sectionsSource,
 						};
 						const reqParams: plexTypes.PlexLibrarySectionsPageParams = userReq.plex.requestParams;
 						// add sections
-						const allSections = await this.getPluginSections(context);
 						const existingSections = resData.MediaContainer.Directory ?? [];
-						const newSections = await Promise.all(Array.from(allSections).map(async (section) => {
+						const pluginSectionEntries = await Promise.all(pluginSections.map(async (section) => {
 							return await section.getLibrarySectionsEntry(reqParams,context);
 						}));
-						existingSections.push(...newSections);
+						existingSections.push(...pluginSectionEntries);
 						resData.MediaContainer.Directory = existingSections;
-						resData.MediaContainer.size = (resData.MediaContainer.size ?? 0) + newSections.length;
+						resData.MediaContainer.size = (resData.MediaContainer.size ?? existingSections.length) + pluginSectionEntries.length;
 						// filter response
 						await this.filterResponse('sections', resData, {
 							proxyRes,
@@ -2346,16 +2352,6 @@ export class PseuplexApp {
 			}
 		}
 		return sections;
-	}
-
-	async hasPluginSections(context: PseuplexRequestContext): Promise<boolean> {
-		for(const pluginSlug of Object.keys(this.plugins)) {
-			const plugin = this.plugins[pluginSlug];
-			if(await plugin.hasSections?.(context)) {
-				return true;
-			}
-		}
-		return false;
 	}
 
 

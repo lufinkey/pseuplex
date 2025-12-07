@@ -63,11 +63,6 @@ export default (class DashboardPlugin implements DashboardPluginDef, PseuplexPlu
 		]);
 	}
 
-	async hasSections(context: PseuplexRequestContext): Promise<boolean> {
-		const hubsConfig = this.getDashboardHubsConfigForContext(context);
-		return (hubsConfig?.length ?? 0) > 0;
-	}
-
 	async getSections(context: PseuplexRequestContext): Promise<PseuplexSection[]> {
 		const hubsConfig = this.getDashboardHubsConfigForContext(context);
 		if((hubsConfig?.length ?? 0) == 0) {
