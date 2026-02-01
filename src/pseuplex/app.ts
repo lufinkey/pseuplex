@@ -1312,20 +1312,29 @@ export class PseuplexApp {
 		let httpsServer: https.Server | undefined;
 		let httpolyglotServer: httpolyglot.Server | undefined;
 		const servers: (http.Server | https.Server | httpolyglot.Server)[] = [];
+		const onServerClientError = (error: Error, socket: stream.Duplex) => {
+			console.error();
+			console.error(`Got server client error:`);
+			console.error(error);
+			socket.destroy(error);
+		};
 		if(httpPort == httpsPort) {
 			httpolyglotServer = httpolyglot.createServer({
 				tls: options.tlsCertOptions,
 			}, router);
+			httpolyglotServer.on('clientError', onServerClientError);
 			servers.push(httpolyglotServer);
 		} else {
 			if(httpPort) {
 				httpServer = http.createServer({}, router);
+				httpServer.on('clientError', onServerClientError);
 				servers.push(httpServer);
 			}
 			if(httpsPort) {
 				httpsServer = https.createServer({
 					...options.tlsCertOptions
 				}, router);
+				httpsServer.on('clientError', onServerClientError);
 				servers.push(httpsServer);
 			}
 		}
@@ -1395,6 +1404,13 @@ export class PseuplexApp {
 		for(const server of servers) {
 			// handle upgrade to socket
 			server.on('upgrade', (req, socket, head) => {
+				// handle socket errors
+				socket.on('error', (error) => {
+					console.error();
+					console.error(`Got upgrade socket error:`);
+					console.error(error);
+					socket.destroy(error);
+				});
 				// add original request information if needed
 				addOriginalRemoteAddressToRequest(req);
 				// log request
