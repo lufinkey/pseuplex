@@ -508,6 +508,13 @@ export class PseuplexApp {
 		// apply original remote address
 		// log request if needed
 		router.use((req, res, next) => {
+			// handle socket errors
+			req.socket.on('error', (error) => {
+				console.error();
+				console.error(`Got request socket error:`);
+				console.error(error);
+				req.socket.destroy(error);
+			});
 			try {
 				addOriginalRemoteAddressToRequest(req);
 				this.logger?.logIncomingUserRequest(req);
@@ -1312,29 +1319,20 @@ export class PseuplexApp {
 		let httpsServer: https.Server | undefined;
 		let httpolyglotServer: httpolyglot.Server | undefined;
 		const servers: (http.Server | https.Server | httpolyglot.Server)[] = [];
-		const onServerClientError = (error: Error, socket: stream.Duplex) => {
-			console.error();
-			console.error(`Got server client error:`);
-			console.error(error);
-			socket.destroy(error);
-		};
 		if(httpPort == httpsPort) {
 			httpolyglotServer = httpolyglot.createServer({
 				tls: options.tlsCertOptions,
 			}, router);
-			httpolyglotServer.on('clientError', onServerClientError);
 			servers.push(httpolyglotServer);
 		} else {
 			if(httpPort) {
 				httpServer = http.createServer({}, router);
-				httpServer.on('clientError', onServerClientError);
 				servers.push(httpServer);
 			}
 			if(httpsPort) {
 				httpsServer = https.createServer({
 					...options.tlsCertOptions
 				}, router);
-				httpsServer.on('clientError', onServerClientError);
 				servers.push(httpsServer);
 			}
 		}
