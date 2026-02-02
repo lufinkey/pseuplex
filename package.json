@@ -31,7 +31,7 @@
 	"author": "Luis Finke (luisfinke@gmail.com)",
 	"license": "Zlib",
 	"dependencies": {
-		"@httptoolkit/httpolyglot": "^3.0.0",
+		"@httptoolkit/httpolyglot": "^3.0.1",
 		"express": "^5.1.0",
 		"express-http-proxy": "git+https://github.com/lufinkey/express-http-proxy.git",
 		"http-proxy": "git+https://github.com/Jimbly/http-proxy-node16.git",
