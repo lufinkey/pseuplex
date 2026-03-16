@@ -8,6 +8,8 @@ This project is still very much a WIP. While I've tried to do my due diligence i
 
 This is an unofficial project that is **NOT** endorsed by or associated with Plexinc.
 
+**NOTE:*** Unfortunately, letterboxd recently added cloudflare protection, so those features will need to be updated to work again.
+
 ## Features
 
 - ### Customizable "Dashboard" Section
